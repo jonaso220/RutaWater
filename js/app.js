@@ -486,6 +486,8 @@ function App() {
             }));
         } catch(e) { console.error(e); showUndoToast(getErrorMessage(e), null); }
     };
+
+
     
     const handleClearCompleted = (day) => {
         const completedForDay = clients.filter(c => 
@@ -528,19 +530,9 @@ function App() {
 
     
     const getVisibleClients = React.useCallback((dayToFilter) => {
-         const today = new Date();
-         today.setHours(0,0,0,0);
          const filtered = clients
             .filter(c => c.freq !== 'on_demand')
             .filter(c => !c.isCompleted)
-            // Ocultar clientes periódicos ya visitados hoy
-            .filter(c => {
-                if (c.freq === 'once' || !c.lastVisited) return true;
-                const lv = parseDate(c.lastVisited);
-                if (!lv) return true;
-                lv.setHours(0,0,0,0);
-                return lv.getTime() < today.getTime();
-            })
             // Excluir pedidos "once" sin fecha asignada (dato incompleto)
             .filter(c => !(c.freq === 'once' && !c.specificDate))
             .filter(c => {
