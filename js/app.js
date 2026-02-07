@@ -387,12 +387,9 @@ function App() {
 
 
     const handleMarkAsDoneInList = async (client) => {
-        const snapshot = clients.map(c => c.id === client.id ? {...c} : c);
-
-        if (client.freq === 'once') {
-            // Once: marcar como completado
-            setClients(prev => prev.map(c => c.id === client.id ? {...c, isCompleted: true, completedAt: new Date(), isStarred: false, alarm: ''} : c));
-            try {
+        try {
+            if (client.freq === 'once') {
+                // Once: marcar como completado
                 const prevFields = {
                     isCompleted: client.isCompleted || false,
                     completedAt: client.completedAt || null,
@@ -400,63 +397,56 @@ function App() {
                     alarm: client.alarm || '',
                     isStarred: client.isStarred || false
                 };
-                await firestoreRetry(() => db.collection('clients').doc(client.id).update({
-                    isCompleted: true, completedAt: new Date(), updatedAt: new Date(), alarm: '', isStarred: false
-                }));
                 const undoAction = async () => {
-                    try { await firestoreRetry(() => db.collection('clients').doc(client.id).update(prevFields)); }
+                    try { await db.collection('clients').doc(client.id).update(prevFields); }
+                    catch(e) { console.error("Undo error", e); }
+                };
+                await db.collection('clients').doc(client.id).update({
+                    isCompleted: true, completedAt: new Date(), updatedAt: new Date(), alarm: '', isStarred: false
+                });
+                showUndoToast("Pedido completado", undoAction);
+            } else {
+                // Periódico: escribir a Firestore y dejar que onSnapshot actualice la UI
+                const prevFields = {
+                    lastVisited: client.lastVisited || null,
+                    alarm: client.alarm || '',
+                    isStarred: client.isStarred || false
+                };
+                if (client.specificDate) {
+                    prevFields.specificDate = client.specificDate;
+                }
+
+                const updates = { lastVisited: new Date(), alarm: '' };
+
+                if (client.specificDate) {
+                    let interval = 1;
+                    if (client.freq === 'biweekly') interval = 2;
+                    if (client.freq === 'triweekly') interval = 3;
+                    if (client.freq === 'monthly') interval = 4;
+                    const currentSpecificDate = new Date(client.specificDate + 'T12:00:00');
+                    const nextSpecificDate = new Date(currentSpecificDate);
+                    nextSpecificDate.setDate(nextSpecificDate.getDate() + (interval * 7));
+                    const tomorrow = new Date();
+                    tomorrow.setHours(0,0,0,0);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    while (nextSpecificDate < tomorrow) {
+                        nextSpecificDate.setDate(nextSpecificDate.getDate() + (interval * 7));
+                    }
+                    updates.specificDate = nextSpecificDate.toISOString().split('T')[0];
+                }
+                if (client.isStarred) {
+                    updates.isStarred = false;
+                }
+
+                await db.collection('clients').doc(client.id).update(updates);
+
+                const undoAction = async () => {
+                    try { await db.collection('clients').doc(client.id).update(prevFields); }
                     catch(e) { console.error("Undo error", e); }
                 };
                 showUndoToast("Pedido completado", undoAction);
-            } catch(e) {
-                setClients(snapshot);
-                console.error(e); showUndoToast(getErrorMessage(e), null);
             }
-        } else {
-            // Periódico: escribir a Firestore y dejar que onSnapshot actualice la UI
-            const prevFields = {
-                lastVisited: client.lastVisited || null,
-                alarm: client.alarm || '',
-                isStarred: client.isStarred || false
-            };
-            if (client.specificDate) {
-                prevFields.specificDate = client.specificDate;
-            }
-
-            const updates = { lastVisited: new Date(), alarm: '' };
-
-            if (client.specificDate) {
-                let interval = 1;
-                if (client.freq === 'biweekly') interval = 2;
-                if (client.freq === 'triweekly') interval = 3;
-                if (client.freq === 'monthly') interval = 4;
-                const currentSpecificDate = new Date(client.specificDate + 'T12:00:00');
-                const nextSpecificDate = new Date(currentSpecificDate);
-                nextSpecificDate.setDate(nextSpecificDate.getDate() + (interval * 7));
-                const tomorrow = new Date();
-                tomorrow.setHours(0,0,0,0);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                while (nextSpecificDate < tomorrow) {
-                    nextSpecificDate.setDate(nextSpecificDate.getDate() + (interval * 7));
-                }
-                updates.specificDate = nextSpecificDate.toISOString().split('T')[0];
-            }
-            if (client.isStarred) {
-                updates.isStarred = false;
-            }
-
-            try {
-                await firestoreRetry(() => db.collection('clients').doc(client.id).update(updates));
-                const undoAction = async () => {
-                    try {
-                        await firestoreRetry(() => db.collection('clients').doc(client.id).update(prevFields));
-                    } catch(e) { console.error("Undo error", e); }
-                };
-                showUndoToast("Pedido completado", undoAction);
-            } catch(e) {
-                console.error(e); showUndoToast(getErrorMessage(e), null);
-            }
-        }
+        } catch(e) { console.error(e); }
     };
 
     const handleRestoreCompleted = async (client) => {
