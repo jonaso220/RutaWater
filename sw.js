@@ -1,9 +1,15 @@
-const CACHE_NAME = 'rutawater-v14';
+const CACHE_NAME = 'rutawater-v15';
 const urlsToCache = [
   './',
   './index.html',
   './manifest.json',
-  './icon.jpg'
+  './icon.jpg',
+  './js/config.js',
+  './js/helpers.js',
+  './js/icons.js',
+  './js/components.js',
+  './js/modals.js',
+  './js/app.js'
 ];
 
 self.addEventListener('install', event => {
