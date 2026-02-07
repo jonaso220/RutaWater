@@ -6,56 +6,32 @@ service cloud.firestore {
     // FUNCIONES AUXILIARES
     // ========================================
 
-    // Verificar que el usuario está autenticado
     function isAuth() {
       return request.auth != null;
     }
 
-    // Obtener datos del usuario actual desde la colección 'users'
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Verificar si el usuario es admin de su grupo
     function isGroupAdmin() {
-      let userData = getUserData();
-      return userData.role == 'admin';
+      return getUserData().role == 'admin';
     }
 
-    // Verificar que el usuario tiene acceso al documento (por userId o groupId)
-    function hasAccess(resource) {
-      let userData = getUserData();
-      // Acceso directo: es el dueño del documento
-      if (resource.data.userId == request.auth.uid) {
-        return true;
-      }
-      // Acceso grupal: pertenece al mismo grupo
-      if (userData.groupId != null && resource.data.groupId == userData.groupId) {
-        return true;
-      }
-      return false;
+    // Acceso de lectura: dueño del doc O mismo grupo
+    function hasAccess(res) {
+      return res.data.userId == request.auth.uid
+        || (getUserData().groupId != null && res.data.groupId == getUserData().groupId);
     }
 
-    // Verificar acceso para escritura (mismo dueño o mismo grupo)
-    function hasWriteAccess(resource) {
-      let userData = getUserData();
-      if (resource.data.userId == request.auth.uid) {
-        return true;
-      }
-      if (userData.groupId != null && resource.data.groupId == userData.groupId && userData.role == 'admin') {
-        return true;
-      }
-      return false;
+    // Acceso de escritura: dueño del doc O admin del mismo grupo
+    function hasWriteAccess(res) {
+      return res.data.userId == request.auth.uid
+        || (getUserData().groupId != null && res.data.groupId == getUserData().groupId && getUserData().role == 'admin');
     }
 
-    // Verificar que los datos del nuevo documento pertenecen al usuario
     function isOwnData() {
       return request.resource.data.userId == request.auth.uid;
-    }
-
-    // Validar longitud de string
-    function validString(field, maxLen) {
-      return !field.hasAny([field]) || (request.resource.data[field] is string && request.resource.data[field].size() <= maxLen);
     }
 
     // ========================================
@@ -64,28 +40,22 @@ service cloud.firestore {
 
     // --- CLIENTS ---
     match /clients/{clientId} {
-      // Leer: autenticado + acceso (propio o del grupo)
       allow read: if isAuth() && hasAccess(resource);
 
-      // Crear: autenticado + datos propios + admin si tiene grupo
       allow create: if isAuth() && isOwnData()
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 100
         && request.resource.data.address is string
         && request.resource.data.address.size() <= 200;
 
-      // Actualizar: autenticado + acceso de escritura
-      // Miembros solo pueden actualizar campos limitados (isCompleted, alarm, etc.)
       allow update: if isAuth() && hasAccess(resource) && (
         hasWriteAccess(resource) ||
-        // Miembros: solo pueden marcar completado, alarma, estrella
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'isCompleted', 'completedAt', 'updatedAt', 'alarm', 'isStarred',
           'lastVisited', 'specificDate', 'hasDebt', 'hasPendingTransfer'
         ])
       );
 
-      // Eliminar: autenticado + admin con acceso
       allow delete: if isAuth() && hasWriteAccess(resource);
     }
 
@@ -113,36 +83,25 @@ service cloud.firestore {
 
     // --- USERS ---
     match /users/{userId} {
-      // Leer: solo su propio documento, o miembros del mismo grupo
       allow read: if isAuth() && (
         userId == request.auth.uid ||
         (resource.data.groupId != null && getUserData().groupId == resource.data.groupId)
       );
 
-      // Crear/Actualizar su propio documento
       allow create: if isAuth() && userId == request.auth.uid;
       allow update: if isAuth() && (
-        // Puede actualizar su propio documento
         userId == request.auth.uid ||
-        // Admin del grupo puede remover miembros (poner groupId/role a null)
         (isGroupAdmin() && getUserData().groupId == resource.data.groupId)
       );
 
-      allow delete: if false; // Nunca eliminar documentos de usuario
+      allow delete: if false;
     }
 
     // --- GROUPS ---
     match /groups/{groupId} {
-      // Leer: cualquier autenticado (necesario para buscar por código de invitación)
       allow read: if isAuth();
-
-      // Crear: autenticado + el adminId debe ser el usuario actual
       allow create: if isAuth() && request.resource.data.adminId == request.auth.uid;
-
-      // Actualizar: solo el admin del grupo
       allow update: if isAuth() && resource.data.adminId == request.auth.uid;
-
-      // Eliminar: solo el admin del grupo
       allow delete: if isAuth() && resource.data.adminId == request.auth.uid;
     }
 
