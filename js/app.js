@@ -413,7 +413,7 @@ function App() {
                 console.error(e); showUndoToast(getErrorMessage(e), null);
             }
         } else {
-            // Periódico: calcular updates ANTES del optimistic para que coincidan
+            // Periódico: escribir a Firestore y dejar que onSnapshot actualice la UI
             const prevFields = {
                 lastVisited: client.lastVisited || null,
                 alarm: client.alarm || '',
@@ -433,7 +433,6 @@ function App() {
                 const currentSpecificDate = new Date(client.specificDate + 'T12:00:00');
                 const nextSpecificDate = new Date(currentSpecificDate);
                 nextSpecificDate.setDate(nextSpecificDate.getDate() + (interval * 7));
-                // Avanzar hasta que sea DESPUÉS de hoy (hoy ya fue visitado)
                 const tomorrow = new Date();
                 tomorrow.setHours(0,0,0,0);
                 tomorrow.setDate(tomorrow.getDate() + 1);
@@ -446,18 +445,18 @@ function App() {
                 updates.isStarred = false;
             }
 
-            // Optimistic: aplicar los MISMOS updates al estado local
-            setClients(prev => prev.map(c => c.id === client.id ? {...c, ...updates} : c));
-
             try {
                 await firestoreRetry(() => db.collection('clients').doc(client.id).update(updates));
+                // Calcular la próxima fecha para mostrar en el toast
+                const updatedClient = {...client, ...updates};
+                const nextDate = getNextVisitDate(updatedClient, selectedDay);
+                const nextLabel = nextDate ? formatDate(nextDate) : 'próxima fecha';
                 const undoAction = async () => {
                     try { await firestoreRetry(() => db.collection('clients').doc(client.id).update(prevFields)); }
                     catch(e) { console.error("Undo error", e); }
                 };
-                showUndoToast("Reagendado", undoAction);
+                showUndoToast("Reagendado → " + nextLabel, undoAction);
             } catch(e) {
-                setClients(snapshot);
                 console.error(e); showUndoToast(getErrorMessage(e), null);
             }
         }
