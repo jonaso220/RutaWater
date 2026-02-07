@@ -232,6 +232,32 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
            JSON.stringify(pc.visitDays) === JSON.stringify(nc.visitDays);
 });
 
+// --- SKELETON LOADER ---
+const SkeletonCard = () => (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-row">
+        <div className="w-10 bg-gray-50 dark:bg-gray-700/50 border-r border-gray-100 dark:border-gray-700" />
+        <div className="flex-1 p-3 space-y-3 animate-pulse">
+            <div className="flex justify-end gap-1">
+                {[1,2,3,4].map(i => <div key={i} className="w-7 h-7 bg-gray-200 dark:bg-gray-700 rounded-md" />)}
+            </div>
+            <div className="space-y-2">
+                <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+                <div className="h-3 bg-gray-100 dark:bg-gray-700/60 rounded w-1/2" />
+            </div>
+            <div className="flex gap-2">
+                <div className="h-6 bg-gray-100 dark:bg-gray-700/60 rounded-full w-24" />
+                <div className="h-6 bg-gray-100 dark:bg-gray-700/60 rounded-full w-16" />
+            </div>
+            <div className="flex gap-1.5 pt-2 border-t border-gray-100 dark:border-gray-700">
+                <div className="w-9 h-9 bg-gray-100 dark:bg-gray-700 rounded-lg" />
+                <div className="w-9 h-9 bg-gray-100 dark:bg-gray-700 rounded-lg" />
+                <div className="flex-1 h-9 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+                <div className="w-16 h-9 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+            </div>
+        </div>
+    </div>
+);
+
 // --- CONTADOR DE PRODUCTOS ---
 const ProductCounter = ({ clients }) => {
     const totals = clients.reduce((acc, client) => {
