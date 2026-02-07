@@ -88,6 +88,13 @@ function App() {
 
     // Effect 1: Auth listener (solo se ejecuta una vez)
     React.useEffect(() => {
+        // Capturar resultado/error del redirect de Google (móviles)
+        auth.getRedirectResult().catch((error) => {
+            if (error.code !== 'auth/null-user') {
+                showUndoToast("Error al iniciar sesión. Intentá de nuevo.", null);
+            }
+        });
+
         const unsubscribeAuth = auth.onAuthStateChanged(async (u) => {
             setUser(u);
             setLoadingAuth(false);
@@ -658,7 +665,18 @@ function App() {
         return map;
     }, [getVisibleClients, selectedDay]);
 
-    const handleGoogleLogin = async () => { try { await auth.signInWithPopup(googleProvider); } catch (error) { showUndoToast("Error al iniciar sesión. Intentá de nuevo.", null); } };
+    const handleGoogleLogin = async () => {
+        try {
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (isMobile) {
+                await auth.signInWithRedirect(googleProvider);
+            } else {
+                await auth.signInWithPopup(googleProvider);
+            }
+        } catch (error) {
+            showUndoToast("Error al iniciar sesión. Intentá de nuevo.", null);
+        }
+    };
     const handleLogout = () => {
         setConfirmModal({ isOpen: true, title: '¿Cerrar sesión?', message: 'Se cerrará tu cuenta en este dispositivo.', confirmText: 'Cerrar sesión', isDanger: false, action: () => { auth.signOut(); setConfirmModal(prev => ({...prev, isOpen: false})); } });
     };
