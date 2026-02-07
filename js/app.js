@@ -433,9 +433,11 @@ function App() {
                 const currentSpecificDate = new Date(client.specificDate + 'T12:00:00');
                 const nextSpecificDate = new Date(currentSpecificDate);
                 nextSpecificDate.setDate(nextSpecificDate.getDate() + (interval * 7));
-                const today = new Date();
-                today.setHours(0,0,0,0);
-                while (nextSpecificDate < today) {
+                // Avanzar hasta que sea DESPUÉS de hoy (hoy ya fue visitado)
+                const tomorrow = new Date();
+                tomorrow.setHours(0,0,0,0);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                while (nextSpecificDate < tomorrow) {
                     nextSpecificDate.setDate(nextSpecificDate.getDate() + (interval * 7));
                 }
                 updates.specificDate = nextSpecificDate.toISOString().split('T')[0];
