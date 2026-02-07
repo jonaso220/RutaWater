@@ -387,16 +387,12 @@ function App() {
 
 
     const handleMarkAsDoneInList = async (client) => {
-        // Optimista: quitar de la lista inmediatamente
         const snapshot = clients.map(c => c.id === client.id ? {...c} : c);
+
         if (client.freq === 'once') {
+            // Once: marcar como completado
             setClients(prev => prev.map(c => c.id === client.id ? {...c, isCompleted: true, completedAt: new Date(), isStarred: false, alarm: ''} : c));
-        } else {
-            // Para periódicos: marcar lastVisited=hoy para que el filtro lo oculte
-            setClients(prev => prev.map(c => c.id === client.id ? {...c, lastVisited: new Date(), isStarred: false, alarm: ''} : c));
-        }
-        try {
-            if (client.freq === 'once') {
+            try {
                 const prevFields = {
                     isCompleted: client.isCompleted || false,
                     completedAt: client.completedAt || null,
@@ -404,76 +400,64 @@ function App() {
                     alarm: client.alarm || '',
                     isStarred: client.isStarred || false
                 };
-                const undoAction = async () => {
-                    try {
-                        await firestoreRetry(() => db.collection('clients').doc(client.id).update(prevFields));
-                    } catch(e) { console.error("Undo error", e); }
-                };
-
-                 await firestoreRetry(() => db.collection('clients').doc(client.id).update({
-                    isCompleted: true,
-                    completedAt: new Date(),
-                    updatedAt: new Date(),
-                    alarm: '',
-                    isStarred: false
+                await firestoreRetry(() => db.collection('clients').doc(client.id).update({
+                    isCompleted: true, completedAt: new Date(), updatedAt: new Date(), alarm: '', isStarred: false
                 }));
-                showUndoToast("Pedido completado", undoAction);
-            } else {
-                // Guardar solo los campos que cambiaron para el undo
-                const prevFields = {
-                    lastVisited: client.lastVisited || null,
-                    alarm: client.alarm || '',
-                    isStarred: client.isStarred || false
-                };
-                if (client.specificDate) {
-                    prevFields.specificDate = client.specificDate;
-                }
-
-                // Lógica corregida para periódicos
-                const updates = {
-                    lastVisited: new Date(),
-                    alarm: ''
-                };
-
-                // Si tiene fecha específica (ancla), la movemos hacia adelante
-                if (client.specificDate) {
-                    let interval = 1;
-                    if (client.freq === 'biweekly') interval = 2;
-                    if (client.freq === 'triweekly') interval = 3;
-                    if (client.freq === 'monthly') interval = 4;
-
-                    const currentSpecificDate = new Date(client.specificDate + 'T12:00:00');
-                    const nextSpecificDate = new Date(currentSpecificDate);
-                    nextSpecificDate.setDate(nextSpecificDate.getDate() + (interval * 7));
-
-                    const today = new Date();
-                    today.setHours(0,0,0,0);
-
-                    while (nextSpecificDate < today) {
-                        nextSpecificDate.setDate(nextSpecificDate.getDate() + (interval * 7));
-                    }
-
-                    updates.specificDate = nextSpecificDate.toISOString().split('T')[0];
-                }
-
-                // Si era un "Starred" temporal, quitamos la estrella al completar
-                if (client.isStarred) {
-                    updates.isStarred = false;
-                }
-
-                await firestoreRetry(() => db.collection('clients').doc(client.id).update(updates));
-
                 const undoAction = async () => {
-                    try {
-                        await firestoreRetry(() => db.collection('clients').doc(client.id).update(prevFields));
-                    } catch(e) { console.error("Undo error", e); }
+                    try { await firestoreRetry(() => db.collection('clients').doc(client.id).update(prevFields)); }
+                    catch(e) { console.error("Undo error", e); }
                 };
                 showUndoToast("Pedido completado", undoAction);
+            } catch(e) {
+                setClients(snapshot);
+                console.error(e); showUndoToast(getErrorMessage(e), null);
             }
-        } catch(e) {
-            // Revertir optimismo en caso de error
-            setClients(snapshot);
-            console.error(e); showUndoToast(getErrorMessage(e), null);
+        } else {
+            // Periódico: calcular updates ANTES del optimistic para que coincidan
+            const prevFields = {
+                lastVisited: client.lastVisited || null,
+                alarm: client.alarm || '',
+                isStarred: client.isStarred || false
+            };
+            if (client.specificDate) {
+                prevFields.specificDate = client.specificDate;
+            }
+
+            const updates = { lastVisited: new Date(), alarm: '' };
+
+            if (client.specificDate) {
+                let interval = 1;
+                if (client.freq === 'biweekly') interval = 2;
+                if (client.freq === 'triweekly') interval = 3;
+                if (client.freq === 'monthly') interval = 4;
+                const currentSpecificDate = new Date(client.specificDate + 'T12:00:00');
+                const nextSpecificDate = new Date(currentSpecificDate);
+                nextSpecificDate.setDate(nextSpecificDate.getDate() + (interval * 7));
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                while (nextSpecificDate < today) {
+                    nextSpecificDate.setDate(nextSpecificDate.getDate() + (interval * 7));
+                }
+                updates.specificDate = nextSpecificDate.toISOString().split('T')[0];
+            }
+            if (client.isStarred) {
+                updates.isStarred = false;
+            }
+
+            // Optimistic: aplicar los MISMOS updates al estado local
+            setClients(prev => prev.map(c => c.id === client.id ? {...c, ...updates} : c));
+
+            try {
+                await firestoreRetry(() => db.collection('clients').doc(client.id).update(updates));
+                const undoAction = async () => {
+                    try { await firestoreRetry(() => db.collection('clients').doc(client.id).update(prevFields)); }
+                    catch(e) { console.error("Undo error", e); }
+                };
+                showUndoToast("Reagendado", undoAction);
+            } catch(e) {
+                setClients(snapshot);
+                console.error(e); showUndoToast(getErrorMessage(e), null);
+            }
         }
     };
 
