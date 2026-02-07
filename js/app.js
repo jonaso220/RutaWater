@@ -23,6 +23,9 @@ function App() {
     });
     const [toast, setToast] = React.useState(null);
     const [saving, setSaving] = React.useState(false);
+    const [isOnline, setIsOnline] = React.useState(navigator.onLine);
+    const [swUpdate, setSwUpdate] = React.useState(false);
+    const [installPrompt, setInstallPrompt] = React.useState(null);
     const [showPasteModal, setShowPasteModal] = React.useState(false);
     
     // --- ESTADO ALARMA ---
@@ -221,6 +224,29 @@ function App() {
         });
     }, [user, selectedDay]);
 
+    // --- ONLINE/OFFLINE DETECTOR ---
+    React.useEffect(() => {
+        const goOnline = () => setIsOnline(true);
+        const goOffline = () => setIsOnline(false);
+        window.addEventListener('online', goOnline);
+        window.addEventListener('offline', goOffline);
+        return () => { window.removeEventListener('online', goOnline); window.removeEventListener('offline', goOffline); };
+    }, []);
+
+    // --- SW UPDATE DETECTOR ---
+    React.useEffect(() => {
+        const onSwUpdate = () => setSwUpdate(true);
+        window.addEventListener('sw-update-available', onSwUpdate);
+        return () => window.removeEventListener('sw-update-available', onSwUpdate);
+    }, []);
+
+    // --- INSTALL PROMPT ---
+    React.useEffect(() => {
+        const onBeforeInstall = (e) => { e.preventDefault(); setInstallPrompt(e); };
+        window.addEventListener('beforeinstallprompt', onBeforeInstall);
+        return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+    }, []);
+
     // --- TOAST LOGIC ---
     const showUndoToast = (message, undoAction) => {
         if (toastTimeout.current) clearTimeout(toastTimeout.current);
@@ -337,9 +363,16 @@ function App() {
     };
     
     const handleToggleStar = async (client) => {
+        const newVal = !client.isStarred;
+        // Optimista: actualizar UI inmediatamente
+        setClients(prev => prev.map(c => c.id === client.id ? {...c, isStarred: newVal} : c));
         try {
-            await firestoreRetry(() => db.collection('clients').doc(client.id).update({ isStarred: !client.isStarred }));
-        } catch(e) { showUndoToast(getErrorMessage(e), null); }
+            await firestoreRetry(() => db.collection('clients').doc(client.id).update({ isStarred: newVal }));
+        } catch(e) {
+            // Revertir en caso de error
+            setClients(prev => prev.map(c => c.id === client.id ? {...c, isStarred: !newVal} : c));
+            showUndoToast(getErrorMessage(e), null);
+        }
     };
 
     const handleDismissAlert = async () => {
@@ -353,9 +386,11 @@ function App() {
 
 
     const handleMarkAsDoneInList = async (client) => {
+        // Optimista: quitar de la lista inmediatamente
+        const snapshot = clients.map(c => c.id === client.id ? {...c} : c);
+        setClients(prev => prev.map(c => c.id === client.id ? {...c, isCompleted: true, completedAt: new Date(), isStarred: false, alarm: ''} : c));
         try {
             if (client.freq === 'once') {
-                // Guardar solo los campos que cambiaron para el undo
                 const prevFields = {
                     isCompleted: client.isCompleted || false,
                     completedAt: client.completedAt || null,
@@ -429,9 +464,13 @@ function App() {
                 };
                 showUndoToast("Pedido completado", undoAction);
             }
-        } catch(e) { console.error(e); showUndoToast(getErrorMessage(e), null); }
+        } catch(e) {
+            // Revertir optimismo en caso de error
+            setClients(snapshot);
+            console.error(e); showUndoToast(getErrorMessage(e), null);
+        }
     };
-    
+
     const handleRestoreCompleted = async (client) => {
         try {
             await firestoreRetry(() => db.collection('clients').doc(client.id).update({
@@ -616,7 +655,9 @@ function App() {
     }, [getVisibleClients, selectedDay]);
 
     const handleGoogleLogin = async () => { try { await auth.signInWithPopup(googleProvider); } catch (error) { showUndoToast("Error al iniciar sesión. Intentá de nuevo.", null); } };
-    const handleLogout = () => { if(confirm("¿Cerrar sesión?")) auth.signOut(); };
+    const handleLogout = () => {
+        setConfirmModal({ isOpen: true, title: '¿Cerrar sesión?', message: 'Se cerrará tu cuenta en este dispositivo.', confirmText: 'Cerrar sesión', isDanger: false, action: () => { auth.signOut(); setConfirmModal(prev => ({...prev, isOpen: false})); } });
+    };
     
     // --- NUEVA FUNCIÓN HANDLEInputChange ---
     const handleInputChange = (e) => {
@@ -1149,7 +1190,36 @@ function App() {
             {/* TOAST NOTIFICATION */}
             {toast && <Toast message={toast.message} onUndo={handleUndo} hasUndo={!!toast.undoAction} />}
 
-            <header className="bg-blue-600 dark:bg-gray-800 text-white p-4 shadow-lg sticky top-0 z-10 transition-colors duration-200">
+            {/* OFFLINE INDICATOR */}
+            {!isOnline && (
+                <div className="fixed top-0 left-0 right-0 bg-yellow-500 text-yellow-900 text-center text-sm font-medium py-2 z-50 flex items-center justify-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+                    Sin conexión - Los cambios se sincronizarán al reconectar
+                </div>
+            )}
+
+            {/* SW UPDATE BANNER */}
+            {swUpdate && (
+                <div className="fixed top-0 left-0 right-0 bg-blue-600 text-white text-center text-sm font-medium py-2 z-50 flex items-center justify-center gap-3">
+                    Nueva versión disponible
+                    <button onClick={() => window.location.reload()} className="bg-white text-blue-600 px-3 py-0.5 rounded-full text-xs font-bold hover:bg-blue-50">
+                        Actualizar
+                    </button>
+                </div>
+            )}
+
+            {/* INSTALL APP BANNER */}
+            {installPrompt && (
+                <div className="fixed top-0 left-0 right-0 bg-green-600 text-white text-center text-sm font-medium py-2 z-40 flex items-center justify-center gap-3">
+                    Instalá RutaWater en tu dispositivo
+                    <button onClick={() => { installPrompt.prompt(); installPrompt.userChoice.then(() => setInstallPrompt(null)); }} className="bg-white text-green-700 px-3 py-0.5 rounded-full text-xs font-bold hover:bg-green-50">
+                        Instalar
+                    </button>
+                    <button onClick={() => setInstallPrompt(null)} className="text-white/70 hover:text-white text-lg leading-none">&times;</button>
+                </div>
+            )}
+
+            <header className={`bg-blue-600 dark:bg-gray-800 text-white p-4 shadow-lg sticky top-0 z-10 transition-colors duration-200 ${!isOnline || swUpdate || installPrompt ? 'mt-9' : ''}`}>
                 <div className="flex justify-between items-center max-w-2xl mx-auto">
                     <div 
                         className="flex items-center gap-2 cursor-pointer active:opacity-80 transition-opacity" 
@@ -1416,8 +1486,15 @@ function App() {
                                 )}
                             </>
                         )}
+                        {/* SKELETON LOADING */}
+                        {selectedDay !== '' && !isCloudActive && clients.length === 0 && (
+                            <div className="grid gap-3">
+                                {[1,2,3,4].map(i => <SkeletonCard key={i} />)}
+                            </div>
+                        )}
+
                         {/* RENDERIZADO POR GRUPOS DE FECHA */}
-                        {selectedDay !== '' ? (
+                        {selectedDay !== '' && (isCloudActive || clients.length > 0) ? (
                             Object.keys(groupedClients).map(key => (
                                 <div key={key} className="mb-6">
                                     <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider pl-2 border-l-4 border-blue-200 dark:border-blue-900">

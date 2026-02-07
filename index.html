@@ -97,7 +97,19 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('SW registrado', reg))
+                    .then(reg => {
+                        console.log('SW registrado', reg);
+                        reg.addEventListener('updatefound', () => {
+                            const newWorker = reg.installing;
+                            if (newWorker) {
+                                newWorker.addEventListener('statechange', () => {
+                                    if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+                                        window.dispatchEvent(new Event('sw-update-available'));
+                                    }
+                                });
+                            }
+                        });
+                    })
                     .catch(err => console.log('SW error', err));
             });
         }
