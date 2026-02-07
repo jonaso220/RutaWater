@@ -22,6 +22,7 @@ function App() {
         b20_extra: '', b12_extra: '', b6_extra: '', soda_extra: '', pedidos_note: ''
     });
     const [toast, setToast] = React.useState(null);
+    const [saving, setSaving] = React.useState(false);
     const [showPasteModal, setShowPasteModal] = React.useState(false);
     
     // --- ESTADO ALARMA ---
@@ -239,9 +240,11 @@ function App() {
     
     // --- ALARMAS HANDLERS ---
     const handleSaveAlarm = async (time) => {
-        if (alarmModal.clientId) {
-            await db.collection('clients').doc(alarmModal.clientId).update({ alarm: time });
-        }
+        try {
+            if (alarmModal.clientId) {
+                await firestoreRetry(() => db.collection('clients').doc(alarmModal.clientId).update({ alarm: time }));
+            }
+        } catch(e) { showUndoToast(getErrorMessage(e), null); }
         setAlarmModal({ isOpen: false, clientId: null, currentVal: '' });
     };
     
@@ -249,7 +252,7 @@ function App() {
     const handleAddDebt = async (client, amount) => {
         if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) return;
         try {
-            await db.collection('debts').add({
+            await firestoreRetry(() => db.collection('debts').add({
                 ...getDataScope(),
                 userId: user.uid,
                 clientId: client.id,
@@ -261,17 +264,16 @@ function App() {
                 amount: parseFloat(amount),
                 createdAt: new Date(),
                 paid: false
-            });
+            }));
             // Marcar el cliente con deuda activa
-            await db.collection('clients').doc(client.id).update({ hasDebt: true });
+            await firestoreRetry(() => db.collection('clients').doc(client.id).update({ hasDebt: true }));
             setDebtModal({ isOpen: false, client: null });
-        } catch(e) { console.error("Error creando deuda:", e); }
+        } catch(e) { console.error("Error creando deuda:", e); showUndoToast(getErrorMessage(e), null); }
     };
 
     const handleDebtPaid = async (debt) => {
         try {
-            await db.collection('debts').doc(debt.id).delete();
-            // Consultar Firestore directamente para verificar deudas restantes
+            await firestoreRetry(() => db.collection('debts').doc(debt.id).delete());
             const remainingSnap = await db.collection('debts')
                 .where('clientId', '==', debt.clientId)
                 .get();
@@ -279,17 +281,17 @@ function App() {
                 const clientRef = db.collection('clients').doc(debt.clientId);
                 const clientDoc = await clientRef.get();
                 if (clientDoc.exists) {
-                    await clientRef.update({ hasDebt: false });
+                    await firestoreRetry(() => clientRef.update({ hasDebt: false }));
                 }
             }
-        } catch(e) { console.error("Error eliminando deuda:", e); }
+        } catch(e) { console.error("Error eliminando deuda:", e); showUndoToast(getErrorMessage(e), null); }
     };
 
     const handleEditDebt = async (debt, newAmount) => {
         if (!newAmount || isNaN(parseFloat(newAmount)) || parseFloat(newAmount) <= 0) return;
         try {
-            await db.collection('debts').doc(debt.id).update({ amount: parseFloat(newAmount) });
-        } catch(e) { console.error("Error editando deuda:", e); }
+            await firestoreRetry(() => db.collection('debts').doc(debt.id).update({ amount: parseFloat(newAmount) }));
+        } catch(e) { console.error("Error editando deuda:", e); showUndoToast(getErrorMessage(e), null); }
     };
 
     // --- TRANSFERENCIAS HANDLERS ---
@@ -302,7 +304,7 @@ function App() {
                 return;
             }
             
-            await db.collection('transfers').add({
+            await firestoreRetry(() => db.collection('transfers').add({
                 ...getDataScope(),
                 userId: user.uid,
                 clientId: client.id,
@@ -313,15 +315,14 @@ function App() {
                 clientMapsLink: client.mapsLink || null,
                 createdAt: new Date(),
                 reviewed: false
-            });
-            await db.collection('clients').doc(client.id).update({ hasPendingTransfer: true });
-        } catch(e) { console.error("Error creando transferencia:", e); }
+            }));
+            await firestoreRetry(() => db.collection('clients').doc(client.id).update({ hasPendingTransfer: true }));
+        } catch(e) { console.error("Error creando transferencia:", e); showUndoToast(getErrorMessage(e), null); }
     };
 
     const handleTransferReviewed = async (transfer) => {
         try {
-            await db.collection('transfers').doc(transfer.id).delete();
-            // Consultar Firestore directamente para verificar transferencias restantes
+            await firestoreRetry(() => db.collection('transfers').doc(transfer.id).delete());
             const remainingSnap = await db.collection('transfers')
                 .where('clientId', '==', transfer.clientId)
                 .get();
@@ -329,20 +330,24 @@ function App() {
                 const clientRef = db.collection('clients').doc(transfer.clientId);
                 const clientDoc = await clientRef.get();
                 if (clientDoc.exists) {
-                    await clientRef.update({ hasPendingTransfer: false });
+                    await firestoreRetry(() => clientRef.update({ hasPendingTransfer: false }));
                 }
             }
-        } catch(e) { console.error("Error eliminando transferencia:", e); }
+        } catch(e) { console.error("Error eliminando transferencia:", e); showUndoToast(getErrorMessage(e), null); }
     };
     
     const handleToggleStar = async (client) => {
-        await db.collection('clients').doc(client.id).update({ isStarred: !client.isStarred });
+        try {
+            await firestoreRetry(() => db.collection('clients').doc(client.id).update({ isStarred: !client.isStarred }));
+        } catch(e) { showUndoToast(getErrorMessage(e), null); }
     };
 
     const handleDismissAlert = async () => {
-        if (activeAlert && activeAlert.id) {
-             await db.collection('clients').doc(activeAlert.id).update({ alarm: '' });
-        }
+        try {
+            if (activeAlert && activeAlert.id) {
+                await firestoreRetry(() => db.collection('clients').doc(activeAlert.id).update({ alarm: '' }));
+            }
+        } catch(e) { showUndoToast(getErrorMessage(e), null); }
         setActiveAlert(null);
     };
 
@@ -364,13 +369,13 @@ function App() {
                     } catch(e) { console.error("Undo error", e); }
                 };
 
-                 await db.collection('clients').doc(client.id).update({
+                 await firestoreRetry(() => db.collection('clients').doc(client.id).update({
                     isCompleted: true,
                     completedAt: new Date(),
                     updatedAt: new Date(),
                     alarm: '',
                     isStarred: false
-                });
+                }));
                 showUndoToast("Pedido completado", undoAction);
             } else {
                 // Guardar solo los campos que cambiaron para el undo
@@ -415,26 +420,26 @@ function App() {
                     updates.isStarred = false;
                 }
 
-                await db.collection('clients').doc(client.id).update(updates);
+                await firestoreRetry(() => db.collection('clients').doc(client.id).update(updates));
 
                 const undoAction = async () => {
                     try {
-                        await db.collection('clients').doc(client.id).update(prevFields);
+                        await firestoreRetry(() => db.collection('clients').doc(client.id).update(prevFields));
                     } catch(e) { console.error("Undo error", e); }
                 };
                 showUndoToast("Pedido completado", undoAction);
             }
-        } catch(e) { console.error(e); }
+        } catch(e) { console.error(e); showUndoToast(getErrorMessage(e), null); }
     };
     
     const handleRestoreCompleted = async (client) => {
         try {
-            await db.collection('clients').doc(client.id).update({
+            await firestoreRetry(() => db.collection('clients').doc(client.id).update({
                 isCompleted: false,
                 completedAt: null,
                 updatedAt: new Date()
-            });
-        } catch(e) { console.error(e); }
+            }));
+        } catch(e) { console.error(e); showUndoToast(getErrorMessage(e), null); }
     };
     
     const handleClearCompleted = (day) => {
@@ -468,9 +473,9 @@ function App() {
                     for (let i = 0; i < allDeletes.length; i += 450) {
                         const batch = db.batch();
                         allDeletes.slice(i, i + 450).forEach(ref => batch.delete(ref));
-                        await batch.commit();
+                        await firestoreRetry(() => batch.commit());
                     }
-                } catch(e) { console.error(e); }
+                } catch(e) { console.error(e); showUndoToast(getErrorMessage(e), null); }
                 setConfirmModal(prev => ({...prev, isOpen: false}));
             }
         });
@@ -610,7 +615,7 @@ function App() {
         return map;
     }, [getVisibleClients, selectedDay]);
 
-    const handleGoogleLogin = async () => { try { await auth.signInWithPopup(googleProvider); } catch (error) { alert("Error: " + error.message); } };
+    const handleGoogleLogin = async () => { try { await auth.signInWithPopup(googleProvider); } catch (error) { showUndoToast("Error al iniciar sesión. Intentá de nuevo.", null); } };
     const handleLogout = () => { if(confirm("¿Cerrar sesión?")) auth.signOut(); };
     
     // --- NUEVA FUNCIÓN HANDLEInputChange ---
@@ -690,7 +695,7 @@ function App() {
         let url = '';
         if(lat && lng) { url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`; }
         else if(link && isSafeUrl(link)) { url = link; }
-        else { alert("Ubicación no disponible"); return; }
+        else { showUndoToast("Ubicación no disponible.", null); return; }
         window.open(url, '_top');
     };
     
@@ -704,13 +709,16 @@ function App() {
         }
     };
     
-    const handleSaveClient = async (e) => { 
+    const handleSaveClient = async (e) => {
         e.preventDefault();
+        if (saving) return;
         // Solo admin puede crear/editar clientes
-        if (!isAdmin) { alert("No tienes permisos para editar clientes."); return; }
+        if (!isAdmin) { showUndoToast("No tenés permisos para editar clientes.", null); return; }
+        if (!formData.name || !formData.name.trim()) { showUndoToast("El nombre del cliente es obligatorio.", null); return; }
         const hasCoordinates = formData.lat && formData.lng;
         const hasMapLink = formData.locationInput && isShortLink(formData.locationInput);
-        if (!hasCoordinates && !hasMapLink) { alert("Por favor, ingresa una ubicación válida."); return; }
+        if (!hasCoordinates && !hasMapLink) { showUndoToast("Por favor, ingresá una ubicación válida.", null); return; }
+        setSaving(true);
         try {
             const currentWeek = getWeekNumber(new Date());
             let visitDays = formData.visitDays && formData.visitDays.length > 0 ? formData.visitDays : [formData.visitDay];
@@ -725,7 +733,8 @@ function App() {
 
             // Validación: asegurar que hay días válidos si no es on_demand
             if (formData.freq !== 'on_demand' && (visitDays.length === 0 || visitDays.includes('Sin Asignar'))) {
-                alert("Por favor, selecciona al menos un día de visita válido.");
+                showUndoToast("Seleccioná al menos un día de visita.", null);
+                setSaving(false);
                 return;
             }
             
@@ -769,8 +778,8 @@ function App() {
                 });
                 data.listOrders = newListOrders;
                 delete data.listOrder; // No sobrescribir listOrder general
-                await db.collection('clients').doc(editingId).update(data); 
-            } else { 
+                await firestoreRetry(() => db.collection('clients').doc(editingId).update(data));
+            } else {
                 // Cliente nuevo - crear listOrders con número secuencial para cada día
                 const listOrders = {};
                 visitDays.forEach(day => {
@@ -806,10 +815,10 @@ function App() {
                 });
                 data.listOrder = listOrders[visitDays[0]];
                 data.listOrders = listOrders;
-                await db.collection('clients').add(data); 
+                await firestoreRetry(() => db.collection('clients').add(data));
             }
             resetForm(); setView('list');
-        } catch(e) { alert("Error guardando."); }
+        } catch(e) { showUndoToast(getErrorMessage(e), null); } finally { setSaving(false); }
     };
     const handleScheduleFromDirectory = async (clientData, newDays, newFreq, newDate, newNotes, newProducts) => {
          try {
@@ -880,45 +889,47 @@ function App() {
                  newData.listOrder = listOrders[newDays[0]];
             }
             
-            if (clientData.freq === 'on_demand' || clientData.visitDay === 'Sin Asignar') { 
-                await db.collection('clients').doc(clientData.id).update(newData); 
-                alert("¡Cliente reactivado!"); 
-            } else { 
-                newData.createdAt = new Date(); 
-                await db.collection('clients').add(newData); 
-                alert("¡Visita adicional creada!"); 
+            if (clientData.freq === 'on_demand' || clientData.visitDay === 'Sin Asignar') {
+                await firestoreRetry(() => db.collection('clients').doc(clientData.id).update(newData));
+                showUndoToast("Cliente reactivado", null);
+            } else {
+                newData.createdAt = new Date();
+                await firestoreRetry(() => db.collection('clients').add(newData));
+                showUndoToast("Visita adicional creada", null);
             }
-            setScheduleClient(null); 
-            setSelectedDay(newData.visitDays[0]); 
+            setScheduleClient(null);
+            setSelectedDay(newData.visitDays[0]);
             setView('list');
-        } catch(e) { console.error(e); alert("Error al agendar: " + e.message); }
+        } catch(e) { console.error(e); showUndoToast(getErrorMessage(e), null); }
     };
-    const handleDeleteClient = (id) => { 
-        if (!isAdmin) { alert("No tienes permisos para quitar clientes."); return; }
-        setConfirmModal({ isOpen: true, title: '¿Quitar de la lista?', message: 'Se guardará en el Directorio.', confirmText: "Quitar", isDanger: false, action: async () => { await db.collection('clients').doc(id).update({ freq: 'on_demand', visitDay: 'Sin Asignar', visitDays: [] }); setConfirmModal(prev => ({...prev, isOpen: false})); } }); 
+    const handleDeleteClient = (id) => {
+        if (!isAdmin) { showUndoToast("No tenés permisos para quitar clientes.", null); return; }
+        setConfirmModal({ isOpen: true, title: '¿Quitar de la lista?', message: 'Se guardará en el Directorio.', confirmText: "Quitar", isDanger: false, action: async () => {
+            try {
+                await firestoreRetry(() => db.collection('clients').doc(id).update({ freq: 'on_demand', visitDay: 'Sin Asignar', visitDays: [] }));
+            } catch(e) { showUndoToast(getErrorMessage(e), null); }
+            setConfirmModal(prev => ({...prev, isOpen: false}));
+        } });
     };
-    const handleDeletePermanently = (id) => { 
-        if (!isAdmin) { alert("No tienes permisos para eliminar clientes."); return; }
-        setConfirmModal({ isOpen: true, title: '¿Eliminar Definitivamente?', message: 'Se borrará para siempre.', isDanger: true, action: async () => { 
+    const handleDeletePermanently = (id) => {
+        if (!isAdmin) { showUndoToast("No tenés permisos para eliminar clientes.", null); return; }
+        setConfirmModal({ isOpen: true, title: '¿Eliminar Definitivamente?', message: 'Se borrará para siempre.', isDanger: true, action: async () => {
         try {
-            // Eliminar deudas asociadas
             const clientDebts = debts.filter(d => d.clientId === id);
-            for (const d of clientDebts) { await db.collection('debts').doc(d.id).delete(); }
-            // Eliminar transferencias asociadas
+            for (const d of clientDebts) { await firestoreRetry(() => db.collection('debts').doc(d.id).delete()); }
             const clientTransfers = transfers.filter(t => t.clientId === id);
-            for (const t of clientTransfers) { await db.collection('transfers').doc(t.id).delete(); }
-            // Eliminar cliente
-            await db.collection('clients').doc(id).delete();
-        } catch(e) { console.error("Error eliminando cliente:", e); }
-        setConfirmModal(prev => ({...prev, isOpen: false})); 
+            for (const t of clientTransfers) { await firestoreRetry(() => db.collection('transfers').doc(t.id).delete()); }
+            await firestoreRetry(() => db.collection('clients').doc(id).delete());
+        } catch(e) { console.error("Error eliminando cliente:", e); showUndoToast(getErrorMessage(e), null); }
+        setConfirmModal(prev => ({...prev, isOpen: false}));
     } }); };
     
 
      const handleMagicPaste = (text) => {
          const parsed = parseContactString(text);
-         if (!parsed.name && !parsed.link) { alert("No se pudo detectar el formato."); return; }
+         if (!parsed.name && !parsed.link) { showUndoToast("No se pudo detectar el formato.", null); return; }
          if (view === 'add') {
-             if (!isAdmin) { alert("No tienes permisos para agregar clientes."); return; }
+             if (!isAdmin) { showUndoToast("No tenés permisos para agregar clientes.", null); return; }
              setFormData(prev => ({ 
                  ...prev, 
                  name: parsed.name, 
@@ -937,7 +948,7 @@ function App() {
              }));
              setShowPasteModal(false);
          } else {
-             if (!isAdmin) { alert("No tienes permisos para importar clientes."); return; }
+             if (!isAdmin) { showUndoToast("No tenés permisos para importar clientes.", null); return; }
              const currentWeek = getWeekNumber(new Date());
              const cleanProducts = Object.fromEntries(
                  Object.entries(parsed.products).filter(([k, v]) => v !== '').map(([k, v]) => [k, parseInt(v) || 0])
@@ -946,7 +957,7 @@ function App() {
              const newData = {
                  name: sanitizeString(parsed.name, 100), phone: sanitizePhone(parsed.phone || ''), address: sanitizeString(parsed.address, 200), lat: sanitizeString(parsed.lat || '', 20), lng: sanitizeString(parsed.lng || '', 20), mapsLink: safeMapsLink, ...getDataScope(), userId: user.uid, freq: 'on_demand', visitDay: 'Sin Asignar', visitDays: [], notes: sanitizeString(parsed.notes || '', 500), updatedAt: new Date(), startWeek: currentWeek, listOrder: Date.now(), isPinned: false, products: cleanProducts
              };
-             db.collection('clients').add(newData).then(() => { alert("Importado al Directorio."); setShowPasteModal(false); });
+             firestoreRetry(() => db.collection('clients').add(newData)).then(() => { showUndoToast("Importado al Directorio.", null); setShowPasteModal(false); }).catch((e) => { showUndoToast(getErrorMessage(e), null); });
          }
     };
 
@@ -987,7 +998,7 @@ function App() {
     const handleExportClients = () => {
         try {
             const allClients = clients.filter(c => c.name);
-            if (allClients.length === 0) { alert("No hay clientes para exportar."); return; }
+            if (allClients.length === 0) { showUndoToast("No hay clientes para exportar.", null); return; }
 
             // Headers del CSV
             const headers = ['Nombre', 'Teléfono', 'Dirección', 'Día', 'Frecuencia', 'Productos', 'Notas', 'Tiene Deuda', 'Favorito', 'Link Maps'];
@@ -1048,7 +1059,7 @@ function App() {
             showUndoToast(`${allClients.length} clientes exportados`, null);
         } catch(e) { 
             console.error("Error exportando:", e); 
-            alert("Error al exportar: " + e.message); 
+            showUndoToast("Error al exportar. Intentá de nuevo.", null);
         }
     };
 
@@ -1628,7 +1639,7 @@ function App() {
                             <input type="date" name="specificDate" value={formData.specificDate || ''} onChange={handleInputChange} className="w-full p-3 border rounded-lg bg-gray-50 outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-white" min={new Date().toISOString().split('T')[0]} />
                         </div>
                         <textarea name="notes" value={formData.notes} onChange={handleInputChange} maxLength={500} className="w-full p-3 border rounded-lg h-24 dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Notas..." />
-                        <div className="flex gap-3"><Button variant="secondary" onClick={() => { setView('list'); resetForm(); }} className="flex-1">Cancelar</Button><Button type="submit" className="flex-1"><Icons.Save /> Guardar</Button></div>
+                        <div className="flex gap-3"><Button variant="secondary" onClick={() => { setView('list'); resetForm(); }} className="flex-1">Cancelar</Button><Button type="submit" disabled={saving} className="flex-1">{saving ? 'Guardando...' : <><Icons.Save /> Guardar</>}</Button></div>
                     </form>
                 )}
                 </>

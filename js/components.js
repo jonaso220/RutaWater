@@ -6,7 +6,7 @@ const Card = ({ children, className = "" }) => (
     </div>
 );
 
-const Button = ({ children, onClick, variant = "primary", className = "", type = "button" }) => {
+const Button = ({ children, onClick, variant = "primary", className = "", type = "button", disabled = false }) => {
     const variants = {
         primary: "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 dark:bg-blue-700",
         secondary: "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200",
@@ -16,7 +16,7 @@ const Button = ({ children, onClick, variant = "primary", className = "", type =
         google: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-white dark:border-gray-600"
     };
     return (
-        <button type={type} onClick={onClick} className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${variants[variant]} ${className}`}>
+        <button type={type} onClick={onClick} disabled={disabled} className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${variants[variant]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}>
             {children}
         </button>
     );

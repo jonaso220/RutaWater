@@ -59,6 +59,33 @@ var sanitizeClientData = function(data) {
     return clean;
 };
 
+// --- REINTENTOS Y MANEJO DE ERRORES ---
+
+var firestoreRetry = function(operation, maxRetries) {
+    maxRetries = maxRetries || 3;
+    var attempt = function(retriesLeft) {
+        return operation().catch(function(e) {
+            if (retriesLeft <= 1) throw e;
+            var delay = Math.pow(2, maxRetries - retriesLeft) * 1000;
+            return new Promise(function(r) { setTimeout(r, delay); }).then(function() {
+                return attempt(retriesLeft - 1);
+            });
+        });
+    };
+    return attempt(maxRetries);
+};
+
+var getErrorMessage = function(error) {
+    if (!error) return 'Ocurrió un error inesperado.';
+    var code = error.code || '';
+    var msg = error.message || '';
+    if (code === 'permission-denied' || code === 'PERMISSION_DENIED') return 'No tenés permisos para esta acción.';
+    if (code === 'not-found') return 'El registro no fue encontrado.';
+    if (code === 'unavailable' || code === 'deadline-exceeded' || msg.indexOf('network') !== -1 || msg.indexOf('Failed to fetch') !== -1)
+        return 'Error de conexión. Verificá tu internet e intentá de nuevo.';
+    return 'Ocurrió un error. Intentá de nuevo.';
+};
+
 var parseDate = function(val) {
     if (!val) return null;
     if (val.seconds !== undefined) return new Date(val.seconds * 1000);
