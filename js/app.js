@@ -399,7 +399,12 @@ function App() {
     const handleMarkAsDoneInList = async (client) => {
         // Optimista: quitar de la lista inmediatamente
         const snapshot = clients.map(c => c.id === client.id ? {...c} : c);
-        setClients(prev => prev.map(c => c.id === client.id ? {...c, isCompleted: true, completedAt: new Date(), isStarred: false, alarm: ''} : c));
+        if (client.freq === 'once') {
+            setClients(prev => prev.map(c => c.id === client.id ? {...c, isCompleted: true, completedAt: new Date(), isStarred: false, alarm: ''} : c));
+        } else {
+            // Para periódicos: marcar lastVisited=hoy para que el filtro lo oculte
+            setClients(prev => prev.map(c => c.id === client.id ? {...c, lastVisited: new Date(), isStarred: false, alarm: ''} : c));
+        }
         try {
             if (client.freq === 'once') {
                 const prevFields = {
@@ -533,9 +538,19 @@ function App() {
 
     
     const getVisibleClients = React.useCallback((dayToFilter) => {
+         const today = new Date();
+         today.setHours(0,0,0,0);
          const filtered = clients
             .filter(c => c.freq !== 'on_demand')
             .filter(c => !c.isCompleted)
+            // Ocultar clientes periódicos ya visitados hoy
+            .filter(c => {
+                if (c.freq === 'once' || !c.lastVisited) return true;
+                const lv = parseDate(c.lastVisited);
+                if (!lv) return true;
+                lv.setHours(0,0,0,0);
+                return lv.getTime() < today.getTime();
+            })
             // Excluir pedidos "once" sin fecha asignada (dato incompleto)
             .filter(c => !(c.freq === 'once' && !c.specificDate))
             .filter(c => {
