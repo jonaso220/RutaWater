@@ -1,7 +1,7 @@
 // --- CONFIGURACIÓN DE FIREBASE ---
 var firebaseConfig = {
     apiKey: "AIzaSyCJqRYt4lbsb3bOnmnDc5H6W6oJmjr1Bnc",
-    authDomain: "rutawater.firebaseapp.com",
+    authDomain: "rutawaterplus.netlify.app",
     projectId: "rutawater",
     storageBucket: "rutawater.firebasestorage.app",
     messagingSenderId: "882759838026",
