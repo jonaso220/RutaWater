@@ -447,12 +447,20 @@ function App() {
 
             try {
                 await firestoreRetry(() => db.collection('clients').doc(client.id).update(updates));
-                // Calcular la próxima fecha para mostrar en el toast
+                // Forzar actualización del estado local después del write
+                setClients(prev => prev.map(c => c.id === client.id ? {...c, ...updates} : c));
+
+                // Debug: mostrar qué calculó
                 const updatedClient = {...client, ...updates};
                 const nextDate = getNextVisitDate(updatedClient, selectedDay);
                 const nextLabel = nextDate ? formatDate(nextDate) : 'próxima fecha';
+                console.log('[Listo]', client.name, '| freq:', client.freq, '| specificDate:', client.specificDate, '→', updates.specificDate, '| lastVisited → hoy', '| nextDate:', nextLabel);
+
                 const undoAction = async () => {
-                    try { await firestoreRetry(() => db.collection('clients').doc(client.id).update(prevFields)); }
+                    try {
+                        await firestoreRetry(() => db.collection('clients').doc(client.id).update(prevFields));
+                        setClients(prev => prev.map(c => c.id === client.id ? {...c, ...prevFields} : c));
+                    }
                     catch(e) { console.error("Undo error", e); }
                 };
                 showUndoToast("Reagendado → " + nextLabel, undoAction);
