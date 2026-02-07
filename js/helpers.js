@@ -1,6 +1,64 @@
 // --- HELPERS: Funciones utilitarias puras ---
 // Declaradas con var para ser accesibles globalmente desde scripts Babel
 
+// --- SANITIZACIÓN Y VALIDACIÓN ---
+
+var sanitizeString = function(str, maxLen) {
+    if (!str) return '';
+    maxLen = maxLen || 500;
+    return String(str).trim().slice(0, maxLen);
+};
+
+var sanitizePhone = function(phone) {
+    if (!phone) return '';
+    return String(phone).replace(/[^\d+\-\s()]/g, '').slice(0, 20);
+};
+
+var sanitizeProductQty = function(val) {
+    if (!val && val !== 0) return '';
+    var n = parseInt(val, 10);
+    if (isNaN(n) || n < 0 || n > 9999) return '';
+    return String(n);
+};
+
+var isSafeUrl = function(url) {
+    if (!url) return false;
+    try {
+        var parsed = new URL(url);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch(e) {
+        return false;
+    }
+};
+
+var sanitizeClientData = function(data) {
+    var clean = {};
+    clean.name = sanitizeString(data.name, 100);
+    clean.phone = sanitizePhone(data.phone);
+    clean.address = sanitizeString(data.address, 200);
+    clean.notes = sanitizeString(data.notes, 500);
+    clean.lat = sanitizeString(data.lat, 20);
+    clean.lng = sanitizeString(data.lng, 20);
+    clean.freq = ['weekly','biweekly','triweekly','monthly','once','on_demand'].indexOf(data.freq) !== -1 ? data.freq : 'weekly';
+    clean.visitDay = sanitizeString(data.visitDay, 20);
+    clean.specificDate = sanitizeString(data.specificDate, 10);
+    clean.locationInput = sanitizeString(data.locationInput, 300);
+    clean.mapsLink = (data.mapsLink && isSafeUrl(data.mapsLink)) ? data.mapsLink : '';
+
+    // Sanitizar visitDays
+    var validDays = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+    clean.visitDays = Array.isArray(data.visitDays) ? data.visitDays.filter(function(d) { return validDays.indexOf(d) !== -1; }) : [];
+
+    // Sanitizar productos
+    var validProducts = ['b20','b12','b6','soda','bombita','disp_elec_new','disp_elec_chg','disp_nat'];
+    clean.products = {};
+    validProducts.forEach(function(pid) {
+        clean.products[pid] = data.products ? sanitizeProductQty(data.products[pid]) : '';
+    });
+
+    return clean;
+};
+
 var parseDate = function(val) {
     if (!val) return null;
     if (val.seconds !== undefined) return new Date(val.seconds * 1000);

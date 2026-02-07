@@ -688,8 +688,8 @@ function App() {
 
     const openGoogleMaps = (lat, lng, link) => { 
         let url = '';
-        if(lat && lng) { url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`; } 
-        else if(link) { url = link; } 
+        if(lat && lng) { url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`; }
+        else if(link && isSafeUrl(link)) { url = link; }
         else { alert("Ubicación no disponible"); return; }
         window.open(url, '_top');
     };
@@ -729,8 +729,9 @@ function App() {
                 return;
             }
             
+            const sanitized = sanitizeClientData(formData);
             const data = {
-                ...formData,
+                ...sanitized,
                 ...getDataScope(),
                 userId: user.uid,
                 updatedAt: new Date(),
@@ -738,7 +739,7 @@ function App() {
                 visitDays: visitDays,
                 visitDay: visitDays[0] || 'Sin Asignar', // Mantener compatibilidad
                 isPinned: false,
-                mapsLink: formData.locationInput
+                mapsLink: sanitized.mapsLink || sanitized.locationInput
             };
             
             if (editingId) { 
@@ -941,8 +942,9 @@ function App() {
              const cleanProducts = Object.fromEntries(
                  Object.entries(parsed.products).filter(([k, v]) => v !== '').map(([k, v]) => [k, parseInt(v) || 0])
              );
+             const safeMapsLink = (parsed.link && isSafeUrl(parsed.link)) ? parsed.link : '';
              const newData = {
-                 name: parsed.name, phone: parsed.phone || '', address: parsed.address, lat: parsed.lat || null, lng: parsed.lng || null, mapsLink: parsed.link, ...getDataScope(), userId: user.uid, freq: 'on_demand', visitDay: 'Sin Asignar', notes: parsed.notes || '', updatedAt: new Date(), startWeek: currentWeek, listOrder: Date.now(), isPinned: false, products: cleanProducts
+                 name: sanitizeString(parsed.name, 100), phone: sanitizePhone(parsed.phone || ''), address: sanitizeString(parsed.address, 200), lat: sanitizeString(parsed.lat || '', 20), lng: sanitizeString(parsed.lng || '', 20), mapsLink: safeMapsLink, ...getDataScope(), userId: user.uid, freq: 'on_demand', visitDay: 'Sin Asignar', visitDays: [], notes: sanitizeString(parsed.notes || '', 500), updatedAt: new Date(), startWeek: currentWeek, listOrder: Date.now(), isPinned: false, products: cleanProducts
              };
              db.collection('clients').add(newData).then(() => { alert("Importado al Directorio."); setShowPasteModal(false); });
          }
@@ -1531,8 +1533,8 @@ function App() {
                             <button type="button" onClick={() => setShowPasteModal(true)} className="text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded border border-blue-200 dark:border-blue-800"><Icons.Clipboard size={14}/> Pegar Formato Contacto</button>
                         </div>
 
-                        <input required name="name" value={formData.name} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Nombre" />
-                        <input name="phone" value={formData.phone} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Teléfono" />
+                        <input required name="name" value={formData.name} onChange={handleInputChange} maxLength={100} className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Nombre" />
+                        <input name="phone" value={formData.phone} onChange={handleInputChange} maxLength={20} className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Teléfono" />
                         
                         {/* Selector de múltiples días */}
                         <div>
@@ -1569,7 +1571,7 @@ function App() {
                             )}
                         </div>
 
-                        <input required name="address" value={formData.address} onChange={handleInputChange} className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Dirección" />
+                        <input required name="address" value={formData.address} onChange={handleInputChange} maxLength={200} className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Dirección" />
                         <div className="bg-blue-50 dark:bg-gray-800 p-4 rounded-lg border border-blue-100 dark:border-gray-700">
                             <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2"><Icons.MapPin size={16}/> Ubicación (GPS/Link)</label>
                             <div className="relative"><input type="text" value={formData.locationInput} onChange={handleLocationPaste} className="w-full p-3 pl-10 border rounded-lg outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Pega link de Maps..." /><div className="absolute left-3 top-3 text-gray-400"><Icons.Link size={20} /></div></div>
@@ -1625,7 +1627,7 @@ function App() {
                             <label className="block text-sm font-medium mb-1 dark:text-gray-300">Fecha (Opcional)</label>
                             <input type="date" name="specificDate" value={formData.specificDate || ''} onChange={handleInputChange} className="w-full p-3 border rounded-lg bg-gray-50 outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-white" min={new Date().toISOString().split('T')[0]} />
                         </div>
-                        <textarea name="notes" value={formData.notes} onChange={handleInputChange} className="w-full p-3 border rounded-lg h-24 dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Notas..." />
+                        <textarea name="notes" value={formData.notes} onChange={handleInputChange} maxLength={500} className="w-full p-3 border rounded-lg h-24 dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Notas..." />
                         <div className="flex gap-3"><Button variant="secondary" onClick={() => { setView('list'); resetForm(); }} className="flex-1">Cancelar</Button><Button type="submit" className="flex-1"><Icons.Save /> Guardar</Button></div>
                     </form>
                 )}
