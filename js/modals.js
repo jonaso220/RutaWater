@@ -254,6 +254,8 @@ const ScheduleModal = ({ isOpen, client, onClose, onSave }) => {
     React.useEffect(() => {
         if (client) {
             setLocalNotes(client.notes || '');
+            setLocalFreq(client.freq || 'once');
+            setLocalDate(client.specificDate || '');
             setLocalProducts(client.products || { b20: '', b12: '', b6: '', soda: '', bombita: '', disp_elec_new: '', disp_elec_chg: '', disp_nat: '' });
             // Si ya tiene días asignados, cargarlos
             if (client.visitDays && client.visitDays.length > 0) {
