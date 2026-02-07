@@ -311,15 +311,10 @@ function App() {
     const handleDebtPaid = async (debt) => {
         try {
             await firestoreRetry(() => db.collection('debts').doc(debt.id).delete());
-            const remainingSnap = await db.collection('debts')
-                .where('clientId', '==', debt.clientId)
-                .get();
-            if (remainingSnap.empty) {
-                const clientRef = db.collection('clients').doc(debt.clientId);
-                const clientDoc = await clientRef.get();
-                if (clientDoc.exists) {
-                    await firestoreRetry(() => clientRef.update({ hasDebt: false }));
-                }
+            // Usar estado local (ya sincronizado) para verificar si quedan deudas
+            const remaining = debts.filter(d => d.clientId === debt.clientId && d.id !== debt.id);
+            if (remaining.length === 0) {
+                await firestoreRetry(() => db.collection('clients').doc(debt.clientId).update({ hasDebt: false }));
             }
         } catch(e) { console.error("Error eliminando deuda:", e); showUndoToast(getErrorMessage(e), null); }
     };
@@ -360,15 +355,10 @@ function App() {
     const handleTransferReviewed = async (transfer) => {
         try {
             await firestoreRetry(() => db.collection('transfers').doc(transfer.id).delete());
-            const remainingSnap = await db.collection('transfers')
-                .where('clientId', '==', transfer.clientId)
-                .get();
-            if (remainingSnap.empty) {
-                const clientRef = db.collection('clients').doc(transfer.clientId);
-                const clientDoc = await clientRef.get();
-                if (clientDoc.exists) {
-                    await firestoreRetry(() => clientRef.update({ hasPendingTransfer: false }));
-                }
+            // Usar estado local (ya sincronizado) para verificar si quedan transferencias
+            const remaining = transfers.filter(t => t.clientId === transfer.clientId && t.id !== transfer.id);
+            if (remaining.length === 0) {
+                await firestoreRetry(() => db.collection('clients').doc(transfer.clientId).update({ hasPendingTransfer: false }));
             }
         } catch(e) { console.error("Error eliminando transferencia:", e); showUndoToast(getErrorMessage(e), null); }
     };
@@ -416,7 +406,7 @@ function App() {
                 };
                 const undoAction = async () => {
                     try {
-                        await db.collection('clients').doc(client.id).update(prevFields);
+                        await firestoreRetry(() => db.collection('clients').doc(client.id).update(prevFields));
                     } catch(e) { console.error("Undo error", e); }
                 };
 
