@@ -10,7 +10,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#2563eb">
-    
+
+    <!-- PRECONNECT: acelerar carga de CDNs -->
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin>
+    <link rel="dns-prefetch" href="https://firestore.googleapis.com">
+
     <!-- ENLACE AL MANIFIESTO EXTERNO -->
     <link rel="manifest" href="manifest.json">
     
@@ -117,6 +124,13 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
         const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+        // --- PERSISTENCIA OFFLINE: datos instantáneos al recargar ---
+        db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
+            if (err.code !== 'failed-precondition' && err.code !== 'unimplemented') {
+                console.error('Persistence error:', err);
+            }
+        });
 
         // --- CONSTANTES ---
         const PRODUCTS = [
@@ -708,6 +722,132 @@
             );
         };
 
+        // --- HOOK: DEBOUNCE PARA BÚSQUEDAS ---
+        const useDebounce = (value, delay = 300) => {
+            const [debouncedValue, setDebouncedValue] = React.useState(value);
+            React.useEffect(() => {
+                const handler = setTimeout(() => setDebouncedValue(value), delay);
+                return () => clearTimeout(handler);
+            }, [value, delay]);
+            return debouncedValue;
+        };
+
+        // --- COMPONENTE MEMOIZADO: TARJETA DE CLIENTE ---
+        const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDebtClick, onAddTransfer, onSetAlarm, onEdit, onDelete, onOpenMaps, onSendPhoto, onSendWhatsApp, onMarkDone, onChangePosition }) => {
+            const prodSummary = React.useMemo(() => {
+                if (!client.products) return '';
+                return Object.keys(client.products)
+                    .filter(k => parseInt(client.products[k] || 0) > 0)
+                    .map(k => {
+                        const p = PRODUCTS.find(prod => prod.id === k);
+                        return `${client.products[k]}x ${p ? p.short : k}`;
+                    }).join(', ');
+            }, [client.products]);
+
+            return (
+                <Card className={`flex flex-row overflow-hidden ${(client.freq === 'once' || client.isStarred) ? 'border-l-4 border-l-orange-500 dark:border-l-orange-600 bg-orange-50 dark:bg-gray-800' : ''}`}>
+                    {/* ORDER INPUT BADGE */}
+                    <div className="w-10 bg-gray-50 dark:bg-gray-700/50 flex flex-col justify-center items-center border-r border-gray-100 dark:border-gray-700 p-0.5">
+                         <OrderInput
+                            value={trueIndex + 1}
+                            onChange={(newPos) => onChangePosition(client.id, newPos)}
+                         />
+                    </div>
+
+                    {/* CARD CONTENT */}
+                    <div className="flex-1 p-3 flex flex-col gap-2">
+                        {/* Botones de herramientas - arriba a la derecha */}
+                        <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => onToggleStar(client)} className={`p-1.5 rounded-md transition-colors ${client.isStarred ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.Star size={15} fill={client.isStarred ? "currentColor" : "none"} /></button>
+                            <button onClick={() => onDebtClick(client)} className={`p-1.5 rounded-md transition-colors ${client.hasDebt ? 'text-red-500 bg-red-50 dark:bg-red-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.DollarSign size={15} /></button>
+                            <button onClick={() => onAddTransfer(client)} className={`p-1.5 rounded-md transition-colors ${client.hasPendingTransfer ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.CreditCard size={15} /></button>
+                            <div className="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-0.5"></div>
+                            <button onClick={() => onSetAlarm(client)} className={`p-1.5 rounded-md transition-colors ${client.alarm ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.Bell size={15} /></button>
+                            {isAdmin && <button onClick={() => onEdit(client)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><Icons.Edit size={15} /></button>}
+                            {isAdmin && <button onClick={() => onDelete(client.id)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Icons.Trash2 size={15} /></button>}
+                        </div>
+
+                        {/* Nombre y dirección - ancho completo debajo */}
+                        <div className="-mt-1">
+                            <h3 className="font-bold text-lg leading-tight text-gray-900 dark:text-white">{(client.name || '').toUpperCase()}</h3>
+                            <div onClick={() => onOpenMaps(client.lat, client.lng, client.mapsLink)} className="text-gray-500 dark:text-gray-400 text-sm flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 mt-0.5 hover:underline">
+                                <Icons.MapPin size={14} /> {client.address}
+                            </div>
+                        </div>
+
+                        {/* Info Block */}
+                        <div className="flex flex-wrap gap-2 items-center">
+                            {prodSummary && <span className="text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200 px-2 py-1 rounded-full border border-blue-200 dark:border-blue-800">📦 {prodSummary}</span>}
+                            <Badge type={client.freq} date={client.specificDate} />
+                            {client.visitDays && client.visitDays.length > 1 && (
+                                <span className="text-xs font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-1 rounded-full border border-purple-200 dark:border-purple-800">
+                                    📅 {client.visitDays.map(d => d.slice(0,3)).join(', ')}
+                                </span>
+                            )}
+                        </div>
+                        {client.notes && (
+                            <div className="text-sm bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 p-2 rounded border border-yellow-100 dark:border-yellow-900/30 flex gap-1 items-start">
+                                <span className="shrink-0">📝</span>
+                                <span>{client.notes}</span>
+                            </div>
+                        )}
+
+                        {/* Action Bar - Separated */}
+                        <div className="flex gap-1.5 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 items-center">
+                            {/* Teléfono */}
+                            {client.phone ? (
+                                <a href={`tel:${client.phone}`} className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 w-9 shrink-0"><Icons.Phone size={17} /></a>
+                            ) : (
+                                <span className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 text-gray-300 dark:text-gray-600 rounded-lg cursor-not-allowed w-9 shrink-0"><Icons.Phone size={17} /></span>
+                            )}
+
+                            {/* Cámara / Chat */}
+                            {client.phone ? (
+                                <button onClick={() => onSendPhoto(client.phone)} className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 w-9 shrink-0"><Icons.Camera size={17} /></button>
+                            ) : (
+                                <span className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 text-gray-300 dark:text-gray-600 rounded-lg cursor-not-allowed w-9 shrink-0"><Icons.Camera size={17} /></span>
+                            )}
+
+                            {/* En Camino */}
+                            {client.phone ? (
+                                <button
+                                    onClick={() => onSendWhatsApp(client.phone)}
+                                    className="flex-1 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-2 px-2 rounded-lg shadow-sm flex items-center justify-center gap-1 text-sm transition-colors whitespace-nowrap"
+                                >
+                                    <Icons.MessageCircle size={17} />
+                                    <span>En camino</span>
+                                </button>
+                            ) : (
+                                <span className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 font-bold py-2 px-2 rounded-lg flex items-center justify-center gap-1 text-sm cursor-not-allowed whitespace-nowrap">
+                                    <Icons.MessageCircle size={17} />
+                                    <span>Sin tel.</span>
+                                </span>
+                            )}
+
+                            {/* Listo */}
+                            <button
+                                onClick={() => onMarkDone(client)}
+                                className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-2 px-3 rounded-lg shadow-sm flex items-center justify-center gap-1 text-sm transition-colors whitespace-nowrap shrink-0"
+                            >
+                                <Icons.CheckCircle size={17} />
+                                <span>Listo</span>
+                            </button>
+                        </div>
+                    </div>
+                </Card>
+            );
+        }, (prevProps, nextProps) => {
+            // Comparador custom: solo re-renderizar si cambian datos relevantes
+            if (prevProps.trueIndex !== nextProps.trueIndex || prevProps.isAdmin !== nextProps.isAdmin) return false;
+            const pc = prevProps.client, nc = nextProps.client;
+            return pc.id === nc.id && pc.name === nc.name && pc.address === nc.address &&
+                   pc.phone === nc.phone && pc.freq === nc.freq && pc.isStarred === nc.isStarred &&
+                   pc.hasDebt === nc.hasDebt && pc.hasPendingTransfer === nc.hasPendingTransfer &&
+                   pc.alarm === nc.alarm && pc.notes === nc.notes && pc.specificDate === nc.specificDate &&
+                   JSON.stringify(pc.products) === JSON.stringify(nc.products) &&
+                   JSON.stringify(pc.visitDays) === JSON.stringify(nc.visitDays);
+        });
+
         const ProductCounter = ({ clients }) => {
             const totals = clients.reduce((acc, client) => {
                 if (!client.products) return acc;
@@ -1179,6 +1319,25 @@
                 }
                 return { userId: user?.uid };
             };
+
+            // --- BÚSQUEDAS DEBOUNCED (evitar filtrado en cada tecla) ---
+            const debouncedListSearch = useDebounce(listSearchTerm, 300);
+            const debouncedSearch = useDebounce(searchTerm, 300);
+            const debouncedDebtSearch = useDebounce(debtSearchTerm, 300);
+            const debouncedTransferSearch = useDebounce(transferSearchTerm, 300);
+
+            // --- HANDLERS MEMOIZADOS PARA ClientCard ---
+            const handleDebtClick = React.useCallback((client) => {
+                if (client.hasDebt) {
+                    setViewDebtModal({ isOpen: true, client });
+                } else {
+                    setDebtModal({ isOpen: true, client });
+                }
+            }, []);
+
+            const handleSetAlarmForClient = React.useCallback((client) => {
+                setAlarmModal({ isOpen: true, clientId: client.id, currentVal: client.alarm || '' });
+            }, []);
 
             const toastTimeout = React.useRef(null);
 
@@ -1739,10 +1898,10 @@
                 const groups = {};
                 let visible = getVisibleClients(dayToFilter);
                 
-                // Aplicar filtro de búsqueda
-                if (listSearchTerm.trim()) {
-                    const term = normalizeText(listSearchTerm);
-                    visible = visible.filter(c => 
+                // Aplicar filtro de búsqueda (usa valor debounced)
+                if (debouncedListSearch.trim()) {
+                    const term = normalizeText(debouncedListSearch);
+                    visible = visible.filter(c =>
                         normalizeText(c.name || '').includes(term) ||
                         normalizeText(c.address || '').includes(term)
                     );
@@ -1788,7 +1947,7 @@
                 const sortedGroups = {};
                 sortedKeys.forEach(key => sortedGroups[key] = groups[key]);
                 return sortedGroups;
-            }, [clients, selectedDay, view, getVisibleClients, listSearchTerm, activeFilters]);
+            }, [clients, selectedDay, view, getVisibleClients, debouncedListSearch, activeFilters]);
 
             // Calculate Counter Totals based on FIRST group (Nearest Date)
             const activeClientsForCounter = React.useMemo(() => {
@@ -1797,6 +1956,14 @@
                 // Return items from the first key (earliest date)
                 return groupedClients[sortedKeys[0]].items;
             }, [groupedClients]);
+
+            // --- MAPA DE ÍNDICES PRE-COMPUTADO (O(n) en vez de O(n²)) ---
+            const clientIndexMap = React.useMemo(() => {
+                const map = {};
+                const visible = getVisibleClients(selectedDay);
+                visible.forEach((c, i) => { map[c.id] = i; });
+                return map;
+            }, [getVisibleClients, selectedDay]);
 
             const handleGoogleLogin = async () => { try { await auth.signInWithPopup(googleProvider); } catch (error) { alert("Error: " + error.message); } };
             const handleLogout = () => { if(confirm("¿Cerrar sesión?")) auth.signOut(); };
@@ -2265,7 +2432,7 @@
             const filteredDirectory = React.useMemo(() => {
                 return clients
                     .filter(c => {
-                        const term = normalizeText(searchTerm);
+                        const term = normalizeText(debouncedSearch);
                         const name = normalizeText(c.name || '');
                         const address = normalizeText(c.address || '');
                         const phone = (c.phone || '').toLowerCase();
@@ -2294,7 +2461,7 @@
                         return unique;
                     }, [])
                     .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-            }, [clients, searchTerm]);
+            }, [clients, debouncedSearch]);
             
             const handleExportClients = () => {
                 try {
@@ -2409,42 +2576,43 @@
 
             return (
                 <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 font-sans ${activeSection === 'cartera' ? 'pb-24' : 'pb-6'} relative`}>
-                    <ConfirmModal isOpen={confirmModal.isOpen} title={confirmModal.title} message={confirmModal.message} confirmText={confirmModal.confirmText} cancelText={confirmModal.cancelText} isDanger={confirmModal.isDanger} onConfirm={confirmModal.action} onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })} />
-                    <ScheduleModal isOpen={!!scheduleClient} client={scheduleClient} onClose={() => setScheduleClient(null)} onSave={handleScheduleFromDirectory} />
-                    <PasteContactModal isOpen={showPasteModal} onClose={() => setShowPasteModal(false)} onPaste={handleMagicPaste} />
-                    <AlarmModal isOpen={alarmModal.isOpen} initialValue={alarmModal.currentVal} onClose={() => setAlarmModal({isOpen: false, clientId: null, currentVal: ''})} onSave={handleSaveAlarm} />
-                    <GroupModal 
-                        isOpen={showGroupModal} 
-                        onClose={() => setShowGroupModal(false)} 
-                        user={user} 
-                        groupData={groupData} 
+                    {/* MODALES: renderizado condicional para evitar reconciliación innecesaria */}
+                    {confirmModal.isOpen && <ConfirmModal isOpen={true} title={confirmModal.title} message={confirmModal.message} confirmText={confirmModal.confirmText} cancelText={confirmModal.cancelText} isDanger={confirmModal.isDanger} onConfirm={confirmModal.action} onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })} />}
+                    {scheduleClient && <ScheduleModal isOpen={true} client={scheduleClient} onClose={() => setScheduleClient(null)} onSave={handleScheduleFromDirectory} />}
+                    {showPasteModal && <PasteContactModal isOpen={true} onClose={() => setShowPasteModal(false)} onPaste={handleMagicPaste} />}
+                    {alarmModal.isOpen && <AlarmModal isOpen={true} initialValue={alarmModal.currentVal} onClose={() => setAlarmModal({isOpen: false, clientId: null, currentVal: ''})} onSave={handleSaveAlarm} />}
+                    {showGroupModal && <GroupModal
+                        isOpen={true}
+                        onClose={() => setShowGroupModal(false)}
+                        user={user}
+                        groupData={groupData}
                         onGroupUpdate={(newGroupData) => {
                             setGroupData(newGroupData);
-                        }} 
-                    />
-                    <DebtModal isOpen={debtModal.isOpen} client={debtModal.client} onClose={() => setDebtModal({ isOpen: false, client: null })} onSave={handleAddDebt} />
-                    <EditDebtModal isOpen={editDebtModal.isOpen} debt={editDebtModal.debt} onClose={() => setEditDebtModal({ isOpen: false, debt: null })} onSave={handleEditDebt} />
-                    <ViewDebtModal 
-                        isOpen={viewDebtModal.isOpen} 
-                        client={viewDebtModal.client} 
-                        debts={debts} 
-                        onClose={() => setViewDebtModal({ isOpen: false, client: null })} 
+                        }}
+                    />}
+                    {debtModal.isOpen && <DebtModal isOpen={true} client={debtModal.client} onClose={() => setDebtModal({ isOpen: false, client: null })} onSave={handleAddDebt} />}
+                    {editDebtModal.isOpen && <EditDebtModal isOpen={true} debt={editDebtModal.debt} onClose={() => setEditDebtModal({ isOpen: false, debt: null })} onSave={handleEditDebt} />}
+                    {viewDebtModal.isOpen && <ViewDebtModal
+                        isOpen={true}
+                        client={viewDebtModal.client}
+                        debts={debts}
+                        onClose={() => setViewDebtModal({ isOpen: false, client: null })}
                         onPaid={(debt) => {
-                            setViewDebtModal({ isOpen: false, client: null }); // Cerrar modal primero
+                            setViewDebtModal({ isOpen: false, client: null });
                             setConfirmModal({
                                 isOpen: true, title: '¿Deuda pagada?',
                                 message: `Confirmar que ${debt.clientName} pagó $${debt.amount?.toLocaleString()}`,
                                 confirmText: "Pagada", isDanger: false,
-                                action: async () => { 
-                                    await handleDebtPaid(debt); 
-                                    setConfirmModal(prev => ({...prev, isOpen: false})); 
+                                action: async () => {
+                                    await handleDebtPaid(debt);
+                                    setConfirmModal(prev => ({...prev, isOpen: false}));
                                 }
                             });
                         }}
                         onEdit={(debt) => setEditDebtModal({ isOpen: true, debt })}
                         onAddMore={(client) => setDebtModal({ isOpen: true, client })}
-                    />
-                    <AlarmBanner data={activeAlert} onClose={handleDismissAlert} />
+                    />}
+                    {activeAlert && <AlarmBanner data={activeAlert} onClose={handleDismissAlert} />}
 
                     {/* TOAST NOTIFICATION */}
                     {toast && <Toast message={toast.message} onUndo={handleUndo} hasUndo={!!toast.undoAction} />}
@@ -2724,110 +2892,25 @@
                                                 {groupedClients[key].label}
                                             </h3>
                                             <div id={`group-${key}`} className="grid gap-3">
-                                                {groupedClients[key].items.map((client, index) => {
-                                                    const dayToFilter = selectedDay;
-                                                    const masterList = getVisibleClients(dayToFilter);
-                                                    const trueIndex = masterList.findIndex(c => c.id === client.id);
-
-                                                    const prodSummary = client.products ? Object.keys(client.products)
-                                                        .filter(k => parseInt(client.products[k] || 0) > 0)
-                                                        .map(k => {
-                                                            const p = PRODUCTS.find(prod => prod.id === k);
-                                                            return `${client.products[k]}x ${p ? p.short : k}`;
-                                                        }).join(', ') : '';
-
-                                                    return (
-                                                    <Card key={client.id} className={`flex flex-row overflow-hidden ${(client.freq === 'once' || client.isStarred) ? 'border-l-4 border-l-orange-500 dark:border-l-orange-600 bg-orange-50 dark:bg-gray-800' : ''}`}>
-                                                        {/* ORDER INPUT BADGE */}
-                                                        <div className="w-10 bg-gray-50 dark:bg-gray-700/50 flex flex-col justify-center items-center border-r border-gray-100 dark:border-gray-700 p-0.5">
-                                                             <OrderInput 
-                                                                value={trueIndex + 1} 
-                                                                onChange={(newPos) => changeClientPosition(client.id, newPos)}
-                                                             />
-                                                        </div>
-
-                                                        {/* CARD CONTENT */}
-                                                        <div className="flex-1 p-3 flex flex-col gap-2"> 
-                                                            {/* Botones de herramientas - arriba a la derecha */}
-                                                            <div className="flex items-center justify-end gap-1">
-                                                                <button onClick={() => handleToggleStar(client)} className={`p-1.5 rounded-md transition-colors ${client.isStarred ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.Star size={15} fill={client.isStarred ? "currentColor" : "none"} /></button>
-                                                                <button onClick={() => client.hasDebt ? setViewDebtModal({ isOpen: true, client }) : setDebtModal({ isOpen: true, client })} className={`p-1.5 rounded-md transition-colors ${client.hasDebt ? 'text-red-500 bg-red-50 dark:bg-red-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.DollarSign size={15} /></button>
-                                                                <button onClick={() => handleAddTransfer(client)} className={`p-1.5 rounded-md transition-colors ${client.hasPendingTransfer ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.CreditCard size={15} /></button>
-                                                                <div className="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-0.5"></div>
-                                                                <button onClick={() => setAlarmModal({isOpen: true, clientId: client.id, currentVal: client.alarm || ''})} className={`p-1.5 rounded-md transition-colors ${client.alarm ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.Bell size={15} /></button>
-                                                                {isAdmin && <button onClick={() => editClient(client)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><Icons.Edit size={15} /></button>}
-                                                                {isAdmin && <button onClick={() => handleDeleteClient(client.id)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Icons.Trash2 size={15} /></button>}
-                                                            </div>
-
-                                                            {/* Nombre y dirección - ancho completo debajo */}
-                                                            <div className="-mt-1">
-                                                                <h3 className="font-bold text-lg leading-tight text-gray-900 dark:text-white">{(client.name || '').toUpperCase()}</h3>
-                                                                <div onClick={() => openGoogleMaps(client.lat, client.lng, client.mapsLink)} className="text-gray-500 dark:text-gray-400 text-sm flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 mt-0.5 hover:underline">
-                                                                    <Icons.MapPin size={14} /> {client.address}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Info Block */}
-                                                            <div className="flex flex-wrap gap-2 items-center">
-                                                                {prodSummary && <span className="text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200 px-2 py-1 rounded-full border border-blue-200 dark:border-blue-800">📦 {prodSummary}</span>}
-                                                                <Badge type={client.freq} date={client.specificDate} />
-                                                                {client.visitDays && client.visitDays.length > 1 && (
-                                                                    <span className="text-xs font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-1 rounded-full border border-purple-200 dark:border-purple-800">
-                                                                        📅 {client.visitDays.map(d => d.slice(0,3)).join(', ')}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            {client.notes && (
-                                                                <div className="text-sm bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 p-2 rounded border border-yellow-100 dark:border-yellow-900/30 flex gap-1 items-start">
-                                                                    <span className="shrink-0">📝</span>
-                                                                    <span>{client.notes}</span>
-                                                                </div>
-                                                            )}
-                                                            
-                                                            {/* Action Bar - Separated */}
-                                                            <div className="flex gap-1.5 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 items-center">
-                                                                {/* Teléfono */}
-                                                                {client.phone ? (
-                                                                    <a href={`tel:${client.phone}`} className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 w-9 shrink-0"><Icons.Phone size={17} /></a>
-                                                                ) : (
-                                                                    <span className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 text-gray-300 dark:text-gray-600 rounded-lg cursor-not-allowed w-9 shrink-0"><Icons.Phone size={17} /></span>
-                                                                )}
-
-                                                                {/* Cámara / Chat */}
-                                                                {client.phone ? (
-                                                                    <button onClick={() => sendPhotoWhatsApp(client.phone)} className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 w-9 shrink-0"><Icons.Camera size={17} /></button>
-                                                                ) : (
-                                                                    <span className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 text-gray-300 dark:text-gray-600 rounded-lg cursor-not-allowed w-9 shrink-0"><Icons.Camera size={17} /></span>
-                                                                )}
-
-                                                                {/* En Camino */}
-                                                                {client.phone ? (
-                                                                    <button 
-                                                                        onClick={() => sendWhatsApp(client.phone)} 
-                                                                        className="flex-1 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-2 px-2 rounded-lg shadow-sm flex items-center justify-center gap-1 text-sm transition-colors whitespace-nowrap"
-                                                                    >
-                                                                        <Icons.MessageCircle size={17} /> 
-                                                                        <span>En camino</span>
-                                                                    </button>
-                                                                ) : (
-                                                                    <span className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 font-bold py-2 px-2 rounded-lg flex items-center justify-center gap-1 text-sm cursor-not-allowed whitespace-nowrap">
-                                                                        <Icons.MessageCircle size={17} /> 
-                                                                        <span>Sin tel.</span>
-                                                                    </span>
-                                                                )}
-
-                                                                {/* Listo */}
-                                                                <button 
-                                                                    onClick={() => handleMarkAsDoneInList(client)} 
-                                                                    className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-2 px-3 rounded-lg shadow-sm flex items-center justify-center gap-1 text-sm transition-colors whitespace-nowrap shrink-0"
-                                                                >
-                                                                    <Icons.CheckCircle size={17} /> 
-                                                                    <span>Listo</span>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </Card>
-                                                )})}
+                                                {groupedClients[key].items.map((client) => (
+                                                    <ClientCard
+                                                        key={client.id}
+                                                        client={client}
+                                                        trueIndex={clientIndexMap[client.id] ?? 0}
+                                                        isAdmin={isAdmin}
+                                                        onToggleStar={handleToggleStar}
+                                                        onDebtClick={handleDebtClick}
+                                                        onAddTransfer={handleAddTransfer}
+                                                        onSetAlarm={handleSetAlarmForClient}
+                                                        onEdit={editClient}
+                                                        onDelete={handleDeleteClient}
+                                                        onOpenMaps={openGoogleMaps}
+                                                        onSendPhoto={sendPhotoWhatsApp}
+                                                        onSendWhatsApp={sendWhatsApp}
+                                                        onMarkDone={handleMarkAsDoneInList}
+                                                        onChangePosition={changeClientPosition}
+                                                    />
+                                                ))}
                                             </div>
                                         </div>
                                     ))
@@ -3066,8 +3149,8 @@
                                     <div className="grid gap-3">
                                         {debts
                                             .filter(d => {
-                                                if (!debtSearchTerm.trim()) return true;
-                                                const term = debtSearchTerm.toLowerCase();
+                                                if (!debouncedDebtSearch.trim()) return true;
+                                                const term = debouncedDebtSearch.toLowerCase();
                                                 return (d.clientName || '').toLowerCase().includes(term) || (d.clientAddress || '').toLowerCase().includes(term);
                                             })
                                             .map(debt => (
@@ -3177,8 +3260,8 @@
                                     <div className="grid gap-3">
                                         {transfers
                                             .filter(t => {
-                                                if (!transferSearchTerm.trim()) return true;
-                                                const term = transferSearchTerm.toLowerCase();
+                                                if (!debouncedTransferSearch.trim()) return true;
+                                                const term = debouncedTransferSearch.toLowerCase();
                                                 return (t.clientName || '').toLowerCase().includes(term) || (t.clientAddress || '').toLowerCase().includes(term);
                                             })
                                             .map(transfer => (
