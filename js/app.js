@@ -93,8 +93,12 @@ function App() {
             setLoadingAuth(false);
 
             if (u) {
-                // Cargar datos del usuario para ver si pertenece a un grupo
-                const userDoc = await db.collection('users').doc(u.uid).get();
+                // Crear documento de usuario si no existe (primer login)
+                const userRef = db.collection('users').doc(u.uid);
+                const userDoc = await userRef.get();
+                if (!userDoc.exists) {
+                    await userRef.set({ email: u.email, displayName: u.displayName || '', createdAt: new Date(), role: 'admin' });
+                }
                 const userData = userDoc.exists ? userDoc.data() : null;
 
                 if (userData?.groupId) {
