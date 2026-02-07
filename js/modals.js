@@ -241,12 +241,13 @@ const ViewDebtModal = ({ isOpen, client, debts, onClose, onPaid, onEdit, onAddMo
 };
 
 const ScheduleModal = ({ isOpen, client, onClose, onSave }) => {
-    if (!isOpen || !client) return null;
     const [localDays, setLocalDays] = React.useState(['Lunes']); // Array de días
     const [localFreq, setLocalFreq] = React.useState('once');
     const [localDate, setLocalDate] = React.useState('');
     const [localNotes, setLocalNotes] = React.useState('');
     const [localProducts, setLocalProducts] = React.useState({});
+
+    if (!isOpen || !client) return null;
 
     const ALL_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -392,8 +393,9 @@ const ScheduleModal = ({ isOpen, client, onClose, onSave }) => {
 };
 
 const PasteContactModal = ({ isOpen, onClose, onPaste }) => {
-     if (!isOpen) return null;
      const [text, setText] = React.useState('');
+
+     if (!isOpen) return null;
 
      const handleConfirm = () => {
          onPaste(text);
