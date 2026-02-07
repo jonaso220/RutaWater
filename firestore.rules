@@ -98,9 +98,9 @@ service cloud.firestore {
 
     // --- DAILY_LOADS ---
     match /daily_loads/{loadId} {
-      allow read: if isAuth() && hasAccess(resource);
-      allow create: if isAuth() && isOwnData();
-      allow update: if isAuth() && hasAccess(resource);
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
       allow delete: if isAuth() && hasWriteAccess(resource);
     }
 
