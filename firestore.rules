@@ -2,12 +2,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ========================================
-    // FUNCIONES AUXILIARES
-    // ========================================
-
     function isAuth() {
       return request.auth != null;
+    }
+
+    function userExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
     function getUserData() {
@@ -15,39 +15,33 @@ service cloud.firestore {
     }
 
     function isGroupAdmin() {
-      return getUserData().role == 'admin';
+      return userExists() && getUserData().role == 'admin';
     }
 
     // Acceso de lectura: dueño del doc O mismo grupo
     function hasAccess(res) {
       return res.data.userId == request.auth.uid
-        || (getUserData().groupId != null && res.data.groupId == getUserData().groupId);
+        || (userExists() && getUserData().groupId != null && res.data.groupId == getUserData().groupId);
     }
 
     // Acceso de escritura: dueño del doc O admin del mismo grupo
     function hasWriteAccess(res) {
       return res.data.userId == request.auth.uid
-        || (getUserData().groupId != null && res.data.groupId == getUserData().groupId && getUserData().role == 'admin');
+        || (userExists() && getUserData().groupId != null && res.data.groupId == getUserData().groupId && getUserData().role == 'admin');
     }
 
     function isOwnData() {
       return request.resource.data.userId == request.auth.uid;
     }
 
-    // ========================================
-    // REGLAS POR COLECCIÓN
-    // ========================================
-
     // --- CLIENTS ---
     match /clients/{clientId} {
       allow read: if isAuth() && hasAccess(resource);
-
       allow create: if isAuth() && isOwnData()
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 100
         && request.resource.data.address is string
         && request.resource.data.address.size() <= 200;
-
       allow update: if isAuth() && hasAccess(resource) && (
         hasWriteAccess(resource) ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -55,7 +49,6 @@ service cloud.firestore {
           'lastVisited', 'specificDate', 'hasDebt', 'hasPendingTransfer'
         ])
       );
-
       allow delete: if isAuth() && hasWriteAccess(resource);
     }
 
@@ -85,15 +78,13 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuth() && (
         userId == request.auth.uid ||
-        (resource.data.groupId != null && getUserData().groupId == resource.data.groupId)
+        (resource.data.groupId != null && userExists() && getUserData().groupId == resource.data.groupId)
       );
-
       allow create: if isAuth() && userId == request.auth.uid;
       allow update: if isAuth() && (
         userId == request.auth.uid ||
         (isGroupAdmin() && getUserData().groupId == resource.data.groupId)
       );
-
       allow delete: if false;
     }
 
