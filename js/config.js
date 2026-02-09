@@ -16,21 +16,41 @@ var db = firebase.firestore();
 var auth = firebase.auth();
 var googleProvider = new firebase.auth.GoogleAuthProvider();
 
-// --- PERSISTENCIA OFFLINE: datos instantáneos al recargar ---
+// --- PERSISTENCIA OFFLINE ---
 db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
     if (err.code !== 'failed-precondition' && err.code !== 'unimplemented') {
         console.error('Persistence error:', err);
     }
 });
 
-// --- CONSTANTES ---
-var PRODUCTS = [
-    { id: 'b20', label: '20L', icon: '💧', short: '20L' },
-    { id: 'b12', label: '12L', icon: '💧', short: '12L' },
-    { id: 'b6', label: '6L', icon: '💧', short: '6L' },
-    { id: 'soda', label: 'Soda', icon: '🍾', short: 'Soda' },
-    { id: 'bombita', label: 'Bombita', icon: '🖐️', short: 'Bomb' },
-    { id: 'disp_elec_new', label: 'Disp. Elec Nuevo', icon: '⚡', short: 'ElecN' },
-    { id: 'disp_elec_chg', label: 'Disp. Elec Cambio', icon: '⚡', short: 'ElecC' },
-    { id: 'disp_nat', label: 'Disp. Natural', icon: '🍃', short: 'Nat' },
+// --- SERVICIOS POR DEFECTO ---
+var DEFAULT_SERVICES = [
+    { id: 'esculpidas', nombre: 'Uñas Esculpidas', duracion: 120, precio: 15000, color: '#e91e63', activo: true },
+    { id: 'capping', nombre: 'Capping', duracion: 90, precio: 12000, color: '#9c27b0', activo: true },
+    { id: 'softgel', nombre: 'Soft Gel', duracion: 90, precio: 13000, color: '#f06292', activo: true },
 ];
+
+// --- HORARIO SEMANAL POR DEFECTO (0=Dom, 1=Lun, ... 6=Sáb) ---
+var DEFAULT_SCHEDULE = {
+    0: { habilitado: false, inicio: '09:00', fin: '18:00' },
+    1: { habilitado: true,  inicio: '09:00', fin: '18:00' },
+    2: { habilitado: true,  inicio: '09:00', fin: '18:00' },
+    3: { habilitado: true,  inicio: '09:00', fin: '18:00' },
+    4: { habilitado: true,  inicio: '09:00', fin: '18:00' },
+    5: { habilitado: true,  inicio: '09:00', fin: '18:00' },
+    6: { habilitado: true,  inicio: '09:00', fin: '13:00' },
+};
+
+var DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+var DAY_NAMES_SHORT = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+var MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+// --- COLECCIÓN DE FIRESTORE ---
+var COL_APPOINTMENTS = 'appointments';
+var COL_SERVICES = 'services';
+var COL_TIMEOFF = 'timeoff';
+var DOC_SCHEDULE = 'config/schedule';
+var DOC_SETTINGS = 'config/settings';
+
+// --- ADMIN EMAIL (se configura al primer login) ---
+var ADMIN_EMAIL = null;
