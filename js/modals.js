@@ -247,14 +247,12 @@ const ScheduleModal = ({ isOpen, client, onClose, onSave }) => {
     const [localNotes, setLocalNotes] = React.useState('');
     const [localProducts, setLocalProducts] = React.useState({});
 
-    if (!isOpen || !client) return null;
-
     const ALL_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
     React.useEffect(() => {
         if (client) {
             setLocalNotes(client.notes || '');
-            setLocalFreq(client.freq || 'once');
+            setLocalFreq(client.freq === 'on_demand' ? 'once' : (client.freq || 'once'));
             setLocalDate(client.specificDate || '');
             setLocalProducts(client.products || { b20: '', b12: '', b6: '', soda: '', bombita: '', disp_elec_new: '', disp_elec_chg: '', disp_nat: '' });
             // Si ya tiene días asignados, cargarlos
@@ -266,6 +264,7 @@ const ScheduleModal = ({ isOpen, client, onClose, onSave }) => {
         }
     }, [client]);
 
+    if (!isOpen || !client) return null;
     const handleProductChange = (prodId, val) => {
         setLocalProducts(prev => ({
             ...prev,
@@ -309,7 +308,7 @@ const ScheduleModal = ({ isOpen, client, onClose, onSave }) => {
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium mb-1 dark:text-gray-300">Tipo de Pedido</label>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                             <label className={`border dark:border-gray-600 p-2 rounded cursor-pointer text-center text-sm ${localFreq === 'once' ? 'bg-orange-50 border-orange-500 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : 'dark:text-gray-300'}`}>
                                 <input type="radio" name="schFreq" value="once" checked={localFreq === 'once'} onChange={() => setLocalFreq('once')} className="hidden" />
                                 Una Vez
@@ -317,6 +316,18 @@ const ScheduleModal = ({ isOpen, client, onClose, onSave }) => {
                             <label className={`border dark:border-gray-600 p-2 rounded cursor-pointer text-center text-sm ${localFreq === 'weekly' ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'dark:text-gray-300'}`}>
                                 <input type="radio" name="schFreq" value="weekly" checked={localFreq === 'weekly'} onChange={() => setLocalFreq('weekly')} className="hidden" />
                                 Semanal
+                            </label>
+                            <label className={`border dark:border-gray-600 p-2 rounded cursor-pointer text-center text-sm ${localFreq === 'biweekly' ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'dark:text-gray-300'}`}>
+                                <input type="radio" name="schFreq" value="biweekly" checked={localFreq === 'biweekly'} onChange={() => setLocalFreq('biweekly')} className="hidden" />
+                                Cada 2 Sem.
+                            </label>
+                            <label className={`border dark:border-gray-600 p-2 rounded cursor-pointer text-center text-sm ${localFreq === 'triweekly' ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'dark:text-gray-300'}`}>
+                                <input type="radio" name="schFreq" value="triweekly" checked={localFreq === 'triweekly'} onChange={() => setLocalFreq('triweekly')} className="hidden" />
+                                Cada 3 Sem.
+                            </label>
+                            <label className={`border dark:border-gray-600 p-2 rounded cursor-pointer text-center text-sm ${localFreq === 'monthly' ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'dark:text-gray-300'}`}>
+                                <input type="radio" name="schFreq" value="monthly" checked={localFreq === 'monthly'} onChange={() => setLocalFreq('monthly')} className="hidden" />
+                                Mensual
                             </label>
                         </div>
                     </div>
