@@ -1772,7 +1772,29 @@ function App() {
                                                 )}
                                             </div>
                                             <div className="flex flex-col gap-2 ml-3">
-                                                <button 
+                                                {(() => {
+                                                    const clientTransfers = transfers.filter(t => t.clientId === debt.clientId);
+                                                    if (clientTransfers.length === 0) return null;
+                                                    return (
+                                                        <button
+                                                            onClick={() => setConfirmModal({
+                                                                isOpen: true,
+                                                                title: 'Revisar transferencia',
+                                                                message: `¿Confirmar que revisaste la transferencia de ${debt.clientName}?`,
+                                                                confirmText: "Revisada",
+                                                                isDanger: false,
+                                                                action: async () => {
+                                                                    for (const t of clientTransfers) { await handleTransferReviewed(t); }
+                                                                    setConfirmModal(prev => ({...prev, isOpen: false}));
+                                                                }
+                                                            })}
+                                                            className="px-3 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-emerald-200 dark:hover:bg-emerald-800"
+                                                        >
+                                                            <Icons.CreditCard size={14} /> Revisar{clientTransfers.length > 1 ? ` (${clientTransfers.length})` : ''}
+                                                        </button>
+                                                    );
+                                                })()}
+                                                <button
                                                     onClick={() => setConfirmModal({
                                                         isOpen: true,
                                                         title: '¿Deuda pagada?',
