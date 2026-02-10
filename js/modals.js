@@ -405,6 +405,65 @@ const ScheduleModal = ({ isOpen, client, onClose, onSave }) => {
     );
 };
 
+// --- COMPONENTE MODAL AÑADIR NOTA ---
+const NoteModal = ({ isOpen, onClose, onSave }) => {
+    const [noteText, setNoteText] = React.useState('');
+    const [noteDate, setNoteDate] = React.useState('');
+
+    React.useEffect(() => {
+        if (isOpen) {
+            setNoteText('');
+            setNoteDate(new Date().toISOString().split('T')[0]);
+        }
+    }, [isOpen]);
+
+    if (!isOpen) return null;
+
+    const handleSubmit = () => {
+        if (!noteText.trim()) {
+            alert('Escribe una nota.');
+            return;
+        }
+        if (!noteDate) {
+            alert('Selecciona una fecha.');
+            return;
+        }
+        onSave(noteText.trim(), noteDate);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm" style={{zIndex: 110}}>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold dark:text-white flex items-center gap-2">
+                        <div className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 p-1.5 rounded-lg"><Icons.FileText size={18} /></div>
+                        Añadir Nota
+                    </h3>
+                    <button onClick={onClose}><Icons.X size={20} className="text-gray-400 dark:text-gray-500" /></button>
+                </div>
+                <textarea
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    className="w-full p-3 border rounded-lg bg-gray-50 h-32 dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4"
+                    placeholder="Escribe tu nota aquí... Las URLs serán detectadas automáticamente."
+                    autoFocus
+                />
+                <label className="block text-sm font-medium mb-1 dark:text-gray-300">Fecha</label>
+                <input
+                    type="date"
+                    value={noteDate}
+                    onChange={(e) => setNoteDate(e.target.value)}
+                    className="w-full p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-yellow-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4"
+                    min={new Date().toISOString().split('T')[0]}
+                />
+                <Button onClick={handleSubmit} className="w-full !bg-yellow-500 hover:!bg-yellow-600 !text-white">
+                    <Icons.FileText size={16} /> Añadir Nota
+                </Button>
+            </div>
+        </div>
+    );
+};
+
 const PasteContactModal = ({ isOpen, onClose, onPaste }) => {
      const [text, setText] = React.useState('');
 
