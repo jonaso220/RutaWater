@@ -1210,7 +1210,7 @@ function App() {
                 </div>
             )}
 
-            <header className={`bg-blue-600 dark:bg-gray-800 text-white p-4 shadow-lg sticky top-0 z-10 transition-colors duration-200 ${!isOnline || swUpdate || installPrompt ? 'mt-9' : ''}`}>
+            <header className={`bg-blue-600 dark:bg-gray-800 text-white p-4 shadow-lg sticky top-0 z-30 transition-colors duration-200 ${!isOnline || swUpdate || installPrompt ? 'mt-9' : ''}`}>
                 <div className="flex justify-between items-center max-w-2xl mx-auto">
                     <div 
                         className="flex items-center gap-2 cursor-pointer active:opacity-80 transition-opacity" 
