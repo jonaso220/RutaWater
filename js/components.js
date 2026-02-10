@@ -130,6 +130,34 @@ const useDebounce = (value, delay = 300) => {
     return debouncedValue;
 };
 
+// --- HELPER: Renderizar texto con URLs clickeables ---
+var renderTextWithLinks = (text) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) => {
+        if (part.match(urlRegex)) {
+            // Limpiar trailing punctuation
+            let url = part;
+            let trailing = '';
+            const lastChar = url.slice(-1);
+            if (['.', ',', ')', ']', '!', '?'].includes(lastChar)) {
+                trailing = lastChar;
+                url = url.slice(0, -1);
+            }
+            return React.createElement(React.Fragment, { key: i },
+                React.createElement('a', {
+                    href: url,
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                    className: 'text-blue-600 dark:text-blue-400 underline break-all inline-flex items-center gap-0.5'
+                }, React.createElement(Icons.ExternalLink, { size: 12 }), ' ', url.length > 40 ? url.slice(0, 40) + '...' : url),
+                trailing
+            );
+        }
+        return part;
+    });
+};
+
 // --- COMPONENTE MEMOIZADO: TARJETA DE CLIENTE ---
 const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDebtClick, onAddTransfer, onSetAlarm, onEdit, onDelete, onOpenMaps, onSendPhoto, onSendWhatsApp, onMarkDone, onChangePosition }) => {
     const prodSummary = React.useMemo(() => {
@@ -142,6 +170,43 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
             }).join(', ');
     }, [client.products]);
 
+    // --- TARJETA DE NOTA ---
+    if (client.isNote) {
+        return (
+            <Card className="flex flex-row overflow-hidden border-l-4 border-l-yellow-400 dark:border-l-yellow-500 bg-yellow-50 dark:bg-gray-800">
+                <div className="w-10 bg-yellow-100/50 dark:bg-gray-700/50 flex flex-col justify-center items-center border-r border-yellow-200 dark:border-gray-700 p-0.5">
+                    <OrderInput
+                        value={trueIndex + 1}
+                        onChange={(newPos) => onChangePosition(client.id, newPos)}
+                    />
+                </div>
+                <div className="flex-1 p-3 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Icons.FileText size={16} className="text-yellow-600 dark:text-yellow-400" />
+                            <span className="text-xs font-bold text-yellow-700 dark:text-yellow-400 uppercase">Nota</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            {isAdmin && <button onClick={() => onDelete(client.id)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Icons.Trash2 size={15} /></button>}
+                        </div>
+                    </div>
+                    <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
+                        {renderTextWithLinks(client.notes || '')}
+                    </div>
+                    <div className="flex gap-1.5 mt-1 pt-2 border-t border-yellow-200 dark:border-gray-700 items-center">
+                        <Badge type={client.freq} date={client.specificDate} />
+                        <div className="flex-1" />
+                        <button onClick={() => onMarkDone(client)} className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-2 px-3 rounded-lg shadow-sm flex items-center justify-center gap-1 text-sm transition-colors whitespace-nowrap shrink-0">
+                            <Icons.CheckCircle size={17} />
+                            <span>Listo</span>
+                        </button>
+                    </div>
+                </div>
+            </Card>
+        );
+    }
+
+    // --- TARJETA DE CLIENTE NORMAL ---
     return (
         <Card className={`flex flex-row overflow-hidden ${(client.freq === 'once' || client.isStarred) ? 'border-l-4 border-l-orange-500 dark:border-l-orange-600 bg-orange-50 dark:bg-gray-800' : ''}`}>
             {/* ORDER INPUT BADGE */}
@@ -228,6 +293,7 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
            pc.phone === nc.phone && pc.freq === nc.freq && pc.isStarred === nc.isStarred &&
            pc.hasDebt === nc.hasDebt && pc.hasPendingTransfer === nc.hasPendingTransfer &&
            pc.alarm === nc.alarm && pc.notes === nc.notes && pc.specificDate === nc.specificDate &&
+           pc.isNote === nc.isNote && pc.isCompleted === nc.isCompleted &&
            (pc.lastVisited?.seconds || 0) === (nc.lastVisited?.seconds || 0) &&
            JSON.stringify(pc.products) === JSON.stringify(nc.products) &&
            JSON.stringify(pc.visitDays) === JSON.stringify(nc.visitDays);

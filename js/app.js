@@ -36,6 +36,10 @@ function App() {
     const [activeSection, setActiveSection] = React.useState('cartera'); // 'cartera', 'deudas', 'transferencias'
     const [showSectionMenu, setShowSectionMenu] = React.useState(false);
 
+    // --- ESTADO NOTAS ---
+    const [noteModal, setNoteModal] = React.useState(false);
+    const [showFabMenu, setShowFabMenu] = React.useState(false);
+
     // --- ESTADO DEUDAS ---
     const [debts, setDebts] = React.useState([]);
     const [debtModal, setDebtModal] = React.useState({ isOpen: false, client: null });
@@ -852,6 +856,60 @@ function App() {
             resetForm(); setView('list');
         } catch(e) { showUndoToast(getErrorMessage(e), null); } finally { setSaving(false); }
     };
+
+    // --- GUARDAR NOTA ---
+    const handleSaveNote = async (noteText, noteDate) => {
+        try {
+            const d = new Date(noteDate + 'T12:00:00');
+            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+            const dayName = days[d.getDay()];
+
+            // Notas van al inicio del recorrido
+            const existingInDay = clients.filter(c =>
+                c.freq !== 'on_demand' && !c.isCompleted &&
+                ((c.visitDays && c.visitDays.includes(dayName)) || c.visitDay === dayName)
+            );
+            let minOrder = 0;
+            if (existingInDay.length > 0) {
+                const orders = existingInDay.map(c => {
+                    const order = c.listOrders?.[dayName] ?? c.listOrder ?? 0;
+                    return order > 100000 ? 0 : order;
+                });
+                minOrder = Math.min(...orders);
+            }
+
+            const data = {
+                isNote: true,
+                name: 'NOTA',
+                phone: '',
+                address: '',
+                notes: noteText,
+                freq: 'once',
+                specificDate: noteDate,
+                visitDays: [dayName],
+                visitDay: dayName,
+                listOrder: minOrder - 1,
+                listOrders: { [dayName]: minOrder - 1 },
+                products: {},
+                isCompleted: false,
+                isStarred: false,
+                isPinned: false,
+                alarm: '',
+                ...getDataScope(),
+                userId: user.uid,
+                updatedAt: new Date(),
+                startWeek: getWeekNumber(new Date())
+            };
+
+            await firestoreRetry(() => db.collection('clients').add(data));
+            setNoteModal(false);
+            showUndoToast("Nota añadida", null);
+        } catch(e) {
+            console.error("Error adding note:", e);
+            showUndoToast(getErrorMessage(e), null);
+        }
+    };
+
     const handleScheduleFromDirectory = async (clientData, newDays, newFreq, newDate, newNotes, newProducts) => {
          try {
             const currentWeek = getWeekNumber(new Date());
@@ -1145,6 +1203,7 @@ function App() {
             {scheduleClient && <ScheduleModal isOpen={true} client={scheduleClient} onClose={() => setScheduleClient(null)} onSave={handleScheduleFromDirectory} />}
             {showPasteModal && <PasteContactModal isOpen={true} onClose={() => setShowPasteModal(false)} onPaste={handleMagicPaste} />}
             {alarmModal.isOpen && <AlarmModal isOpen={true} initialValue={alarmModal.currentVal} onClose={() => setAlarmModal({isOpen: false, clientId: null, currentVal: ''})} onSave={handleSaveAlarm} />}
+            {noteModal && <NoteModal isOpen={true} onClose={() => setNoteModal(false)} onSave={handleSaveNote} />}
             {showGroupModal && <GroupModal
                 isOpen={true}
                 onClose={() => setShowGroupModal(false)}
@@ -1937,13 +1996,37 @@ function App() {
             <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 dark:bg-gray-800 dark:border-gray-700 flex justify-around p-2 z-20 pb-safe shadow-lg transition-colors duration-200">
                 <button onClick={() => setView('list')} className={`flex flex-col items-center p-2 rounded-lg ${view === 'list' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><Icons.Home /><span className="text-xs font-medium">Inicio</span></button>
                 {isAdmin ? (
-                    <button onClick={() => { resetForm(); setView('add'); }} className="relative group flex items-center justify-center w-20" aria-label="Nuevo Cliente">
-                        <div className="absolute -top-8 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-[80px] h-[80px] flex items-center justify-center shadow-2xl border-[6px] border-white dark:border-gray-900 transition-all duration-300 transform group-active:scale-95">
-                            <Icons.Plus size={40} strokeWidth={3} />
-                        </div>
-                    </button>
+                    <div className="relative flex items-center justify-center w-20">
+                        {showFabMenu && (
+                            <>
+                                <div className="fixed inset-0 z-20" onClick={() => setShowFabMenu(false)} />
+                                <div className="absolute bottom-16 z-30 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-48 overflow-hidden" style={{animation: 'slideUpFade 0.2s ease-out forwards'}}>
+                                    <button
+                                        onClick={() => { resetForm(); setView('add'); setShowFabMenu(false); }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                        <Icons.Users size={18} className="text-blue-500" />
+                                        <span className="font-medium">Nuevo cliente</span>
+                                    </button>
+                                    <div className="border-t border-gray-100 dark:border-gray-700" />
+                                    <button
+                                        onClick={() => { setNoteModal(true); setShowFabMenu(false); }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                        <Icons.FileText size={18} className="text-yellow-500" />
+                                        <span className="font-medium">Añadir nota</span>
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                        <button onClick={() => setShowFabMenu(!showFabMenu)} className="group flex items-center justify-center w-20" aria-label="Nuevo">
+                            <div className={`absolute -top-8 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-[80px] h-[80px] flex items-center justify-center shadow-2xl border-[6px] border-white dark:border-gray-900 transition-all duration-300 transform group-active:scale-95 ${showFabMenu ? 'rotate-45' : ''}`}>
+                                <Icons.Plus size={40} strokeWidth={3} />
+                            </div>
+                        </button>
+                    </div>
                 ) : (
-                    <div className="w-20" /> 
+                    <div className="w-20" />
                 )}
                 <button onClick={() => setView('directory')} className={`flex flex-col items-center p-2 rounded-lg ${view === 'directory' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><Icons.Users /><span className="text-xs font-medium">Directorio</span></button>
             </nav>
