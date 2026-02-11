@@ -159,7 +159,7 @@ var renderTextWithLinks = (text) => {
 };
 
 // --- COMPONENTE MEMOIZADO: TARJETA DE CLIENTE ---
-const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDebtClick, onAddTransfer, onSetAlarm, onEdit, onDelete, onOpenMaps, onSendPhoto, onSendWhatsApp, onMarkDone, onChangePosition }) => {
+const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDebtClick, onAddTransfer, onSetAlarm, onEdit, onEditNote, onDelete, onOpenMaps, onSendPhoto, onSendWhatsApp, onMarkDone, onChangePosition }) => {
     const prodSummary = React.useMemo(() => {
         if (!client.products) return '';
         return Object.keys(client.products)
@@ -187,6 +187,7 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
                             <span className="text-xs font-bold text-yellow-700 dark:text-yellow-400 uppercase">Nota</span>
                         </div>
                         <div className="flex items-center gap-1">
+                            <button onClick={() => onEditNote(client)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors"><Icons.Edit size={15} /></button>
                             {isAdmin && <button onClick={() => onDelete(client.id)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Icons.Trash2 size={15} /></button>}
                         </div>
                     </div>

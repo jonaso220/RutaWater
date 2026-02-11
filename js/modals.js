@@ -475,19 +475,26 @@ const ScheduleModal = ({ isOpen, client, onClose, onSave }) => {
     );
 };
 
-// --- COMPONENTE MODAL AÑADIR NOTA ---
-const NoteModal = ({ isOpen, onClose, onSave }) => {
+// --- COMPONENTE MODAL AÑADIR/EDITAR NOTA ---
+const NoteModal = ({ isOpen, onClose, onSave, editNote }) => {
     const [noteText, setNoteText] = React.useState('');
     const [noteDate, setNoteDate] = React.useState('');
 
     React.useEffect(() => {
         if (isOpen) {
-            setNoteText('');
-            setNoteDate(new Date().toISOString().split('T')[0]);
+            if (editNote) {
+                setNoteText(editNote.notes || '');
+                setNoteDate(editNote.specificDate || new Date().toISOString().split('T')[0]);
+            } else {
+                setNoteText('');
+                setNoteDate(new Date().toISOString().split('T')[0]);
+            }
         }
     }, [isOpen]);
 
     if (!isOpen) return null;
+
+    const isEditing = !!editNote;
 
     const handleSubmit = () => {
         if (!noteText.trim()) {
@@ -507,7 +514,7 @@ const NoteModal = ({ isOpen, onClose, onSave }) => {
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-bold dark:text-white flex items-center gap-2">
                         <div className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 p-1.5 rounded-lg"><Icons.FileText size={18} /></div>
-                        Añadir Nota
+                        {isEditing ? 'Editar Nota' : 'Añadir Nota'}
                     </h3>
                     <button onClick={onClose}><Icons.X size={20} className="text-gray-400 dark:text-gray-500" /></button>
                 </div>
@@ -524,10 +531,9 @@ const NoteModal = ({ isOpen, onClose, onSave }) => {
                     value={noteDate}
                     onChange={(e) => setNoteDate(e.target.value)}
                     className="w-full p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-yellow-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4"
-                    min={new Date().toISOString().split('T')[0]}
                 />
                 <Button onClick={handleSubmit} className="w-full !bg-yellow-500 hover:!bg-yellow-600 !text-white">
-                    <Icons.FileText size={16} /> Añadir Nota
+                    <Icons.FileText size={16} /> {isEditing ? 'Guardar Cambios' : 'Añadir Nota'}
                 </Button>
             </div>
         </div>
