@@ -151,7 +151,7 @@ function App() {
                     id: doc.id,
                     ...doc.data()
                 }));
-                loadedClients.sort((a, b) => (a.listOrder || 0) - (b.listOrder || 0));
+                // No ordenar aquí - getVisibleClients ordena por listOrders[day] según el día seleccionado
                 setClients(loadedClients);
                 setIsCloudActive(true);
             }, (error) => {
@@ -794,15 +794,20 @@ function App() {
                 visitDays.forEach(day => {
                     if (newListOrders[day] === undefined) {
                         // Calcular siguiente orden para el día nuevo
-                        const existingInDay = clients.filter(c => 
+                        const existingInDay = clients.filter(c =>
                             c.id !== editingId &&
-                            c.freq !== 'on_demand' && 
-                            !c.isCompleted && 
+                            c.freq !== 'on_demand' &&
+                            !c.isCompleted &&
                             ((c.visitDays && c.visitDays.includes(day)) || c.visitDay === day)
                         );
-                        const maxOrder = existingInDay.length > 0
-                            ? Math.max(...existingInDay.map(c => (c.listOrders?.[day] ?? c.listOrder ?? 0)))
-                            : -1;
+                        let maxOrder = -1;
+                        if (existingInDay.length > 0) {
+                            const orders = existingInDay.map(c => {
+                                const order = c.listOrders?.[day] ?? c.listOrder ?? 0;
+                                return order > 100000 ? 0 : order;
+                            });
+                            maxOrder = Math.max(...orders);
+                        }
                         newListOrders[day] = maxOrder + 1;
                     }
                 });
@@ -1173,21 +1178,11 @@ function App() {
         // Re-assign sequential order (0, 1, 2, 3...) for ALL clients in this day
         dayClients.forEach((client, index) => {
             const ref = db.collection('clients').doc(client.id);
-            
-            // Solo actualizar listOrders para el día específico
-            // Si el cliente tiene múltiples días, no tocar los otros
-            const hasMultipleDays = client.visitDays && client.visitDays.length > 1;
-            
-            if (hasMultipleDays) {
-                // Solo actualizar el día específico
-                batch.update(ref, { [`listOrders.${dayToFilter}`]: index });
-            } else {
-                // Cliente de un solo día: actualizar ambos para consistencia
-                batch.update(ref, { 
-                    [`listOrders.${dayToFilter}`]: index,
-                    listOrder: index
-                });
-            }
+            // Siempre actualizar listOrders del día Y listOrder global para consistencia
+            batch.update(ref, {
+                [`listOrders.${dayToFilter}`]: index,
+                listOrder: index
+            });
         });
 
         await batch.commit();
