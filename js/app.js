@@ -45,6 +45,7 @@ function App() {
     const [debtModal, setDebtModal] = React.useState({ isOpen: false, client: null });
     const [editDebtModal, setEditDebtModal] = React.useState({ isOpen: false, debt: null });
     const [viewDebtModal, setViewDebtModal] = React.useState({ isOpen: false, client: null });
+    const [showDebtClientSearch, setShowDebtClientSearch] = React.useState(false);
 
     // --- ESTADO TRANSFERENCIAS ---
     const [transfers, setTransfers] = React.useState([]);
@@ -1208,6 +1209,7 @@ function App() {
                     setGroupData(newGroupData);
                 }}
             />}
+            {showDebtClientSearch && <ClientSearchModal isOpen={true} clients={clients} onClose={() => setShowDebtClientSearch(false)} onSelect={(client) => { setShowDebtClientSearch(false); setDebtModal({ isOpen: true, client }); }} />}
             {debtModal.isOpen && <DebtModal isOpen={true} client={debtModal.client} onClose={() => setDebtModal({ isOpen: false, client: null })} onSave={handleAddDebt} />}
             {editDebtModal.isOpen && <EditDebtModal isOpen={true} debt={editDebtModal.debt} onClose={() => setEditDebtModal({ isOpen: false, debt: null })} onSave={handleEditDebt} />}
             {viewDebtModal.isOpen && <ViewDebtModal
@@ -1776,11 +1778,19 @@ function App() {
                                     <div className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-1.5 rounded-lg"><Icons.DollarSign size={20} /></div>
                                     Deudas
                                 </h2>
-                                {debts.length > 0 && (
-                                    <span className="text-sm font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full">
-                                        Total: ${debts.reduce((sum, d) => sum + (d.amount || 0), 0).toLocaleString()}
-                                    </span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    {debts.length > 0 && (
+                                        <span className="text-sm font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full">
+                                            ${debts.reduce((sum, d) => sum + (d.amount || 0), 0).toLocaleString()}
+                                        </span>
+                                    )}
+                                    <button
+                                        onClick={() => setShowDebtClientSearch(true)}
+                                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg flex items-center gap-1 transition-colors"
+                                    >
+                                        <Icons.Plus size={14} /> Añadir
+                                    </button>
+                                </div>
                             </div>
                             <div className="relative">
                                 <input type="text" placeholder="Buscar por nombre o dirección..." value={debtSearchTerm} onChange={(e) => setDebtSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm" />
