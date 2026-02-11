@@ -38,6 +38,7 @@ function App() {
 
     // --- ESTADO NOTAS ---
     const [noteModal, setNoteModal] = React.useState(false);
+    const [editNoteData, setEditNoteData] = React.useState(null);
     const [showFabMenu, setShowFabMenu] = React.useState(false);
 
     // --- ESTADO DEUDAS ---
@@ -916,6 +917,50 @@ function App() {
         }
     };
 
+    // --- EDITAR NOTA ---
+    const handleEditNote = async (noteText, noteDate) => {
+        if (!editNoteData) return;
+        try {
+            const d = new Date(noteDate + 'T12:00:00');
+            const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+            const newDayName = days[d.getDay()];
+            const oldDayName = editNoteData.visitDay;
+
+            const updateData = {
+                notes: noteText,
+                specificDate: noteDate,
+                visitDays: [newDayName],
+                visitDay: newDayName,
+                updatedAt: new Date()
+            };
+
+            // Si cambió de día, recalcular posición en el nuevo día
+            if (newDayName !== oldDayName) {
+                const existingInDay = clients.filter(c =>
+                    c.id !== editNoteData.id && c.freq !== 'on_demand' && !c.isCompleted &&
+                    ((c.visitDays && c.visitDays.includes(newDayName)) || c.visitDay === newDayName)
+                );
+                let minOrder = 0;
+                if (existingInDay.length > 0) {
+                    const orders = existingInDay.map(c => {
+                        const order = c.listOrders?.[newDayName] ?? c.listOrder ?? 0;
+                        return order > 100000 ? 0 : order;
+                    });
+                    minOrder = Math.min(...orders);
+                }
+                updateData.listOrder = minOrder - 1;
+                updateData.listOrders = { [newDayName]: minOrder - 1 };
+            }
+
+            await firestoreRetry(() => db.collection('clients').doc(editNoteData.id).update(updateData));
+            setEditNoteData(null);
+            showUndoToast("Nota actualizada", null);
+        } catch(e) {
+            console.error("Error editing note:", e);
+            showUndoToast(getErrorMessage(e), null);
+        }
+    };
+
     const handleScheduleFromDirectory = async (clientData, newDays, newFreq, newDate, newNotes, newProducts) => {
          try {
             const currentWeek = getWeekNumber(new Date());
@@ -1200,6 +1245,7 @@ function App() {
             {showPasteModal && <PasteContactModal isOpen={true} onClose={() => setShowPasteModal(false)} onPaste={handleMagicPaste} />}
             {alarmModal.isOpen && <AlarmModal isOpen={true} initialValue={alarmModal.currentVal} onClose={() => setAlarmModal({isOpen: false, clientId: null, currentVal: ''})} onSave={handleSaveAlarm} />}
             {noteModal && <NoteModal isOpen={true} onClose={() => setNoteModal(false)} onSave={handleSaveNote} />}
+            {editNoteData && <NoteModal isOpen={true} editNote={editNoteData} onClose={() => setEditNoteData(null)} onSave={handleEditNote} />}
             {showGroupModal && <GroupModal
                 isOpen={true}
                 onClose={() => setShowGroupModal(false)}
@@ -1559,6 +1605,7 @@ function App() {
                                                 onAddTransfer={handleAddTransfer}
                                                 onSetAlarm={handleSetAlarmForClient}
                                                 onEdit={editClient}
+                                                onEditNote={(note) => setEditNoteData(note)}
                                                 onDelete={handleDeleteClient}
                                                 onOpenMaps={openGoogleMaps}
                                                 onSendPhoto={sendPhotoWhatsApp}
