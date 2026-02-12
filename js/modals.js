@@ -229,7 +229,7 @@ const EditDebtModal = ({ isOpen, debt, onClose, onSave }) => {
 };
 
 // --- COMPONENTE MODAL VER DEUDAS DE CLIENTE ---
-const ViewDebtModal = ({ isOpen, client, debts, onClose, onPaid, onEdit, onAddMore }) => {
+const ViewDebtModal = ({ isOpen, client, debts, onClose, onPaid, onEdit, onAddMore, onSendDebtTotal }) => {
     if (!isOpen || !client) return null;
     const clientDebts = debts.filter(d => d.clientId === client.id);
     const total = clientDebts.reduce((sum, d) => sum + (d.amount || 0), 0);
@@ -300,6 +300,15 @@ const ViewDebtModal = ({ isOpen, client, debts, onClose, onPaid, onEdit, onAddMo
                     <div className="bg-red-100 dark:bg-red-900/20 rounded-lg p-2 mb-3 text-center">
                         <span className="text-sm font-bold text-red-700 dark:text-red-400">Total: ${total.toLocaleString()}</span>
                     </div>
+                )}
+
+                {clientDebts.length > 0 && client.phone && (
+                    <button
+                        onClick={() => onSendDebtTotal(client.phone, total)}
+                        className="w-full mb-2 py-2.5 px-4 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold rounded-lg flex items-center justify-center gap-2 text-sm transition-colors"
+                    >
+                        <Icons.MessageCircle size={16} /> Enviar deuda por WhatsApp
+                    </button>
                 )}
 
                 <Button variant="danger" onClick={() => { onClose(); onAddMore(client); }} className="w-full text-sm !bg-red-600 !text-white">
