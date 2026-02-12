@@ -729,6 +729,13 @@ function App() {
         window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}`, '_top');
     };
 
+    const sendDebtTotal = (phone, total) => {
+        if (!phone) return;
+        const cleanPhone = normalizePhone(phone);
+        const msg = encodeURIComponent(`Hola, buenas 😊\nLa deuda pendiente es de $${total.toLocaleString()}.\nCualquier consulta estamos a las órdenes.\nMuchas gracias.`);
+        window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}`, '_top');
+    };
+
     const openGoogleMaps = (lat, lng, link) => { 
         let url = '';
         if(lat && lng) { url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`; }
@@ -1277,6 +1284,7 @@ function App() {
                 }}
                 onEdit={(debt) => setEditDebtModal({ isOpen: true, debt })}
                 onAddMore={(client) => setDebtModal({ isOpen: true, client })}
+                onSendDebtTotal={sendDebtTotal}
             />}
             {activeAlert && <AlarmBanner data={activeAlert} onClose={handleDismissAlert} />}
 
