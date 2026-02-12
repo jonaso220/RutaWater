@@ -732,7 +732,7 @@ function App() {
     const sendDebtTotal = (phone, total) => {
         if (!phone) return;
         const cleanPhone = normalizePhone(phone);
-        const msg = encodeURIComponent(`Hola, buenas 😊\nLa deuda pendiente es de $${total.toLocaleString()}.\nCualquier consulta estamos a las órdenes.\nMuchas gracias.`);
+        const msg = encodeURIComponent(`La deuda es de $${total.toLocaleString()}. Saludos`);
         window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}`, '_top');
     };
 
