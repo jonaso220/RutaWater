@@ -702,38 +702,44 @@ function App() {
     };
     
 
+    // Helper: abrir URL externa sin dejar ventana en blanco en móvil
+    const openExternal = (url) => {
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) { location.href = url; } else { window.open(url, '_blank'); }
+    };
+
     // IMPLEMENTACIÓN DE sendPhotoWhatsApp
     const sendPhotoWhatsApp = (phone) => {
          if (!phone) return;
          const cleanPhone = normalizePhone(phone);
-         window.open(`whatsapp://send?phone=${cleanPhone}`, '_blank');
+         openExternal(`whatsapp://send?phone=${cleanPhone}`);
     };
 
     const sendWhatsApp = (phone) => {
         if (!phone) return;
         const cleanPhone = normalizePhone(phone);
         const msg = encodeURIComponent("Buenas 🚚. Ya estamos en camino, sos el/la siguiente en la lista de entrega. ¡Nos vemos en unos minutos!\n\nAquapura");
-        window.open(`whatsapp://send?phone=${cleanPhone}&text=${msg}`, '_blank');
+        openExternal(`whatsapp://send?phone=${cleanPhone}&text=${msg}`);
     };
 
     const sendWhatsAppDirect = (phone) => {
         if (!phone) return;
         const cleanPhone = normalizePhone(phone);
-        window.open(`whatsapp://send?phone=${cleanPhone}`, '_blank');
+        openExternal(`whatsapp://send?phone=${cleanPhone}`);
     };
 
     const sendDebtReminder = (phone) => {
         if (!phone) return;
         const cleanPhone = normalizePhone(phone);
         const msg = encodeURIComponent("Hola, buenas 😊\nEste es un mensaje automático para informarle que, según nuestros registros, quedó pendiente un saldo por regularizar.\nCuando pueda, le agradecemos que nos indique en qué fecha podríamos saldarlo. Si necesita nuevamente los datos de la cuenta, con gusto se los enviamos.\nMuchas gracias.");
-        window.open(`whatsapp://send?phone=${cleanPhone}&text=${msg}`, '_blank');
+        openExternal(`whatsapp://send?phone=${cleanPhone}&text=${msg}`);
     };
 
     const sendDebtTotal = (phone, total) => {
         if (!phone) return;
         const cleanPhone = normalizePhone(phone);
         const msg = encodeURIComponent(`La deuda es de $${total.toLocaleString()}. Saludos`);
-        window.open(`whatsapp://send?phone=${cleanPhone}&text=${msg}`, '_blank');
+        openExternal(`whatsapp://send?phone=${cleanPhone}&text=${msg}`);
     };
 
     const openGoogleMaps = (lat, lng, link) => {
@@ -741,12 +747,7 @@ function App() {
         if(lat && lng) { url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`; }
         else if(link && isSafeUrl(link)) { url = link; }
         else { showUndoToast("Ubicación no disponible.", null); return; }
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        if (isMobile) {
-            location.href = url;
-        } else {
-            window.open(url, '_blank');
-        }
+        openExternal(url);
     };
     
      const handleLocationPaste = (e) => { 
