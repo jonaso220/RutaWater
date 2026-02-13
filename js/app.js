@@ -706,42 +706,42 @@ function App() {
     const sendPhotoWhatsApp = (phone) => {
          if (!phone) return;
          const cleanPhone = normalizePhone(phone);
-         window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}`, '_top');
+         window.open(`whatsapp://send?phone=${cleanPhone}`, '_blank');
     };
 
     const sendWhatsApp = (phone) => {
         if (!phone) return;
         const cleanPhone = normalizePhone(phone);
         const msg = encodeURIComponent("Buenas 🚚. Ya estamos en camino, sos el/la siguiente en la lista de entrega. ¡Nos vemos en unos minutos!\n\nAquapura");
-        window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}`, '_top');
+        window.open(`whatsapp://send?phone=${cleanPhone}&text=${msg}`, '_blank');
     };
 
     const sendWhatsAppDirect = (phone) => {
         if (!phone) return;
         const cleanPhone = normalizePhone(phone);
-        window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}`, '_top');
+        window.open(`whatsapp://send?phone=${cleanPhone}`, '_blank');
     };
 
     const sendDebtReminder = (phone) => {
         if (!phone) return;
         const cleanPhone = normalizePhone(phone);
         const msg = encodeURIComponent("Hola, buenas 😊\nEste es un mensaje automático para informarle que, según nuestros registros, quedó pendiente un saldo por regularizar.\nCuando pueda, le agradecemos que nos indique en qué fecha podríamos saldarlo. Si necesita nuevamente los datos de la cuenta, con gusto se los enviamos.\nMuchas gracias.");
-        window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}`, '_top');
+        window.open(`whatsapp://send?phone=${cleanPhone}&text=${msg}`, '_blank');
     };
 
     const sendDebtTotal = (phone, total) => {
         if (!phone) return;
         const cleanPhone = normalizePhone(phone);
         const msg = encodeURIComponent(`La deuda es de $${total.toLocaleString()}. Saludos`);
-        window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${msg}`, '_top');
+        window.open(`whatsapp://send?phone=${cleanPhone}&text=${msg}`, '_blank');
     };
 
-    const openGoogleMaps = (lat, lng, link) => { 
+    const openGoogleMaps = (lat, lng, link) => {
         let url = '';
         if(lat && lng) { url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`; }
         else if(link && isSafeUrl(link)) { url = link; }
         else { showUndoToast("Ubicación no disponible.", null); return; }
-        window.open(url, '_top');
+        window.open(url, '_blank');
     };
     
      const handleLocationPaste = (e) => { 
