@@ -741,7 +741,12 @@ function App() {
         if(lat && lng) { url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`; }
         else if(link && isSafeUrl(link)) { url = link; }
         else { showUndoToast("Ubicación no disponible.", null); return; }
-        window.open(url, '_blank');
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+            location.href = url;
+        } else {
+            window.open(url, '_blank');
+        }
     };
     
      const handleLocationPaste = (e) => { 
