@@ -188,7 +188,7 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
                         </div>
                         <div className="flex items-center gap-1">
                             <button onClick={() => onEditNote(client)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors"><Icons.Edit size={15} /></button>
-                            {isAdmin && <button onClick={() => onDelete(client.id)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Icons.Trash2 size={15} /></button>}
+                            <button onClick={() => onDelete(client.id)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Icons.Trash2 size={15} /></button>
                         </div>
                     </div>
                     <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
@@ -227,8 +227,8 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
                     <button onClick={() => onAddTransfer(client)} className={`p-1.5 rounded-md transition-colors ${client.hasPendingTransfer ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.CreditCard size={15} /></button>
                     <div className="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-0.5"></div>
                     <button onClick={() => onSetAlarm(client)} className={`p-1.5 rounded-md transition-colors ${client.alarm ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.Bell size={15} /></button>
-                    {isAdmin && <button onClick={() => onEdit(client)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><Icons.Edit size={15} /></button>}
-                    {isAdmin && <button onClick={() => onDelete(client.id)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Icons.Trash2 size={15} /></button>}
+                    <button onClick={() => onEdit(client)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><Icons.Edit size={15} /></button>
+                    <button onClick={() => onDelete(client.id)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Icons.Trash2 size={15} /></button>
                 </div>
 
                 {/* Nombre y dirección */}

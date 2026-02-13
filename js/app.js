@@ -763,8 +763,7 @@ function App() {
     const handleSaveClient = async (e) => {
         e.preventDefault();
         if (saving) return;
-        // Solo admin puede crear/editar clientes
-        if (!isAdmin) { showUndoToast("No tenés permisos para editar clientes.", null); return; }
+        // Cualquier miembro del grupo puede crear/editar clientes
         if (!formData.name || !formData.name.trim()) { showUndoToast("El nombre del cliente es obligatorio.", null); return; }
         const hasCoordinates = formData.lat && formData.lng;
         const hasMapLink = formData.locationInput && isShortLink(formData.locationInput);
@@ -1057,7 +1056,7 @@ function App() {
         } catch(e) { console.error(e); showUndoToast(getErrorMessage(e), null); }
     };
     const handleDeleteClient = (id) => {
-        if (!isAdmin) { showUndoToast("No tenés permisos para quitar clientes.", null); return; }
+        // Cualquier miembro puede quitar de la semana (se guarda en directorio)
         setConfirmModal({ isOpen: true, title: '¿Quitar de la lista?', message: 'Se guardará en el Directorio.', confirmText: "Quitar", isDanger: false, action: async () => {
             try {
                 await firestoreRetry(() => db.collection('clients').doc(id).update({ freq: 'on_demand', visitDay: 'Sin Asignar', visitDays: [] }));
@@ -1083,7 +1082,7 @@ function App() {
          const parsed = parseContactString(text);
          if (!parsed.name && !parsed.link) { showUndoToast("No se pudo detectar el formato.", null); return; }
          if (view === 'add') {
-             if (!isAdmin) { showUndoToast("No tenés permisos para agregar clientes.", null); return; }
+             // Cualquier miembro puede agregar clientes
              setFormData(prev => ({ 
                  ...prev, 
                  name: parsed.name, 
@@ -1102,7 +1101,7 @@ function App() {
              }));
              setShowPasteModal(false);
          } else {
-             if (!isAdmin) { showUndoToast("No tenés permisos para importar clientes.", null); return; }
+             // Cualquier miembro puede importar clientes
              const currentWeek = getWeekNumber(new Date());
              const cleanProducts = Object.fromEntries(
                  Object.entries(parsed.products).filter(([k, v]) => v !== '').map(([k, v]) => [k, parseInt(v) || 0])
@@ -1713,7 +1712,7 @@ function App() {
                                         <div><h3 className="font-bold text-gray-900 dark:text-white">{(client.name || '').toUpperCase()}</h3><p className="text-sm text-gray-500 dark:text-gray-400">{client.address}</p></div>
                                         <div className="flex flex-col gap-2">
                                             <button onClick={() => setScheduleClient(client)} className="px-3 py-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-lg text-xs font-bold flex items-center gap-1"><Icons.Calendar size={14}/> Agendar</button>
-                                            {isAdmin && <div className="flex gap-1 self-end"><button onClick={() => editClient(client)} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400"><Icons.Edit size={16} /></button><button onClick={() => handleDeletePermanently(client.id)} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"><Icons.Trash2 size={16} /></button></div>}
+                                            <div className="flex gap-1 self-end"><button onClick={() => editClient(client)} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400"><Icons.Edit size={16} /></button>{isAdmin && <button onClick={() => handleDeletePermanently(client.id)} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"><Icons.Trash2 size={16} /></button>}</div>
                                         </div>
                                     </div>
                                 </Card>
@@ -2092,7 +2091,35 @@ function App() {
                         </button>
                     </div>
                 ) : (
-                    <div className="w-20" />
+                    <div className="relative flex items-center justify-center w-20">
+                        {showFabMenu && (
+                            <>
+                                <div className="fixed inset-0 z-20" onClick={() => setShowFabMenu(false)} />
+                                <div className="absolute bottom-16 z-30 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-48 overflow-hidden" style={{animation: 'slideUpFade 0.2s ease-out forwards'}}>
+                                    <button
+                                        onClick={() => { resetForm(); setView('add'); setShowFabMenu(false); }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                        <Icons.Users size={18} className="text-blue-500" />
+                                        <span className="font-medium">Nuevo cliente</span>
+                                    </button>
+                                    <div className="border-t border-gray-100 dark:border-gray-700" />
+                                    <button
+                                        onClick={() => { setNoteModal(true); setShowFabMenu(false); }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                        <Icons.FileText size={18} className="text-yellow-500" />
+                                        <span className="font-medium">Añadir nota</span>
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                        <button onClick={() => setShowFabMenu(!showFabMenu)} className="group flex items-center justify-center w-20" aria-label="Nuevo">
+                            <div className={`absolute -top-8 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-[80px] h-[80px] flex items-center justify-center shadow-2xl border-[6px] border-white dark:border-gray-900 transition-all duration-300 transform group-active:scale-95 ${showFabMenu ? 'rotate-45' : ''}`}>
+                                <Icons.Plus size={40} strokeWidth={3} />
+                            </div>
+                        </button>
+                    </div>
                 )}
                 <button onClick={() => setView('directory')} className={`flex flex-col items-center p-2 rounded-lg ${view === 'directory' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><Icons.Users /><span className="text-xs font-medium">Directorio</span></button>
             </nav>
