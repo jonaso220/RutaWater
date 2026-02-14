@@ -7,11 +7,14 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from 'react-native';
-import { Client } from '../types';
+import { Client, Debt } from '../types';
 import { ALL_DAYS } from '../constants/products';
 import { getTodayDayName } from '../utils/helpers';
 import ClientCard from '../components/ClientCard';
+import EditClientModal from '../components/EditClientModal';
+import DebtModal from '../components/DebtModal';
 
 interface HomeScreenProps {
   clients: Client[];
@@ -19,6 +22,15 @@ interface HomeScreenProps {
   getVisibleClients: (day: string) => Client[];
   getCompletedClients: (day: string) => Client[];
   isAdmin: boolean;
+  markAsDone: (clientId: string, client: Client) => Promise<void>;
+  undoComplete: (clientId: string) => Promise<void>;
+  deleteFromDay: (clientId: string) => Promise<void>;
+  updateClient: (clientId: string, data: Partial<Client>) => Promise<void>;
+  debts: Debt[];
+  addDebt: (client: Client, amount: number) => Promise<void>;
+  markDebtPaid: (debt: Debt) => Promise<void>;
+  editDebt: (debtId: string, newAmount: number) => Promise<void>;
+  getClientDebtTotal: (clientId: string) => number;
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -27,11 +39,54 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   getVisibleClients,
   getCompletedClients,
   isAdmin,
+  markAsDone,
+  undoComplete,
+  deleteFromDay,
+  updateClient,
+  debts,
+  addDebt,
+  markDebtPaid,
+  editDebt,
+  getClientDebtTotal,
 }) => {
   const [selectedDay, setSelectedDay] = useState(getTodayDayName());
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [debtClient, setDebtClient] = useState<Client | null>(null);
 
   const visibleClients = getVisibleClients(selectedDay);
   const completedClients = getCompletedClients(selectedDay);
+
+  const handleMarkDone = useCallback(
+    (client: Client) => {
+      markAsDone(client.id, client);
+    },
+    [markAsDone],
+  );
+
+  const handleDelete = useCallback(
+    (client: Client) => {
+      Alert.alert(
+        'Quitar de la lista?',
+        'Se guardara en el Directorio.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Quitar',
+            onPress: () => deleteFromDay(client.id),
+          },
+        ],
+      );
+    },
+    [deleteFromDay],
+  );
+
+  const handleUndoComplete = useCallback(
+    (client: Client) => {
+      undoComplete(client.id);
+    },
+    [undoComplete],
+  );
 
   const renderClient = useCallback(
     ({ item, index }: { item: Client; index: number }) => (
@@ -39,18 +94,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         client={item}
         index={index}
         isAdmin={isAdmin}
-        onMarkDone={() => {
-          // TODO: implement handleMarkAsDoneInList
-        }}
-        onEdit={() => {
-          // TODO: implement editClient
-        }}
-        onDelete={() => {
-          // TODO: implement handleDeleteClient
-        }}
+        hasDebt={getClientDebtTotal(item.id) > 0}
+        onMarkDone={() => handleMarkDone(item)}
+        onEdit={() => setEditingClient(item)}
+        onDelete={() => handleDelete(item)}
+        onDebt={() => setDebtClient(item)}
       />
     ),
-    [isAdmin],
+    [isAdmin, handleMarkDone, handleDelete, getClientDebtTotal],
   );
 
   if (loading) {
@@ -122,16 +173,55 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             </Text>
           </View>
         }
+        ListFooterComponent={
+          completedClients.length > 0 ? (
+            <View style={styles.completedSection}>
+              <TouchableOpacity
+                onPress={() => setShowCompleted(!showCompleted)}
+                style={styles.completedHeader}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.completedTitle}>
+                  {showCompleted ? '▼' : '▶'} Completados ({completedClients.length})
+                </Text>
+              </TouchableOpacity>
+              {showCompleted &&
+                completedClients.map((client) => (
+                  <TouchableOpacity
+                    key={client.id}
+                    style={styles.completedCard}
+                    onPress={() => handleUndoComplete(client)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.completedName}>
+                      {(client.name || '').toUpperCase()}
+                    </Text>
+                    <Text style={styles.completedHint}>Tocar para deshacer</Text>
+                  </TouchableOpacity>
+                ))}
+            </View>
+          ) : null
+        }
       />
 
-      {/* Completed section */}
-      {completedClients.length > 0 && (
-        <View style={styles.completedSection}>
-          <Text style={styles.completedTitle}>
-            Completados ({completedClients.length})
-          </Text>
-        </View>
-      )}
+      {/* Edit Client Modal */}
+      <EditClientModal
+        visible={!!editingClient}
+        client={editingClient}
+        onSave={updateClient}
+        onClose={() => setEditingClient(null)}
+      />
+
+      {/* Debt Modal */}
+      <DebtModal
+        visible={!!debtClient}
+        client={debtClient}
+        debts={debts}
+        onClose={() => setDebtClient(null)}
+        onAddDebt={addDebt}
+        onMarkPaid={markDebtPaid}
+        onEditDebt={editDebt}
+      />
     </View>
   );
 };
@@ -222,7 +312,11 @@ const styles = StyleSheet.create({
     borderTopWidth: 2,
     borderTopColor: '#E5E7EB',
     borderStyle: 'dashed',
-    padding: 16,
+    marginTop: 12,
+    paddingTop: 4,
+  },
+  completedHeader: {
+    padding: 12,
   },
   completedTitle: {
     fontSize: 13,
@@ -230,6 +324,27 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textTransform: 'uppercase',
     textAlign: 'center',
+  },
+  completedCard: {
+    backgroundColor: '#ECFDF5',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderLeftWidth: 4,
+    borderLeftColor: '#10B981',
+  },
+  completedName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  completedHint: {
+    fontSize: 11,
+    color: '#6EE7B7',
+    fontStyle: 'italic',
   },
 });
 

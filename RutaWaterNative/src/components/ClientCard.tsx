@@ -8,18 +8,22 @@ interface ClientCardProps {
   client: Client;
   index: number;
   isAdmin: boolean;
+  hasDebt?: boolean;
   onMarkDone: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onDebt?: () => void;
 }
 
 const ClientCard: React.FC<ClientCardProps> = ({
   client,
   index,
   isAdmin,
+  hasDebt,
   onMarkDone,
   onEdit,
   onDelete,
+  onDebt,
 }) => {
   const productSummary = React.useMemo(() => {
     if (!client.products) return '';
@@ -102,6 +106,11 @@ const ClientCard: React.FC<ClientCardProps> = ({
           <TouchableOpacity onPress={openMaps} style={styles.iconBtn}>
             <Text>📍</Text>
           </TouchableOpacity>
+          {onDebt && (
+            <TouchableOpacity onPress={onDebt} style={styles.iconBtn}>
+              <Text>{hasDebt ? '🔴' : '💰'}</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={onEdit} style={styles.iconBtn}>
             <Text>✏️</Text>
           </TouchableOpacity>
@@ -114,6 +123,11 @@ const ClientCard: React.FC<ClientCardProps> = ({
         <Text style={styles.clientName}>
           {(client.name || '').toUpperCase()}
         </Text>
+        {hasDebt && (
+          <TouchableOpacity onPress={onDebt}>
+            <Text style={styles.debtBadge}>💰 Tiene deuda</Text>
+          </TouchableOpacity>
+        )}
         <Text style={styles.clientAddress}>{client.address}</Text>
 
         {/* Products */}
@@ -224,6 +238,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#111827',
+  },
+  debtBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#DC2626',
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    overflow: 'hidden',
   },
   clientAddress: {
     fontSize: 12,

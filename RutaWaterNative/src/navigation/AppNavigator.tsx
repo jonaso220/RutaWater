@@ -3,7 +3,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import HomeScreen from '../screens/HomeScreen';
 import DirectoryScreen from '../screens/DirectoryScreen';
-import { Client } from '../types';
+import { Client, Debt } from '../types';
+import { Text as RNText } from 'react-native';
 
 const Tab = createBottomTabNavigator();
 
@@ -14,6 +15,15 @@ interface AppNavigatorProps {
   getCompletedClients: (day: string) => Client[];
   getFilteredDirectory: (term: string) => Client[];
   isAdmin: boolean;
+  markAsDone: (clientId: string, client: Client) => Promise<void>;
+  undoComplete: (clientId: string) => Promise<void>;
+  deleteFromDay: (clientId: string) => Promise<void>;
+  updateClient: (clientId: string, data: Partial<Client>) => Promise<void>;
+  debts: Debt[];
+  addDebt: (client: Client, amount: number) => Promise<void>;
+  markDebtPaid: (debt: Debt) => Promise<void>;
+  editDebt: (debtId: string, newAmount: number) => Promise<void>;
+  getClientDebtTotal: (clientId: string) => number;
 }
 
 const AppNavigator: React.FC<AppNavigatorProps> = ({
@@ -23,6 +33,15 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
   getCompletedClients,
   getFilteredDirectory,
   isAdmin,
+  markAsDone,
+  undoComplete,
+  deleteFromDay,
+  updateClient,
+  debts,
+  addDebt,
+  markDebtPaid,
+  editDebt,
+  getClientDebtTotal,
 }) => {
   return (
     <NavigationContainer>
@@ -58,6 +77,15 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
               getVisibleClients={getVisibleClients}
               getCompletedClients={getCompletedClients}
               isAdmin={isAdmin}
+              markAsDone={markAsDone}
+              undoComplete={undoComplete}
+              deleteFromDay={deleteFromDay}
+              updateClient={updateClient}
+              debts={debts}
+              addDebt={addDebt}
+              markDebtPaid={markDebtPaid}
+              editDebt={editDebt}
+              getClientDebtTotal={getClientDebtTotal}
             />
           )}
         </Tab.Screen>
@@ -83,9 +111,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
   );
 };
 
-// Simple emoji-based tab icon (replace with react-native-vector-icons later)
-import { Text as RNText } from 'react-native';
-
+// Simple emoji-based tab icon
 const TabIcon = ({ label }: { label: string; color: string }) => (
   <RNText style={{ fontSize: 20 }}>{label}</RNText>
 );

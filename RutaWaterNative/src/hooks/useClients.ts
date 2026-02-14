@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
 import { Client } from '../types';
 import { normalizeText, getNextVisitDate } from '../utils/helpers';
@@ -29,7 +29,6 @@ export const useClients = ({ userId, groupId }: UseClientsProps) => {
             id: doc.id,
             ...doc.data(),
           })) as Client[];
-          // No ordenar aquí - getVisibleClients ordena por listOrders[day]
           setClients(loadedClients);
           setLoading(false);
         },
@@ -81,7 +80,7 @@ export const useClients = ({ userId, groupId }: UseClientsProps) => {
       });
   };
 
-  // Get completed clients for a specific day
+  // Get completed clients for a specific day (only 'once' freq)
   const getCompletedClients = (day: string): Client[] => {
     return clients.filter((c) => {
       if (!c.isCompleted) return false;
@@ -103,11 +102,99 @@ export const useClients = ({ userId, groupId }: UseClientsProps) => {
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   };
 
+  // --- MUTATION FUNCTIONS ---
+
+  // Mark a client as done for the day
+  const markAsDone = async (clientId: string, client: Client) => {
+    try {
+      if (client.freq === 'once') {
+        // Once: mark as completed permanently
+        await db.collection('clients').doc(clientId).update({
+          isCompleted: true,
+          completedAt: new Date(),
+          updatedAt: new Date(),
+          alarm: '',
+          isStarred: false,
+        });
+      } else {
+        // Periodic: update lastVisited to hide until next cycle
+        const updates: Record<string, any> = {
+          lastVisited: new Date(),
+          alarm: '',
+        };
+
+        if (client.specificDate) {
+          let interval = 1;
+          if (client.freq === 'biweekly') interval = 2;
+          if (client.freq === 'triweekly') interval = 3;
+          if (client.freq === 'monthly') interval = 4;
+          const currentSpecificDate = new Date(client.specificDate + 'T12:00:00');
+          const nextSpecificDate = new Date(currentSpecificDate);
+          nextSpecificDate.setDate(nextSpecificDate.getDate() + interval * 7);
+          const tomorrow = new Date();
+          tomorrow.setHours(0, 0, 0, 0);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          while (nextSpecificDate < tomorrow) {
+            nextSpecificDate.setDate(nextSpecificDate.getDate() + interval * 7);
+          }
+          updates.specificDate = nextSpecificDate.toISOString().split('T')[0];
+        }
+
+        if (client.isStarred) {
+          updates.isStarred = false;
+        }
+
+        await db.collection('clients').doc(clientId).update(updates);
+      }
+    } catch (e) {
+      console.error('Error marking as done:', e);
+    }
+  };
+
+  // Undo a completed client (only for 'once' freq)
+  const undoComplete = async (clientId: string) => {
+    try {
+      await db.collection('clients').doc(clientId).update({
+        isCompleted: false,
+        completedAt: null,
+        updatedAt: new Date(),
+      });
+    } catch (e) {
+      console.error('Error undoing complete:', e);
+    }
+  };
+
+  // Remove a client from the day's route (move to directory)
+  const deleteFromDay = async (clientId: string) => {
+    try {
+      await db.collection('clients').doc(clientId).update({
+        freq: 'on_demand',
+        visitDay: 'Sin Asignar',
+        visitDays: [],
+      });
+    } catch (e) {
+      console.error('Error deleting from day:', e);
+    }
+  };
+
+  // Generic update for client fields
+  const updateClient = async (clientId: string, data: Partial<Client>) => {
+    try {
+      await db.collection('clients').doc(clientId).update(data);
+    } catch (e) {
+      console.error('Error updating client:', e);
+    }
+  };
+
   return {
     clients,
     loading,
     getVisibleClients,
     getCompletedClients,
     getFilteredDirectory,
+    markAsDone,
+    undoComplete,
+    deleteFromDay,
+    updateClient,
   };
 };
