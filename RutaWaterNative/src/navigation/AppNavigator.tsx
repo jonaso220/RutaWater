@@ -3,8 +3,10 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import HomeScreen from '../screens/HomeScreen';
 import DirectoryScreen from '../screens/DirectoryScreen';
-import { Client, Debt } from '../types';
+import SettingsScreen from '../screens/SettingsScreen';
+import { Client, Debt, Transfer, Group, UserData } from '../types';
 import { Frequency } from '../constants/products';
+import { DailyLoad } from '../hooks/useDailyLoads';
 import { Text as RNText } from 'react-native';
 
 const Tab = createBottomTabNavigator();
@@ -33,6 +35,21 @@ interface AppNavigatorProps {
     notes: string,
     products: Record<string, number>,
   ) => Promise<void>;
+  toggleStar: (clientId: string, currentValue: boolean) => Promise<void>;
+  saveAlarm: (clientId: string, time: string) => Promise<void>;
+  addNote: (notesText: string, date: string) => Promise<void>;
+  transfers: Transfer[];
+  hasPendingTransfer: (clientId: string) => boolean;
+  addTransfer: (client: Client) => Promise<boolean | undefined>;
+  markTransferReviewed: (transfer: Transfer) => Promise<void>;
+  dailyLoad: DailyLoad;
+  loadForDay: (day: string) => Promise<void>;
+  saveDailyLoad: (day: string, data: DailyLoad) => Promise<void>;
+  // Settings
+  user: UserData;
+  groupData: Group | null;
+  onSignOut: () => void;
+  onGroupUpdate: (data: Group | null) => void;
 }
 
 const AppNavigator: React.FC<AppNavigatorProps> = ({
@@ -52,6 +69,20 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
   editDebt,
   getClientDebtTotal,
   scheduleFromDirectory,
+  toggleStar,
+  saveAlarm,
+  addNote,
+  transfers,
+  hasPendingTransfer,
+  addTransfer,
+  markTransferReviewed,
+  dailyLoad,
+  loadForDay,
+  saveDailyLoad,
+  user,
+  groupData,
+  onSignOut,
+  onGroupUpdate,
 }) => {
   return (
     <NavigationContainer>
@@ -96,6 +127,16 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
               markDebtPaid={markDebtPaid}
               editDebt={editDebt}
               getClientDebtTotal={getClientDebtTotal}
+              toggleStar={toggleStar}
+              saveAlarm={saveAlarm}
+              addNote={addNote}
+              transfers={transfers}
+              hasPendingTransfer={hasPendingTransfer}
+              addTransfer={addTransfer}
+              markTransferReviewed={markTransferReviewed}
+              dailyLoad={dailyLoad}
+              loadForDay={loadForDay}
+              saveDailyLoad={saveDailyLoad}
             />
           )}
         </Tab.Screen>
@@ -119,6 +160,26 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
               markDebtPaid={markDebtPaid}
               editDebt={editDebt}
               getClientDebtTotal={getClientDebtTotal}
+            />
+          )}
+        </Tab.Screen>
+
+        <Tab.Screen
+          name="Ajustes"
+          options={{
+            headerTitle: 'Ajustes',
+            tabBarIcon: ({ color }) => (
+              <TabIcon label="⚙️" color={color} />
+            ),
+          }}
+        >
+          {() => (
+            <SettingsScreen
+              user={user}
+              groupData={groupData}
+              isAdmin={isAdmin}
+              onSignOut={onSignOut}
+              onGroupUpdate={onGroupUpdate}
             />
           )}
         </Tab.Screen>

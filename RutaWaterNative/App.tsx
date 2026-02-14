@@ -3,6 +3,8 @@ import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { useAuth } from './src/hooks/useAuth';
 import { useClients } from './src/hooks/useClients';
 import { useDebts } from './src/hooks/useDebts';
+import { useTransfers } from './src/hooks/useTransfers';
+import { useDailyLoads } from './src/hooks/useDailyLoads';
 import LoginScreen from './src/screens/LoginScreen';
 import AppNavigator from './src/navigation/AppNavigator';
 
@@ -15,6 +17,7 @@ const App = () => {
     signInWithGoogle,
     signOut,
     getDataScope,
+    setGroupData,
   } = useAuth();
 
   const scope = getDataScope();
@@ -29,6 +32,10 @@ const App = () => {
     deleteFromDay,
     updateClient,
     scheduleFromDirectory,
+    toggleStar,
+    saveAlarm,
+    addNote,
+    changePosition,
   } = useClients({
     userId: user?.uid || '',
     groupId: groupData?.groupId,
@@ -43,6 +50,24 @@ const App = () => {
   } = useDebts({
     userId: user?.uid || '',
     groupId: groupData?.groupId,
+  });
+
+  const {
+    transfers,
+    hasPendingTransfer,
+    addTransfer,
+    markTransferReviewed,
+  } = useTransfers({
+    userId: user?.uid || '',
+    groupId: groupData?.groupId,
+  });
+
+  const {
+    dailyLoad,
+    loadForDay,
+    saveDailyLoad,
+  } = useDailyLoads({
+    userId: user?.uid || '',
   });
 
   // Auth loading
@@ -78,6 +103,24 @@ const App = () => {
       editDebt={editDebt}
       getClientDebtTotal={getClientDebtTotal}
       scheduleFromDirectory={scheduleFromDirectory}
+      toggleStar={toggleStar}
+      saveAlarm={saveAlarm}
+      addNote={addNote}
+      transfers={transfers}
+      hasPendingTransfer={hasPendingTransfer}
+      addTransfer={addTransfer}
+      markTransferReviewed={markTransferReviewed}
+      dailyLoad={dailyLoad}
+      loadForDay={loadForDay}
+      saveDailyLoad={saveDailyLoad}
+      user={{
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+      }}
+      groupData={groupData}
+      onSignOut={signOut}
+      onGroupUpdate={setGroupData}
     />
   );
 };

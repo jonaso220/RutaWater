@@ -285,6 +285,104 @@ export const useClients = ({ userId, groupId }: UseClientsProps) => {
     }
   };
 
+  // Toggle star on a client (optimistic update)
+  const toggleStar = async (clientId: string, currentValue: boolean) => {
+    const newVal = !currentValue;
+    try {
+      await db.collection('clients').doc(clientId).update({ isStarred: newVal });
+    } catch (e) {
+      console.error('Error toggling star:', e);
+    }
+  };
+
+  // Save alarm time for a client
+  const saveAlarm = async (clientId: string, time: string) => {
+    try {
+      await db.collection('clients').doc(clientId).update({ alarm: time });
+    } catch (e) {
+      console.error('Error saving alarm:', e);
+    }
+  };
+
+  // Add a note (special client with isNote: true)
+  const addNote = async (notesText: string, date: string) => {
+    try {
+      const d = new Date(date + 'T12:00:00');
+      const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+      const dayName = dayNames[d.getDay()];
+      const currentWeek = getWeekNumber(new Date());
+      const scope = groupId ? { groupId, userId } : { userId };
+
+      // Place at beginning of day
+      const existingInDay = clients.filter(
+        (c) =>
+          c.freq !== 'on_demand' &&
+          !c.isCompleted &&
+          ((c.visitDays && c.visitDays.includes(dayName)) || c.visitDay === dayName),
+      );
+      let minOrder = 0;
+      if (existingInDay.length > 0) {
+        const orders = existingInDay.map((c) => {
+          const order = c.listOrders?.[dayName] ?? c.listOrder ?? 0;
+          return order > 100000 ? 0 : order;
+        });
+        minOrder = Math.min(...orders);
+      }
+
+      await db.collection('clients').add({
+        ...scope,
+        userId,
+        isNote: true,
+        name: 'NOTA',
+        phone: '',
+        address: '',
+        notes: notesText,
+        freq: 'once',
+        specificDate: date,
+        visitDays: [dayName],
+        visitDay: dayName,
+        listOrder: minOrder - 1,
+        listOrders: { [dayName]: minOrder - 1 },
+        products: {},
+        isCompleted: false,
+        isStarred: false,
+        isPinned: false,
+        startWeek: currentWeek,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    } catch (e) {
+      console.error('Error adding note:', e);
+    }
+  };
+
+  // Change client position in the day's list
+  const changePosition = async (clientId: string, newPos: number, day: string) => {
+    const pos = Math.max(1, newPos);
+    const dayClients = [...getVisibleClients(day)];
+    const currentIndex = dayClients.findIndex((c) => c.id === clientId);
+    if (currentIndex === -1) return;
+
+    const [movedClient] = dayClients.splice(currentIndex, 1);
+    const targetIndex = Math.min(Math.max(0, pos - 1), dayClients.length);
+    dayClients.splice(targetIndex, 0, movedClient);
+
+    const batch = db.batch();
+    dayClients.forEach((client, index) => {
+      const ref = db.collection('clients').doc(client.id);
+      batch.update(ref, {
+        [`listOrders.${day}`]: index,
+        listOrder: index,
+      });
+    });
+
+    try {
+      await batch.commit();
+    } catch (e) {
+      console.error('Error changing position:', e);
+    }
+  };
+
   return {
     clients,
     loading,
@@ -296,5 +394,9 @@ export const useClients = ({ userId, groupId }: UseClientsProps) => {
     deleteFromDay,
     updateClient,
     scheduleFromDirectory,
+    toggleStar,
+    saveAlarm,
+    addNote,
+    changePosition,
   };
 };
