@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
 import { Client } from '../types';
-import { normalizeText, getNextVisitDate } from '../utils/helpers';
-import { ALL_DAYS } from '../constants/products';
+import { normalizeText, getNextVisitDate, getWeekNumber } from '../utils/helpers';
+import { ALL_DAYS, Frequency } from '../constants/products';
 
 interface UseClientsProps {
   userId: string;
@@ -186,6 +186,105 @@ export const useClients = ({ userId, groupId }: UseClientsProps) => {
     }
   };
 
+  // Schedule a client from the directory to a specific day/frequency
+  const scheduleFromDirectory = async (
+    clientData: Client,
+    newDays: string[],
+    newFreq: Frequency,
+    newDate: string,
+    newNotes: string,
+    newProducts: Record<string, number>,
+  ) => {
+    try {
+      const currentWeek = getWeekNumber(new Date());
+      const scope = groupId ? { groupId, userId } : { userId };
+      const newData: Record<string, any> = {
+        name: clientData.name,
+        phone: clientData.phone,
+        address: clientData.address,
+        lat: clientData.lat,
+        lng: clientData.lng,
+        mapsLink: clientData.mapsLink,
+        ...scope,
+        userId,
+        freq: newFreq,
+        updatedAt: new Date(),
+        notes: newNotes,
+        isPinned: false,
+        products: newProducts || {},
+      };
+
+      if (newDate) {
+        // One-time order - place at the beginning
+        const d = new Date(newDate + 'T12:00:00');
+        const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        const dayName = dayNames[d.getDay()];
+
+        const existingInDay = clients.filter(
+          (c) =>
+            c.freq !== 'on_demand' &&
+            !c.isCompleted &&
+            ((c.visitDays && c.visitDays.includes(dayName)) || c.visitDay === dayName),
+        );
+
+        let minOrder = 0;
+        if (existingInDay.length > 0) {
+          const orders = existingInDay.map((c) => {
+            const order = c.listOrders?.[dayName] ?? c.listOrder ?? 0;
+            return order > 100000 ? 0 : order;
+          });
+          minOrder = Math.min(...orders);
+        }
+        const newOrder = minOrder - 1;
+
+        newData.visitDay = dayName;
+        newData.visitDays = [dayName];
+        newData.specificDate = newDate;
+        newData.startWeek = currentWeek;
+        newData.listOrder = newOrder;
+        newData.listOrders = { [dayName]: newOrder };
+      } else {
+        // Periodic order - place at the end
+        newData.visitDays = newDays;
+        newData.visitDay = newDays[0];
+        newData.startWeek = currentWeek;
+        newData.specificDate = null;
+
+        const listOrders: Record<string, number> = {};
+        newDays.forEach((day) => {
+          const existingInDay = clients.filter(
+            (c) =>
+              c.freq !== 'on_demand' &&
+              !c.isCompleted &&
+              ((c.visitDays && c.visitDays.includes(day)) || c.visitDay === day),
+          );
+          const maxOrder =
+            existingInDay.length > 0
+              ? Math.max(
+                  ...existingInDay.map(
+                    (c) => c.listOrders?.[day] ?? c.listOrder ?? 0,
+                  ),
+                )
+              : -1;
+          listOrders[day] = maxOrder + 1;
+        });
+        newData.listOrders = listOrders;
+        newData.listOrder = listOrders[newDays[0]];
+      }
+
+      if (clientData.freq === 'on_demand' || clientData.visitDay === 'Sin Asignar') {
+        // Reactivate existing client
+        await db.collection('clients').doc(clientData.id).update(newData);
+      } else {
+        // Create additional visit
+        newData.createdAt = new Date();
+        await db.collection('clients').add(newData);
+      }
+    } catch (e) {
+      console.error('Error scheduling client:', e);
+    }
+  };
+
   return {
     clients,
     loading,
@@ -196,5 +295,6 @@ export const useClients = ({ userId, groupId }: UseClientsProps) => {
     undoComplete,
     deleteFromDay,
     updateClient,
+    scheduleFromDirectory,
   };
 };

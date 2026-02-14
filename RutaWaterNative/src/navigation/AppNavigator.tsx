@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import HomeScreen from '../screens/HomeScreen';
 import DirectoryScreen from '../screens/DirectoryScreen';
 import { Client, Debt } from '../types';
+import { Frequency } from '../constants/products';
 import { Text as RNText } from 'react-native';
 
 const Tab = createBottomTabNavigator();
@@ -24,6 +25,14 @@ interface AppNavigatorProps {
   markDebtPaid: (debt: Debt) => Promise<void>;
   editDebt: (debtId: string, newAmount: number) => Promise<void>;
   getClientDebtTotal: (clientId: string) => number;
+  scheduleFromDirectory: (
+    client: Client,
+    days: string[],
+    freq: Frequency,
+    date: string,
+    notes: string,
+    products: Record<string, number>,
+  ) => Promise<void>;
 }
 
 const AppNavigator: React.FC<AppNavigatorProps> = ({
@@ -42,6 +51,7 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
   markDebtPaid,
   editDebt,
   getClientDebtTotal,
+  scheduleFromDirectory,
 }) => {
   return (
     <NavigationContainer>
@@ -103,6 +113,12 @@ const AppNavigator: React.FC<AppNavigatorProps> = ({
             <DirectoryScreen
               getFilteredDirectory={getFilteredDirectory}
               isAdmin={isAdmin}
+              scheduleFromDirectory={scheduleFromDirectory}
+              debts={debts}
+              addDebt={addDebt}
+              markDebtPaid={markDebtPaid}
+              editDebt={editDebt}
+              getClientDebtTotal={getClientDebtTotal}
             />
           )}
         </Tab.Screen>

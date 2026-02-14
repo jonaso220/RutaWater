@@ -28,6 +28,7 @@ const App = () => {
     undoComplete,
     deleteFromDay,
     updateClient,
+    scheduleFromDirectory,
   } = useClients({
     userId: user?.uid || '',
     groupId: groupData?.groupId,
@@ -76,6 +77,7 @@ const App = () => {
       markDebtPaid={markDebtPaid}
       editDebt={editDebt}
       getClientDebtTotal={getClientDebtTotal}
+      scheduleFromDirectory={scheduleFromDirectory}
     />
   );
 };
