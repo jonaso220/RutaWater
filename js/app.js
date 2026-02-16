@@ -39,6 +39,10 @@ function App() {
     // --- ESTADO CARGA DIARIA ---
     const [showDailyLoadModal, setShowDailyLoadModal] = React.useState(false);
 
+    // --- ESTADO EDICIÓN RÁPIDA CLIENTE ---
+    const [quickEditClient, setQuickEditClient] = React.useState(null);
+    const [quickEditShowInfo, setQuickEditShowInfo] = React.useState(false);
+
     // --- ESTADO NOTAS ---
     const [noteModal, setNoteModal] = React.useState(false);
     const [editNoteData, setEditNoteData] = React.useState(null);
@@ -723,10 +727,21 @@ function App() {
             visitDays: c.visitDays || (c.visitDay ? [c.visitDay] : ['Lunes']),
             products: c.products || { b20: '', b12: '', b6: '', soda: '', bombita: '', disp_elec_new: '', disp_elec_chg: '', disp_nat: '' }
         }); 
-        setEditingId(c.id); 
-        setView('add'); 
+        setEditingId(c.id);
+        setView('add');
     };
-    
+
+    // --- HANDLER: Actualización rápida de cliente (desde modal del directorio) ---
+    const handleQuickUpdateClient = async (clientId, data) => {
+        try {
+            var updateData = { ...data, updatedAt: new Date() };
+            await firestoreRetry(() => db.collection('clients').doc(clientId).update(updateData));
+            showUndoToast("Cliente actualizado.", null);
+        } catch(e) {
+            showUndoToast(getErrorMessage(e), null);
+        }
+    };
+
 
     // Helper: abrir URL externa sin dejar ventana en blanco en móvil
     const openExternal = (url) => {
@@ -1318,6 +1333,7 @@ function App() {
                 onSendDebtTotal={sendDebtTotal}
             />}
             {showDailyLoadModal && <DailyLoadModal isOpen={true} day={selectedDay} data={dailyLoad} onClose={() => setShowDailyLoadModal(false)} onSave={handleSaveDailyLoad} />}
+            {quickEditClient && <EditClientQuickModal isOpen={true} client={quickEditClient} onClose={() => setQuickEditClient(null)} onSave={handleQuickUpdateClient} showClientInfo={quickEditShowInfo} />}
             {activeAlert && <AlarmBanner data={activeAlert} onClose={handleDismissAlert} />}
 
             {/* TOAST NOTIFICATION */}
@@ -1652,7 +1668,7 @@ function App() {
                                                 onDebtClick={handleDebtClick}
                                                 onAddTransfer={handleAddTransfer}
                                                 onSetAlarm={handleSetAlarmForClient}
-                                                onEdit={editClient}
+                                                onEdit={(c) => { setQuickEditClient(c); setQuickEditShowInfo(false); }}
                                                 onEditNote={(note) => setEditNoteData(note)}
                                                 onDelete={handleDeleteClient}
                                                 onOpenMaps={openGoogleMaps}
@@ -1741,17 +1757,64 @@ function App() {
                             <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center font-medium">{filteredDirectory.length} cliente{filteredDirectory.length !== 1 ? 's' : ''} en el directorio</p>
                         </div>
                         <div className="grid gap-3">
-                            {filteredDirectory.map(client => (
-                                <Card key={client.id} className="p-4 border-l-4 border-l-transparent hover:border-l-blue-500 dark:hover:border-l-blue-400">
-                                    <div className="flex justify-between items-center">
-                                        <div><h3 className="font-bold text-gray-900 dark:text-white">{(client.name || '').toUpperCase()}</h3><p className="text-sm text-gray-500 dark:text-gray-400">{client.address}</p></div>
-                                        <div className="flex flex-col gap-2">
-                                            <button onClick={() => setScheduleClient(client)} className="px-3 py-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-lg text-xs font-bold flex items-center gap-1"><Icons.Calendar size={14}/> Agendar</button>
-                                            <div className="flex gap-1 self-end">{isAdmin && <button onClick={() => editClient(client)} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400"><Icons.Edit size={16} /></button>}{isAdmin && <button onClick={() => handleDeletePermanently(client.id)} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"><Icons.Trash2 size={16} /></button>}</div>
+                            {filteredDirectory.map(client => {
+                                var prodSummary = '';
+                                if (client.products) {
+                                    prodSummary = Object.keys(client.products)
+                                        .filter(function(k) { return parseInt(client.products[k] || 0) > 0; })
+                                        .map(function(k) { var p = PRODUCTS.find(function(prod) { return prod.id === k; }); return client.products[k] + 'x ' + (p ? p.short : k); })
+                                        .join(', ');
+                                }
+                                var debtTotal = debts.filter(function(d) { return d.clientId === client.id; }).reduce(function(sum, d) { return sum + (d.amount || 0); }, 0);
+                                var freqLabel = '';
+                                switch(client.freq) {
+                                    case 'weekly': freqLabel = 'Semanal'; break;
+                                    case 'biweekly': freqLabel = 'Quincenal'; break;
+                                    case 'triweekly': freqLabel = 'Cada 3 sem'; break;
+                                    case 'monthly': freqLabel = 'Mensual'; break;
+                                    case 'once': freqLabel = 'Una vez'; break;
+                                    case 'on_demand': freqLabel = 'Solo Directorio'; break;
+                                    default: freqLabel = client.freq || '';
+                                }
+                                var isOnDemand = client.freq === 'on_demand' || !(client.visitDays && client.visitDays.length > 0);
+                                var hasLocation = !!(client.lat && client.lng) || !!client.mapsLink;
+                                return (
+                                <Card key={client.id} className={`p-4 border-l-4 ${debtTotal > 0 ? 'border-l-red-500' : 'border-l-transparent'}`}>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="font-bold text-gray-900 dark:text-white text-sm">{(client.name || '').toUpperCase()}</h3>
+                                                {debtTotal > 0 && (
+                                                    <button onClick={() => {
+                                                        var c = client; c.hasDebt = true;
+                                                        setViewDebtModal({ isOpen: true, client: c });
+                                                    }} className="text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full mt-1 inline-block">${debtTotal.toLocaleString()}</button>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {client.address && <p className="text-xs text-gray-500 dark:text-gray-400">{client.address}</p>}
+                                        {client.phone && <p className="text-[11px] text-gray-400 dark:text-gray-500">{client.phone}</p>}
+                                        {prodSummary && <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 mt-1">📦 {prodSummary}</p>}
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{freqLabel}</span>
+                                            {client.visitDays && client.visitDays.length > 0 && (
+                                                <span className="text-[10px] text-gray-400 dark:text-gray-500">{client.visitDays.map(function(d) { return d.slice(0, 3); }).join(', ')}</span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                                            {client.phone && <button onClick={() => sendWhatsAppDirect(client.phone)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" title="WhatsApp">💬</button>}
+                                            {hasLocation && <button onClick={() => openGoogleMaps(client.lat, client.lng, client.mapsLink)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" title="Maps">📍</button>}
+                                            <button onClick={() => { var c = client; c.hasDebt = debtTotal > 0; if (debtTotal > 0) { setViewDebtModal({ isOpen: true, client: c }); } else { setDebtModal({ isOpen: true, client: c }); } }} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" title="Deuda">{debtTotal > 0 ? '🔴' : '💰'}</button>
+                                            {isAdmin && <button onClick={() => { setQuickEditClient(client); setQuickEditShowInfo(true); }} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20" title="Editar">✏️</button>}
+                                            <div className="flex-1" />
+                                            <button onClick={() => setScheduleClient(client)} className="px-3 py-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-blue-200 dark:hover:bg-blue-800">
+                                                {isOnDemand ? 'Agendar' : '+ Visita'}
+                                            </button>
                                         </div>
                                     </div>
                                 </Card>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 )}

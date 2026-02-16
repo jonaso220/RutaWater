@@ -581,6 +581,131 @@ const PasteContactModal = ({ isOpen, onClose, onPaste }) => {
      );
 };
 
+// --- COMPONENTE MODAL EDITAR CLIENTE RÁPIDO (Directorio) ---
+const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo }) => {
+    const [name, setName] = React.useState('');
+    const [address, setAddress] = React.useState('');
+    const [phone, setPhone] = React.useState('');
+    const [mapsLink, setMapsLink] = React.useState('');
+    const [products, setProducts] = React.useState({});
+    const [notes, setNotes] = React.useState('');
+    const [freq, setFreq] = React.useState('weekly');
+
+    const FREQ_OPTIONS = [
+        { key: 'weekly', label: 'Semanal' },
+        { key: 'biweekly', label: 'Quincenal' },
+        { key: 'triweekly', label: 'Cada 3 sem' },
+        { key: 'monthly', label: 'Mensual' },
+        { key: 'once', label: 'Una vez' },
+        { key: 'on_demand', label: 'Solo Directorio' },
+    ];
+
+    React.useEffect(() => {
+        if (client) {
+            setName(client.name || '');
+            setAddress(client.address || '');
+            setPhone(client.phone || '');
+            setMapsLink(client.mapsLink || '');
+            setNotes(client.notes || '');
+            setFreq(client.freq || 'weekly');
+            var prods = {};
+            PRODUCTS.forEach(function(p) {
+                prods[p.id] = parseInt(client.products?.[p.id] || 0, 10);
+            });
+            setProducts(prods);
+        }
+    }, [client]);
+
+    if (!isOpen || !client) return null;
+
+    const adjustQty = (productId, delta) => {
+        setProducts(prev => ({
+            ...prev,
+            [productId]: Math.max(0, (prev[productId] || 0) + delta)
+        }));
+    };
+
+    const handleSave = () => {
+        var cleanProducts = {};
+        Object.entries(products).forEach(function([key, val]) {
+            if (val > 0) cleanProducts[key] = val;
+        });
+        var data = {
+            products: cleanProducts,
+            notes: notes,
+            freq: freq,
+        };
+        if (showClientInfo) {
+            data.name = name.trim();
+            data.address = address.trim();
+            data.phone = phone.trim();
+            data.mapsLink = mapsLink.trim();
+        }
+        onSave(client.id, data);
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm" style={{zIndex: 110}}>
+            <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl shadow-2xl w-full sm:max-w-md max-h-[85vh] flex flex-col">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                    <h3 className="text-lg font-bold dark:text-white">
+                        {showClientInfo ? 'Editar Cliente' : (client.name || '').toUpperCase()}
+                    </h3>
+                    <button onClick={onClose}><Icons.X size={20} className="text-gray-400 dark:text-gray-500" /></button>
+                </div>
+                <div className="overflow-y-auto flex-1 p-4 space-y-5">
+                    {showClientInfo && (
+                        <div>
+                            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Datos del cliente</p>
+                            <div className="space-y-2">
+                                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
+                                <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Dirección" className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
+                                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Teléfono" className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
+                                <input value={mapsLink} onChange={(e) => setMapsLink(e.target.value)} placeholder="URL Google Maps" className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" autoCapitalize="off" />
+                            </div>
+                        </div>
+                    )}
+                    <div>
+                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Productos</p>
+                        <div className="space-y-1">
+                            {PRODUCTS.map(p => (
+                                <div key={p.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{p.icon} {p.label}</span>
+                                    <div className="flex items-center gap-3">
+                                        <button type="button" onClick={() => adjustQty(p.id, -1)} className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-lg font-bold text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">−</button>
+                                        <span className="text-base font-bold text-gray-900 dark:text-white w-6 text-center">{products[p.id] || 0}</span>
+                                        <button type="button" onClick={() => adjustQty(p.id, 1)} className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-lg font-bold text-white hover:bg-blue-700">+</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Notas</p>
+                        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notas del cliente..." className="w-full p-3 border rounded-lg bg-gray-50 h-20 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Frecuencia</p>
+                        <div className="flex flex-wrap gap-2">
+                            {FREQ_OPTIONS.map(f => (
+                                <button key={f.key} type="button" onClick={() => setFreq(f.key)} className={`px-3.5 py-2 rounded-full text-xs font-semibold transition-colors ${freq === f.key ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+                                    {f.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                <div className="p-4 border-t border-gray-100 dark:border-gray-700">
+                    <Button onClick={handleSave} className="w-full">
+                        <Icons.Save size={16} /> Guardar
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- COMPONENTE MODAL CARGA DIARIA ---
 const DailyLoadModal = ({ isOpen, day, data, onClose, onSave }) => {
     const LOAD_FIELDS = [
