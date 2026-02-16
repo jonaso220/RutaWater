@@ -581,6 +581,75 @@ const PasteContactModal = ({ isOpen, onClose, onPaste }) => {
      );
 };
 
+// --- COMPONENTE MODAL CARGA DIARIA ---
+const DailyLoadModal = ({ isOpen, day, data, onClose, onSave }) => {
+    const LOAD_FIELDS = [
+        { key: 'b20', label: '20L', icon: '💧' },
+        { key: 'b12', label: '12L', icon: '💧' },
+        { key: 'b6', label: '6L', icon: '💧' },
+        { key: 'soda', label: 'Soda', icon: '🍾' },
+    ];
+
+    const [localData, setLocalData] = React.useState(data);
+
+    React.useEffect(() => {
+        if (isOpen) setLocalData(data);
+    }, [isOpen, data]);
+
+    if (!isOpen) return null;
+
+    const updateField = (key, value) => {
+        setLocalData(prev => ({ ...prev, [key]: value }));
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm" style={{zIndex: 110}}>
+            <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl shadow-2xl w-full sm:max-w-md max-h-[85vh] flex flex-col">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                    <h3 className="text-lg font-bold dark:text-white flex items-center gap-2">
+                        <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-1.5 rounded-lg"><Icons.Package size={18} /></div>
+                        Carga - {day}
+                    </h3>
+                    <button onClick={onClose}><Icons.X size={20} className="text-gray-400 dark:text-gray-500" /></button>
+                </div>
+                <div className="overflow-y-auto flex-1 p-4 space-y-5">
+                    <div>
+                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Carga Principal</p>
+                        <div className="space-y-2">
+                            {LOAD_FIELDS.map(f => (
+                                <div key={f.key} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{f.icon} {f.label}</span>
+                                    <input type="number" inputMode="numeric" value={localData[f.key] || ''} onChange={(e) => updateField(f.key, e.target.value)} placeholder="0" className="w-20 p-2 text-center text-lg font-bold border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Extras</p>
+                        <div className="space-y-2">
+                            {LOAD_FIELDS.map(f => (
+                                <div key={f.key + '_extra'} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{f.icon} {f.label} Extra</span>
+                                    <input type="number" inputMode="numeric" value={localData[f.key + '_extra'] || ''} onChange={(e) => updateField(f.key + '_extra', e.target.value)} placeholder="0" className="w-20 p-2 text-center text-lg font-bold border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Notas del día</p>
+                        <textarea value={localData.pedidos_note || ''} onChange={(e) => updateField('pedidos_note', e.target.value)} placeholder="Notas sobre pedidos..." className="w-full p-3 border rounded-lg bg-gray-50 h-20 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                    </div>
+                </div>
+                <div className="p-4 border-t border-gray-100 dark:border-gray-700">
+                    <Button onClick={() => { onSave(day, localData); onClose(); }} className="w-full">
+                        <Icons.Save size={16} /> Guardar
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- COMPONENTE MODAL GRUPO FAMILIAR ---
 const GroupModal = ({ isOpen, onClose, user, groupData, onGroupUpdate }) => {
     const [activeTab, setActiveTab] = React.useState('info'); // 'info', 'create', 'join'

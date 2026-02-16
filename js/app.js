@@ -36,6 +36,9 @@ function App() {
     const [activeSection, setActiveSection] = React.useState('cartera'); // 'cartera', 'deudas', 'transferencias'
     const [showSectionMenu, setShowSectionMenu] = React.useState(false);
 
+    // --- ESTADO CARGA DIARIA ---
+    const [showDailyLoadModal, setShowDailyLoadModal] = React.useState(false);
+
     // --- ESTADO NOTAS ---
     const [noteModal, setNoteModal] = React.useState(false);
     const [editNoteData, setEditNoteData] = React.useState(null);
@@ -281,6 +284,15 @@ function App() {
         }
     };
     
+    // --- CARGA DIARIA HANDLER ---
+    const handleSaveDailyLoad = async (day, data) => {
+        try {
+            const docId = `${user.uid}_${day}`;
+            await firestoreRetry(() => db.collection('daily_loads').doc(docId).set(data, { merge: true }));
+            setDailyLoad(data);
+        } catch(e) { showUndoToast(getErrorMessage(e), null); }
+    };
+
     // --- ALARMAS HANDLERS ---
     const handleSaveAlarm = async (time) => {
         try {
@@ -639,6 +651,20 @@ function App() {
         visible.forEach((c, i) => { map[c.id] = i; });
         return map;
     }, [getVisibleClients, selectedDay]);
+
+    // --- CONTEO DE CLIENTES POR DÍA ---
+    const dayCounts = React.useMemo(() => {
+        const counts = {};
+        ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].forEach(day => {
+            counts[day] = clients.filter(c => {
+                if (c.freq === 'on_demand' || c.isCompleted) return false;
+                if (c.freq === 'once' && !c.specificDate) return false;
+                if (c.visitDays && c.visitDays.length > 0) return c.visitDays.includes(day);
+                return c.visitDay === day;
+            }).length;
+        });
+        return counts;
+    }, [clients]);
 
     const handleGoogleLogin = async () => {
         try {
@@ -1291,6 +1317,7 @@ function App() {
                 onAddMore={(client) => setDebtModal({ isOpen: true, client })}
                 onSendDebtTotal={sendDebtTotal}
             />}
+            {showDailyLoadModal && <DailyLoadModal isOpen={true} day={selectedDay} data={dailyLoad} onClose={() => setShowDailyLoadModal(false)} onSave={handleSaveDailyLoad} />}
             {activeAlert && <AlarmBanner data={activeAlert} onClose={handleDismissAlert} />}
 
             {/* TOAST NOTIFICATION */}
@@ -1405,15 +1432,23 @@ function App() {
                 <>
                 {view === 'list' && (
                     <div className="space-y-4">
-                        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar items-center">
                             {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].map(day => (
-                                <button key={day} onClick={() => { setSelectedDay(day); setListSearchTerm(''); setActiveFilters([]); setShowFilterMenu(false); }} className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-200 ${selectedDay === day ? 'bg-blue-600 dark:bg-blue-700 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700'}`}>{day}</button>
+                                <button key={day} onClick={() => { setSelectedDay(day); setListSearchTerm(''); setActiveFilters([]); setShowFilterMenu(false); }} className={`px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-200 flex items-center gap-1.5 ${selectedDay === day ? 'bg-blue-600 dark:bg-blue-700 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700'}`}>
+                                    {day}
+                                    {dayCounts[day] > 0 && (
+                                        <span className={`text-[10px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 ${selectedDay === day ? 'bg-white/25 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>{dayCounts[day]}</span>
+                                    )}
+                                </button>
                             ))}
+                            <button onClick={() => setShowDailyLoadModal(true)} className="px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex items-center gap-1" title="Carga diaria">
+                                <Icons.Package size={15} /> Carga
+                            </button>
                         </div>
                         {selectedDay !== '' && (
                             <>
-                                {/* TOTAL LOADS COUNTER (Dynamic) */}
-                                <ProductCounter clients={activeClientsForCounter} />
+                                {/* TOTAL LOADS COUNTER (Nearest date only) */}
+                                <ProductCounter clients={activeClientsForCounter} label={Object.keys(groupedClients).length > 0 ? groupedClients[Object.keys(groupedClients).sort((a, b) => parseFloat(a) - parseFloat(b))[0]]?.label : null} />
                                 
                                 {/* BARRA DE BÚSQUEDA Y FILTRO */}
                                 <div className="flex gap-2 items-center">
@@ -1604,7 +1639,7 @@ function App() {
                             Object.keys(groupedClients).map(key => (
                                 <div key={key} className="mb-6">
                                     <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider pl-2 border-l-4 border-blue-200 dark:border-blue-900">
-                                        {groupedClients[key].label}
+                                        {groupedClients[key].label} <span className="text-gray-400 dark:text-gray-500 font-normal">({groupedClients[key].items.length})</span>
                                     </h3>
                                     <div id={`group-${key}`} className="grid gap-3">
                                         {groupedClients[key].items.map((client) => (
@@ -1712,7 +1747,7 @@ function App() {
                                         <div><h3 className="font-bold text-gray-900 dark:text-white">{(client.name || '').toUpperCase()}</h3><p className="text-sm text-gray-500 dark:text-gray-400">{client.address}</p></div>
                                         <div className="flex flex-col gap-2">
                                             <button onClick={() => setScheduleClient(client)} className="px-3 py-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-lg text-xs font-bold flex items-center gap-1"><Icons.Calendar size={14}/> Agendar</button>
-                                            <div className="flex gap-1 self-end"><button onClick={() => editClient(client)} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400"><Icons.Edit size={16} /></button>{isAdmin && <button onClick={() => handleDeletePermanently(client.id)} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"><Icons.Trash2 size={16} /></button>}</div>
+                                            <div className="flex gap-1 self-end">{isAdmin && <button onClick={() => editClient(client)} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400"><Icons.Edit size={16} /></button>}{isAdmin && <button onClick={() => handleDeletePermanently(client.id)} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"><Icons.Trash2 size={16} /></button>}</div>
                                         </div>
                                     </div>
                                 </Card>
@@ -1869,15 +1904,20 @@ function App() {
                                 <p className="text-gray-500 dark:text-gray-400 font-medium">No hay deudas pendientes</p>
                                 <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">Las deudas se agregan desde la tarjeta del cliente con el botón $</p>
                             </div>
-                        ) : (
-                            <div className="grid gap-3">
-                                {debts
-                                    .filter(d => {
-                                        if (!debouncedDebtSearch.trim()) return true;
-                                        const term = debouncedDebtSearch.toLowerCase();
-                                        return (d.clientName || '').toLowerCase().includes(term) || (d.clientAddress || '').toLowerCase().includes(term);
-                                    })
-                                    .map(debt => (
+                        ) : (() => {
+                            const filteredDebts = debts.filter(d => {
+                                if (!debouncedDebtSearch.trim()) return true;
+                                const term = normalizeText(debouncedDebtSearch);
+                                return normalizeText(d.clientName || '').includes(term) || normalizeText(d.clientAddress || '').includes(term);
+                            });
+                            const filteredTotal = filteredDebts.reduce((sum, d) => sum + (d.amount || 0), 0);
+                            return (
+                            <div className="space-y-3">
+                                {debouncedDebtSearch.trim() && (
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 text-center font-medium">{filteredDebts.length} resultado{filteredDebts.length !== 1 ? 's' : ''} — Total: ${filteredTotal.toLocaleString()}</p>
+                                )}
+                                <div className="grid gap-3">
+                                {filteredDebts.map(debt => (
                                     <Card key={debt.id} className="p-4 border-l-4 border-l-red-500">
                                         <div className="flex justify-between items-start">
                                             <div className="flex-1">
@@ -1979,8 +2019,10 @@ function App() {
                                         </div>
                                     </Card>
                                 ))}
+                                </div>
                             </div>
-                        )}
+                            );
+                        })()}
                     </div>
                 )}
 

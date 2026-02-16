@@ -327,7 +327,7 @@ const SkeletonCard = () => (
 );
 
 // --- CONTADOR DE PRODUCTOS ---
-const ProductCounter = ({ clients }) => {
+const ProductCounter = ({ clients, label }) => {
     const totals = clients.reduce((acc, client) => {
         if (!client.products) return acc;
         Object.keys(client.products).forEach(key => {
@@ -347,7 +347,7 @@ const ProductCounter = ({ clients }) => {
         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-blue-100 dark:border-gray-700 mb-4 animate-in fade-in slide-in-from-top-4 duration-300">
              <div className="flex justify-between items-center mb-3">
                 <h3 className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider flex items-center gap-2">
-                    <Icons.Package size={14} /> Total Carga ({clients.length} Clientes)
+                    <Icons.Package size={14} /> {label ? `${label} — ` : ''}Total Carga ({clients.length})
                 </h3>
              </div>
             {activeProducts.length > 0 ? (
