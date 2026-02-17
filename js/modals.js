@@ -601,7 +601,7 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
         { key: 'on_demand', label: 'Solo Directorio' },
     ];
 
-    const needsStartDate = freq === 'biweekly' || freq === 'triweekly' || freq === 'monthly';
+    const needsStartDate = freq === 'weekly' || freq === 'biweekly' || freq === 'triweekly' || freq === 'monthly';
 
     const formatDisplayDate = (dateStr) => {
         if (!dateStr) return '';
