@@ -590,6 +590,7 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
     const [products, setProducts] = React.useState({});
     const [notes, setNotes] = React.useState('');
     const [freq, setFreq] = React.useState('weekly');
+    const [startDate, setStartDate] = React.useState('');
 
     const FREQ_OPTIONS = [
         { key: 'weekly', label: 'Semanal' },
@@ -600,6 +601,17 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
         { key: 'on_demand', label: 'Solo Directorio' },
     ];
 
+    const needsStartDate = freq === 'biweekly' || freq === 'triweekly' || freq === 'monthly';
+
+    const formatDisplayDate = (dateStr) => {
+        if (!dateStr) return '';
+        var d = new Date(dateStr + 'T12:00:00');
+        if (isNaN(d.getTime())) return dateStr;
+        var dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        var monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        return dayNames[d.getDay()] + ' ' + d.getDate() + ' de ' + monthNames[d.getMonth()];
+    };
+
     React.useEffect(() => {
         if (client) {
             setName(client.name || '');
@@ -608,6 +620,7 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
             setMapsLink(client.mapsLink || '');
             setNotes(client.notes || '');
             setFreq(client.freq || 'weekly');
+            setStartDate(client.specificDate || '');
             var prods = {};
             PRODUCTS.forEach(function(p) {
                 prods[p.id] = parseInt(client.products?.[p.id] || 0, 10);
@@ -635,6 +648,11 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
             notes: notes,
             freq: freq,
         };
+        if (needsStartDate && startDate) {
+            data.specificDate = startDate;
+        } else if (!needsStartDate) {
+            data.specificDate = '';
+        }
         if (showClientInfo) {
             data.name = name.trim();
             data.address = address.trim();
@@ -695,6 +713,20 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
                             ))}
                         </div>
                     </div>
+                    {needsStartDate && (
+                        <div>
+                            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Fecha de inicio</p>
+                            {startDate ? (
+                                <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-2">
+                                    <span className="text-sm font-semibold text-gray-800 dark:text-white">{formatDisplayDate(startDate)}</span>
+                                    <button type="button" onClick={() => setStartDate('')} className="text-xs font-semibold text-red-500 hover:text-red-600">Quitar</button>
+                                </div>
+                            ) : (
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Selecciona desde cuándo inicia la frecuencia</p>
+                            )}
+                            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                    )}
                 </div>
                 <div className="p-4 border-t border-gray-100 dark:border-gray-700">
                     <Button onClick={handleSave} className="w-full">
