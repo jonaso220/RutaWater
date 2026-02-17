@@ -173,7 +173,7 @@ const DebtModal = ({ isOpen, client, onClose, onSave }) => {
                 </div>
                 <div className="flex gap-3">
                     <Button variant="secondary" onClick={onClose} className="flex-1">Cancelar</Button>
-                    <Button variant="danger" onClick={() => onSave(client, amount)} className="flex-1 !bg-red-600 !text-white !hover:bg-red-700">
+                    <Button variant="danger" onClick={() => onSave(client, amount)} className="flex-1 !bg-red-600 !text-white hover:!bg-red-700">
                         <Icons.DollarSign size={16}/> Añadir Deuda
                     </Button>
                 </div>
@@ -499,7 +499,7 @@ const NoteModal = ({ isOpen, onClose, onSave, editNote }) => {
                 setNoteDate(new Date().toISOString().split('T')[0]);
             }
         }
-    }, [isOpen]);
+    }, [isOpen, editNote]);
 
     if (!isOpen) return null;
 
