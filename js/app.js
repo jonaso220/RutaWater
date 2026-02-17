@@ -423,9 +423,9 @@ function App() {
                     try { await db.collection('clients').doc(client.id).update(prevFields); }
                     catch(e) { console.error("Undo error", e); }
                 };
-                await db.collection('clients').doc(client.id).update({
+                await firestoreRetry(() => db.collection('clients').doc(client.id).update({
                     isCompleted: true, completedAt: new Date(), updatedAt: new Date(), alarm: '', isStarred: false
-                });
+                }));
                 showUndoToast("Pedido completado", undoAction);
             } else {
                 // Periódico: escribir a Firestore y dejar que onSnapshot actualice la UI
@@ -460,7 +460,7 @@ function App() {
                     updates.isStarred = false;
                 }
 
-                await db.collection('clients').doc(client.id).update(updates);
+                await firestoreRetry(() => db.collection('clients').doc(client.id).update(updates));
 
                 const undoAction = async () => {
                     try { await db.collection('clients').doc(client.id).update(prevFields); }
@@ -791,13 +791,13 @@ function App() {
         openExternal(url);
     };
     
-     const handleLocationPaste = (e) => { 
+     const handleLocationPaste = (e) => {
         const value = e.target.value;
         const coords = parseLocationInput(value);
         if (coords) {
-            setFormData({...formData, locationInput: value, lat: coords.lat, lng: coords.lng});
+            setFormData(prev => ({...prev, locationInput: value, lat: coords.lat, lng: coords.lng}));
         } else {
-            setFormData({...formData, locationInput: value});
+            setFormData(prev => ({...prev, locationInput: value}));
         }
     };
     
@@ -1259,8 +1259,8 @@ function App() {
 
     const changeClientPosition = async (clientId, newPosStr) => {
         const newPos = parseInt(newPosStr, 10);
-        if (isNaN(newPos) || newPos < 1) return; 
-        
+        if (isNaN(newPos) || newPos < 1) return;
+
         const dayToFilter = selectedDay;
         // Get visible clients in current sorted order (hacer copia)
         const dayClients = [...getVisibleClients(dayToFilter)];
@@ -1273,18 +1273,21 @@ function App() {
         const targetIndex = Math.min(Math.max(0, newPos - 1), dayClients.length);
         dayClients.splice(targetIndex, 0, movedClient);
 
-        const batch = db.batch();
-        // Re-assign sequential order (0, 1, 2, 3...) for ALL clients in this day
-        dayClients.forEach((client, index) => {
-            const ref = db.collection('clients').doc(client.id);
-            // Siempre actualizar listOrders del día Y listOrder global para consistencia
-            batch.update(ref, {
-                [`listOrders.${dayToFilter}`]: index,
-                listOrder: index
+        try {
+            const batch = db.batch();
+            // Re-assign sequential order (0, 1, 2, 3...) for ALL clients in this day
+            dayClients.forEach((client, index) => {
+                const ref = db.collection('clients').doc(client.id);
+                batch.update(ref, {
+                    [`listOrders.${dayToFilter}`]: index
+                });
             });
-        });
 
-        await batch.commit();
+            await firestoreRetry(() => batch.commit());
+        } catch(e) {
+            console.error("Error reordering:", e);
+            showUndoToast(getErrorMessage(e), null);
+        }
     };
 
     if (loadingAuth) return <div className="min-h-screen flex items-center justify-center text-blue-600 font-bold">Cargando...</div>;
@@ -1368,7 +1371,7 @@ function App() {
                 </div>
             )}
 
-            <header className={`bg-blue-600 dark:bg-gray-800 text-white p-4 shadow-lg sticky top-0 z-30 transition-colors duration-200 ${!isOnline || swUpdate || installPrompt ? 'mt-9' : ''}`}>
+            <header className={`bg-blue-600 dark:bg-gray-800 text-white p-4 shadow-lg sticky top-0 z-30 transition-colors duration-200`} style={{marginTop: ((!isOnline ? 36 : 0) + (swUpdate ? 36 : 0) + (installPrompt ? 36 : 0)) || undefined}}>
                 <div className="flex justify-between items-center max-w-2xl mx-auto">
                     <div 
                         className="flex items-center gap-2 cursor-pointer active:opacity-80 transition-opacity" 
@@ -1786,7 +1789,7 @@ function App() {
                                                 <h3 className="font-bold text-gray-900 dark:text-white text-sm">{(client.name || '').toUpperCase()}</h3>
                                                 {debtTotal > 0 && (
                                                     <button onClick={() => {
-                                                        var c = client; c.hasDebt = true;
+                                                        var c = { ...client, hasDebt: true };
                                                         setViewDebtModal({ isOpen: true, client: c });
                                                     }} className="text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full mt-1 inline-block">${debtTotal.toLocaleString()}</button>
                                                 )}
@@ -1804,7 +1807,7 @@ function App() {
                                         <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
                                             {client.phone && <button onClick={() => sendWhatsAppDirect(client.phone)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" title="WhatsApp">💬</button>}
                                             {hasLocation && <button onClick={() => openGoogleMaps(client.lat, client.lng, client.mapsLink)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" title="Maps">📍</button>}
-                                            <button onClick={() => { var c = client; c.hasDebt = debtTotal > 0; if (debtTotal > 0) { setViewDebtModal({ isOpen: true, client: c }); } else { setDebtModal({ isOpen: true, client: c }); } }} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" title="Deuda">{debtTotal > 0 ? '🔴' : '💰'}</button>
+                                            <button onClick={() => { var c = { ...client, hasDebt: debtTotal > 0 }; if (debtTotal > 0) { setViewDebtModal({ isOpen: true, client: c }); } else { setDebtModal({ isOpen: true, client: c }); } }} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" title="Deuda">{debtTotal > 0 ? '🔴' : '💰'}</button>
                                             {isAdmin && <button onClick={() => { setQuickEditClient(client); setQuickEditShowInfo(true); }} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20" title="Editar">✏️</button>}
                                             <div className="flex-1" />
                                             <button onClick={() => setScheduleClient(client)} className="px-3 py-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-blue-200 dark:hover:bg-blue-800">
