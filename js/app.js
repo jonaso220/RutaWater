@@ -880,12 +880,6 @@ function App() {
         openExternal(`whatsapp://send?phone=${cleanPhone}`);
     };
 
-    const sendDebtReminder = (phone) => {
-        if (!phone) return;
-        const cleanPhone = normalizePhone(phone);
-        const msg = encodeURIComponent("Hola, buenas 😊\nEste es un mensaje automático para informarle que, según nuestros registros, quedó pendiente un saldo por regularizar.\nCuando pueda, le agradecemos que nos indique en qué fecha podríamos saldarlo. Si necesita nuevamente los datos de la cuenta, con gusto se los enviamos.\nMuchas gracias.");
-        openExternal(`whatsapp://send?phone=${cleanPhone}&text=${msg}`);
-    };
 
     const sendDebtTotal = (phone, total) => {
         if (!phone) return;
@@ -2102,23 +2096,48 @@ function App() {
                                 <div className="grid gap-3">
                                 {filteredDebts.map(debt => (
                                     <Card key={debt.id} className="p-4 border-l-4 border-l-red-500">
-                                        <div className="flex justify-between items-start">
-                                            <div className="flex-1">
-                                                <h3 className="font-bold text-gray-900 dark:text-white">{(debt.clientName || '').toUpperCase()}</h3>
-                                                <div 
-                                                    onClick={() => openGoogleMaps(debt.clientLat, debt.clientLng, debt.clientMapsLink)}
-                                                    className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline mt-0.5"
-                                                >
-                                                    <Icons.MapPin size={12} /> {debt.clientAddress}
+                                        <div>
+                                            <div>
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h3 className="font-bold text-gray-900 dark:text-white">{(debt.clientName || '').toUpperCase()}</h3>
+                                                        <div
+                                                            onClick={() => openGoogleMaps(debt.clientLat, debt.clientLng, debt.clientMapsLink)}
+                                                            className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline mt-0.5"
+                                                        >
+                                                            <Icons.MapPin size={12} /> {debt.clientAddress}
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-2xl font-black text-red-600 dark:text-red-400">${debt.amount?.toLocaleString()}</p>
                                                 </div>
-                                                <p className="text-2xl font-black text-red-600 dark:text-red-400 mt-2">${debt.amount?.toLocaleString()}</p>
                                                 {debt.createdAt && (
                                                     <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
                                                         {new Date(debt.createdAt.seconds ? debt.createdAt.seconds * 1000 : debt.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
                                                     </p>
                                                 )}
                                             </div>
-                                            <div className="flex flex-col gap-2 ml-3">
+                                            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                                                <button
+                                                    onClick={() => setEditDebtModal({ isOpen: true, debt })}
+                                                    className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-gray-200 dark:hover:bg-gray-600"
+                                                >
+                                                    <Icons.Edit size={14} /> Editar
+                                                </button>
+                                                {/* Botón WhatsApp */}
+                                                {(() => {
+                                                    const client = clients.find(c => c.id === debt.clientId);
+                                                    const phone = client?.phone;
+                                                    if (!phone) return null;
+                                                    return (
+                                                        <button
+                                                            onClick={() => sendWhatsAppDirect(phone)}
+                                                            className="px-3 py-2 bg-green-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-green-600"
+                                                            title="Abrir chat"
+                                                        >
+                                                            <Icons.MessageCircle size={14} /> Chat
+                                                        </button>
+                                                    );
+                                                })()}
                                                 {(() => {
                                                     const clientTransfers = transfers.filter(t => t.clientId === debt.clientId);
                                                     if (clientTransfers.length > 0) {
@@ -2168,36 +2187,6 @@ function App() {
                                                 >
                                                     <Icons.CheckCircle size={14} /> Pagada
                                                 </button>
-                                                <button 
-                                                    onClick={() => setEditDebtModal({ isOpen: true, debt })}
-                                                    className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-gray-200 dark:hover:bg-gray-600"
-                                                >
-                                                    <Icons.Edit size={14} /> Editar
-                                                </button>
-                                                {/* Botones WhatsApp */}
-                                                {(() => {
-                                                    const client = clients.find(c => c.id === debt.clientId);
-                                                    const phone = client?.phone;
-                                                    if (!phone) return null;
-                                                    return (
-                                                        <React.Fragment key={`wa-${debt.id}`}>
-                                                            <button
-                                                                onClick={() => sendWhatsAppDirect(phone)}
-                                                                className="px-3 py-2 bg-green-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-green-600"
-                                                                title="Abrir chat"
-                                                            >
-                                                                <Icons.MessageCircle size={14} /> Chat
-                                                            </button>
-                                                            <button
-                                                                onClick={() => sendDebtReminder(phone)}
-                                                                className="px-3 py-2 bg-orange-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-orange-600"
-                                                                title="Enviar recordatorio de deuda"
-                                                            >
-                                                                <Icons.Send size={14} /> Cobrar
-                                                            </button>
-                                                        </React.Fragment>
-                                                    );
-                                                })()}
                                             </div>
                                         </div>
                                     </Card>
