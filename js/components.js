@@ -89,34 +89,64 @@ const Toast = ({ message, onUndo, hasUndo, type = 'info' }) => {
 };
 
 const OrderInput = ({ value, onChange }) => {
-    const [localValue, setLocalValue] = React.useState(value);
+    const [showModal, setShowModal] = React.useState(false);
+    const [modalValue, setModalValue] = React.useState('');
+    const inputRef = React.useRef(null);
+
+    const handleOpen = () => {
+        setModalValue('');
+        setShowModal(true);
+    };
 
     React.useEffect(() => {
-        setLocalValue(value);
-    }, [value]);
-
-    const handleBlur = () => {
-        if (localValue !== value) {
-            onChange(localValue);
+        if (showModal && inputRef.current) {
+            inputRef.current.focus();
         }
+    }, [showModal]);
+
+    const handleConfirm = () => {
+        if (modalValue !== '' && Number(modalValue) !== value) {
+            onChange(Number(modalValue));
+        }
+        setShowModal(false);
     };
 
     const handleKeyDown = (e) => {
-        if (e.key === 'Enter') {
-            e.target.blur();
-        }
-    }
+        if (e.key === 'Enter') handleConfirm();
+        if (e.key === 'Escape') setShowModal(false);
+    };
 
     return (
-        <input
-            type="number"
-            className="order-input"
-            value={localValue}
-            onChange={(e) => setLocalValue(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            inputMode="numeric"
-        />
+        <React.Fragment>
+            <button
+                type="button"
+                className="order-input"
+                onClick={handleOpen}
+            >
+                {value}
+            </button>
+            {showModal && (
+                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setShowModal(false)}>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-5 w-56" onClick={e => e.stopPropagation()}>
+                        <p className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 text-center">Nueva posición</p>
+                        <input
+                            ref={inputRef}
+                            type="number"
+                            inputMode="numeric"
+                            className="w-full p-3 text-2xl font-bold text-center border-2 border-blue-300 dark:border-blue-600 rounded-xl dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                            value={modalValue}
+                            onChange={e => setModalValue(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            placeholder={String(value)}
+                        />
+                        <div className="flex gap-2 mt-3">
+                            <button onClick={() => setShowModal(false)} className="flex-1 py-2 rounded-lg text-sm font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700">Cancelar</button>
+                            <button onClick={handleConfirm} className="flex-1 py-2 rounded-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700">Mover</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </React.Fragment>
     );
 };
 

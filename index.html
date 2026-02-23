@@ -80,12 +80,12 @@
 
         .order-input {
             width: 32px; height: 32px; text-align: center; border: none; border-radius: 8px;
-            font-weight: 700; font-size: 0.95rem; color: white;
+            font-weight: 700; font-size: 0.95rem; color: white; cursor: pointer;
             background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
             box-shadow: 0 2px 5px -1px rgba(37, 99, 235, 0.4);
-            outline: none; padding: 0; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); -moz-appearance: textfield;
+            outline: none; padding: 0; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .order-input:focus { transform: scale(1.1); box-shadow: 0 0 0 2px rgba(191, 219, 254, 0.5); }
+        .order-input:active { transform: scale(0.95); }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
