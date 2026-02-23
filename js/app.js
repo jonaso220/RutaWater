@@ -530,7 +530,17 @@ function App() {
                     prevFields.specificDate = client.specificDate;
                 }
 
-                const updates = { lastVisited: new Date(), alarm: '' };
+                // Para clientes sin specificDate, usar la fecha del día que se está viendo
+                // (no new Date()) para que getNextVisitDate lo detecte correctamente
+                // incluso si se marca "listo" desde un día anterior.
+                let visitDate = new Date();
+                if (!client.specificDate && selectedDay) {
+                    const targetDate = getNextVisitDate(client, selectedDay);
+                    if (targetDate) {
+                        visitDate = targetDate;
+                    }
+                }
+                const updates = { lastVisited: visitDate, alarm: '' };
 
                 if (client.specificDate) {
                     let interval = 1;
