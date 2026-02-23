@@ -28,7 +28,13 @@ const AlarmModal = ({ isOpen, onClose, onSave, initialValue }) => {
                 />
                 <div className="flex gap-3">
                      <Button variant="secondary" onClick={() => onSave('')} className="flex-1">Borrar</Button>
-                     <Button onClick={() => onSave(time)} className="flex-1">Guardar</Button>
+                     <Button onClick={() => {
+                        if (time && 'Notification' in window && Notification.permission === 'default') {
+                            Notification.requestPermission().then(() => onSave(time));
+                        } else {
+                            onSave(time);
+                        }
+                     }} className="flex-1">Guardar</Button>
                 </div>
             </div>
         </div>
@@ -741,25 +747,29 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
     );
 };
 
-// --- COMPONENTE MODAL CARGA DIARIA ---
-const DailyLoadModal = ({ isOpen, day, data, onClose, onSave }) => {
-    const LOAD_FIELDS = [
-        { key: 'b20', label: '20L', icon: '💧' },
-        { key: 'b12', label: '12L', icon: '💧' },
-        { key: 'b6', label: '6L', icon: '💧' },
-        { key: 'soda', label: 'Soda', icon: '🍾' },
-    ];
 
-    const [localData, setLocalData] = React.useState(data);
+// --- COMPONENTE MODAL CONFIGURACIÓN ---
+const SettingsModal = ({ isOpen, settings, onClose, onSave }) => {
+    const DEFAULT_EN_CAMINO = "Buenas \u{1F69A}. Ya estamos en camino, sos el/la siguiente en la lista de entrega. \u{00A1}Nos vemos en unos minutos!\n\nAquapura";
+    const DEFAULT_DEUDA = "La deuda es de ${total}. Saludos";
+
+    const [enCamino, setEnCamino] = React.useState('');
+    const [deuda, setDeuda] = React.useState('');
 
     React.useEffect(() => {
-        if (isOpen) setLocalData(data);
-    }, [isOpen, data]);
+        if (isOpen) {
+            setEnCamino(settings?.whatsappEnCamino || '');
+            setDeuda(settings?.whatsappDeuda || '');
+        }
+    }, [isOpen, settings]);
 
     if (!isOpen) return null;
 
-    const updateField = (key, value) => {
-        setLocalData(prev => ({ ...prev, [key]: value }));
+    const handleSave = () => {
+        onSave({
+            whatsappEnCamino: enCamino.trim() || '',
+            whatsappDeuda: deuda.trim() || ''
+        });
     };
 
     return (
@@ -767,41 +777,38 @@ const DailyLoadModal = ({ isOpen, day, data, onClose, onSave }) => {
             <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl shadow-2xl w-full sm:max-w-md max-h-[85vh] flex flex-col">
                 <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                     <h3 className="text-lg font-bold dark:text-white flex items-center gap-2">
-                        <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 p-1.5 rounded-lg"><Icons.Package size={18} /></div>
-                        Carga - {day}
+                        <div className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 p-1.5 rounded-lg"><Icons.Settings size={18} /></div>
+                        Configuración
                     </h3>
                     <button onClick={onClose}><Icons.X size={20} className="text-gray-400 dark:text-gray-500" /></button>
                 </div>
                 <div className="overflow-y-auto flex-1 p-4 space-y-5">
                     <div>
-                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Carga Principal</p>
-                        <div className="space-y-2">
-                            {LOAD_FIELDS.map(f => (
-                                <div key={f.key} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{f.icon} {f.label}</span>
-                                    <input type="number" inputMode="numeric" value={localData[f.key] || ''} onChange={(e) => updateField(f.key, e.target.value)} placeholder="0" className="w-20 p-2 text-center text-lg font-bold border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none" />
-                                </div>
-                            ))}
-                        </div>
+                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Mensaje "En camino" (WhatsApp)</p>
+                        <textarea
+                            value={enCamino}
+                            onChange={(e) => setEnCamino(e.target.value)}
+                            placeholder={DEFAULT_EN_CAMINO}
+                            className="w-full p-3 border rounded-lg bg-gray-50 h-28 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
+                        />
+                        <p className="text-[10px] text-gray-400 mt-1">Dejá vacío para usar el mensaje por defecto.</p>
                     </div>
                     <div>
-                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Extras</p>
-                        <div className="space-y-2">
-                            {LOAD_FIELDS.map(f => (
-                                <div key={f.key + '_extra'} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{f.icon} {f.label} Extra</span>
-                                    <input type="number" inputMode="numeric" value={localData[f.key + '_extra'] || ''} onChange={(e) => updateField(f.key + '_extra', e.target.value)} placeholder="0" className="w-20 p-2 text-center text-lg font-bold border rounded-lg dark:bg-gray-700 dark:text-white dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none" />
-                                </div>
-                            ))}
-                        </div>
+                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Mensaje de deuda (WhatsApp)</p>
+                        <textarea
+                            value={deuda}
+                            onChange={(e) => setDeuda(e.target.value)}
+                            placeholder={DEFAULT_DEUDA}
+                            className="w-full p-3 border rounded-lg bg-gray-50 h-20 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
+                        />
+                        <p className="text-[10px] text-gray-400 mt-1">{"Usá ${total} donde quieras el monto. Dejá vacío para el mensaje por defecto."}</p>
                     </div>
-                    <div>
-                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Notas del día</p>
-                        <textarea value={localData.pedidos_note || ''} onChange={(e) => updateField('pedidos_note', e.target.value)} placeholder="Notas sobre pedidos..." className="w-full p-3 border rounded-lg bg-gray-50 h-20 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                    </div>
+                    <button onClick={() => { setEnCamino(''); setDeuda(''); }} className="text-xs text-red-500 hover:text-red-600 font-bold">
+                        Restaurar valores por defecto
+                    </button>
                 </div>
                 <div className="p-4 border-t border-gray-100 dark:border-gray-700">
-                    <Button onClick={() => { onSave(day, localData); onClose(); }} className="w-full">
+                    <Button onClick={handleSave} className="w-full">
                         <Icons.Save size={16} /> Guardar
                     </Button>
                 </div>

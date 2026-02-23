@@ -17,11 +17,7 @@ function App() {
         name: '', phone: '', address: '', lat: '', lng: '', freq: 'weekly', visitDay: 'Lunes', visitDays: ['Lunes'], notes: '', locationInput: '', specificDate: '',
         products: { b20: '', b12: '', b6: '', soda: '', bombita: '', disp_elec_new: '', disp_elec_chg: '', disp_nat: '' }
     });
-    const [dailyLoad, setDailyLoad] = React.useState({ 
-        b20: '', b12: '', b6: '', soda: '', 
-        b20_extra: '', b12_extra: '', b6_extra: '', soda_extra: '', pedidos_note: ''
-    });
-    const [toast, setToast] = React.useState(null);
+const [toast, setToast] = React.useState(null);
     const [saving, setSaving] = React.useState(false);
     const [isOnline, setIsOnline] = React.useState(navigator.onLine);
     const [swUpdate, setSwUpdate] = React.useState(false);
@@ -36,8 +32,6 @@ function App() {
     const [activeSection, setActiveSection] = React.useState('cartera'); // 'cartera', 'deudas', 'transferencias'
     const [showSectionMenu, setShowSectionMenu] = React.useState(false);
 
-    // --- ESTADO CARGA DIARIA ---
-    const [showDailyLoadModal, setShowDailyLoadModal] = React.useState(false);
 
     // --- ESTADO EDICIÓN RÁPIDA CLIENTE ---
     const [quickEditClient, setQuickEditClient] = React.useState(null);
@@ -66,6 +60,10 @@ function App() {
     const [groupData, setGroupData] = React.useState(null); // { groupId, role, code }
     const [showGroupModal, setShowGroupModal] = React.useState(false);
 
+    // --- ESTADO CONFIGURACIÓN ---
+    const [appSettings, setAppSettings] = React.useState(null);
+    const [showSettingsModal, setShowSettingsModal] = React.useState(false);
+
     // --- HELPERS DE PERMISOS ---
     const isAdmin = !groupData || groupData.role === 'admin';
     const getDataScope = () => {
@@ -73,6 +71,16 @@ function App() {
             return { groupId: groupData.groupId };
         }
         return { userId: user?.uid };
+    };
+
+    // --- MENSAJES WHATSAPP ---
+    const DEFAULT_WHATSAPP_EN_CAMINO = "Buenas \u{1F69A}. Ya estamos en camino, sos el/la siguiente en la lista de entrega. \u{00A1}Nos vemos en unos minutos!\n\nAquapura";
+    const DEFAULT_WHATSAPP_DEUDA = "La deuda es de ${total}. Saludos";
+    const getWhatsAppMessage = (key) => {
+        if (appSettings && appSettings[key]) return appSettings[key];
+        if (key === 'whatsappEnCamino') return DEFAULT_WHATSAPP_EN_CAMINO;
+        if (key === 'whatsappDeuda') return DEFAULT_WHATSAPP_DEUDA;
+        return '';
     };
 
     // --- BÚSQUEDAS DEBOUNCED (evitar filtrado en cada tecla) ---
@@ -237,19 +245,36 @@ function App() {
                     id: match.id 
                 });
                 if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+                // Notificación push via Service Worker (funciona con tab en segundo plano)
+                if ('Notification' in window && Notification.permission === 'granted' && navigator.serviceWorker?.controller) {
+                    navigator.serviceWorker.getRegistration().then(reg => {
+                        if (reg) {
+                            reg.showNotification('RutaWater - Recordatorio', {
+                                body: `${currentTime} - ${match.name}\n${match.address}`,
+                                icon: './icon.jpg',
+                                badge: './icon.jpg',
+                                tag: 'alarm-' + match.id,
+                                vibrate: [200, 100, 200],
+                                requireInteraction: true,
+                                data: { clientId: match.id }
+                            });
+                        }
+                    });
+                }
             }
         }, 5000); // Chequear cada 5s para mayor precisión
         return () => clearInterval(interval);
     }, [clients, activeAlert]);
 
+
+    // --- CARGAR CONFIGURACIÓN DEL USUARIO ---
     React.useEffect(() => {
-        if (!user || selectedDay === 'Todos' || !selectedDay) return;
-        const docId = `${user.uid}_${selectedDay}`;
-        db.collection('daily_loads').doc(docId).get().then(doc => {
-            if (doc.exists) setDailyLoad(doc.data());
-            else setDailyLoad({ b20: '', b12: '', b6: '', soda: '', b20_extra: '', b12_extra: '', b6_extra: '', soda_extra: '', pedidos_note: '' });
-        });
-    }, [user, selectedDay]);
+        if (!user) return;
+        const settingsDocId = groupData?.groupId || user.uid;
+        db.collection('settings').doc(settingsDocId).get().then(doc => {
+            if (doc.exists) setAppSettings(doc.data());
+        }).catch(e => console.error("Error loading settings:", e));
+    }, [user, groupData]);
 
     // --- ONLINE/OFFLINE DETECTOR ---
     React.useEffect(() => {
@@ -364,7 +389,7 @@ function App() {
         setToast({ message, undoAction });
         toastTimeout.current = setTimeout(() => {
             setToast(null);
-        }, 3000);
+        }, 6000);
     };
 
     const handleUndo = () => {
@@ -375,15 +400,6 @@ function App() {
         }
     };
     
-    // --- CARGA DIARIA HANDLER ---
-    const handleSaveDailyLoad = async (day, data) => {
-        try {
-            const docId = `${user.uid}_${day}`;
-            const payload = { ...data, userId: user.uid, ...getDataScope() };
-            await firestoreRetry(() => db.collection('daily_loads').doc(docId).set(payload, { merge: true }));
-            setDailyLoad(data);
-        } catch(e) { showUndoToast(getErrorMessage(e), null); }
-    };
 
     // --- ALARMAS HANDLERS ---
     const handleSaveAlarm = async (time) => {
@@ -870,7 +886,7 @@ function App() {
     const sendWhatsApp = (phone) => {
         if (!phone) return;
         const cleanPhone = normalizePhone(phone);
-        const msg = encodeURIComponent("Buenas 🚚. Ya estamos en camino, sos el/la siguiente en la lista de entrega. ¡Nos vemos en unos minutos!\n\nAquapura");
+        const msg = encodeURIComponent(getWhatsAppMessage('whatsappEnCamino'));
         openExternal(`whatsapp://send?phone=${cleanPhone}&text=${msg}`);
     };
 
@@ -884,7 +900,8 @@ function App() {
     const sendDebtTotal = (phone, total) => {
         if (!phone) return;
         const cleanPhone = normalizePhone(phone);
-        const msg = encodeURIComponent(`La deuda es de $${total.toLocaleString()}. Saludos`);
+        const template = getWhatsAppMessage('whatsappDeuda');
+        const msg = encodeURIComponent(template.replace('${total}', `$${total.toLocaleString()}`));
         openExternal(`whatsapp://send?phone=${cleanPhone}&text=${msg}`);
     };
 
@@ -1365,6 +1382,58 @@ function App() {
         }
     };
 
+    const handleExportBackup = () => {
+        try {
+            const allClients = clients.filter(c => c.name);
+            if (allClients.length === 0 && debts.length === 0 && transfers.length === 0) {
+                showUndoToast("No hay datos para exportar.", null);
+                return;
+            }
+            const backup = {
+                exportDate: new Date().toISOString().split('T')[0],
+                exportedBy: user.email || user.uid,
+                clients: allClients.map(c => ({
+                    id: c.id, name: c.name, phone: c.phone || '', address: c.address || '',
+                    lat: c.lat || '', lng: c.lng || '', freq: c.freq || '',
+                    visitDay: c.visitDay || '', visitDays: c.visitDays || [],
+                    specificDate: c.specificDate || '', notes: c.notes || '',
+                    products: c.products || {}, isStarred: c.isStarred || false,
+                    alarm: c.alarm || '', mapsLink: c.mapsLink || '', isNote: c.isNote || false,
+                    hasDebt: c.hasDebt || false
+                })),
+                debts: debts.map(d => ({
+                    id: d.id, clientId: d.clientId, clientName: d.clientName || '',
+                    clientAddress: d.clientAddress || '', amount: d.amount || 0,
+                    createdAt: d.createdAt?.seconds ? new Date(d.createdAt.seconds * 1000).toISOString() : ''
+                })),
+                transfers: transfers.map(t => ({
+                    id: t.id, clientId: t.clientId, clientName: t.clientName || '',
+                    clientAddress: t.clientAddress || '',
+                    createdAt: t.createdAt?.seconds ? new Date(t.createdAt.seconds * 1000).toISOString() : ''
+                }))
+            };
+            const jsonContent = JSON.stringify(backup, null, 2);
+            const blob = new Blob([jsonContent], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const date = new Date().toISOString().split('T')[0];
+            link.href = url;
+            link.download = `RutaWater_Backup_${date}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            const counts = [];
+            if (backup.clients.length > 0) counts.push(`${backup.clients.length} clientes`);
+            if (backup.debts.length > 0) counts.push(`${backup.debts.length} deudas`);
+            if (backup.transfers.length > 0) counts.push(`${backup.transfers.length} transf.`);
+            showUndoToast(`Backup: ${counts.join(', ')}`, null);
+        } catch(e) {
+            console.error("Error exportando backup:", e);
+            showUndoToast("Error al exportar. Intentá de nuevo.", null);
+        }
+    };
+
     const changeClientPosition = async (clientId, newPosStr) => {
         const newPos = parseInt(newPosStr, 10);
         if (isNaN(newPos) || newPos < 1) return;
@@ -1444,8 +1513,21 @@ function App() {
                 onAddMore={(client) => setDebtModal({ isOpen: true, client })}
                 onSendDebtTotal={sendDebtTotal}
             />}
-            {showDailyLoadModal && <DailyLoadModal isOpen={true} day={selectedDay} data={dailyLoad} onClose={() => setShowDailyLoadModal(false)} onSave={handleSaveDailyLoad} />}
             {quickEditClient && <EditClientQuickModal isOpen={true} client={quickEditClient} onClose={() => setQuickEditClient(null)} onSave={handleQuickUpdateClient} showClientInfo={quickEditShowInfo} />}
+            {showSettingsModal && <SettingsModal
+                isOpen={true}
+                settings={appSettings}
+                onClose={() => setShowSettingsModal(false)}
+                onSave={async (newSettings) => {
+                    try {
+                        const settingsDocId = groupData?.groupId || user.uid;
+                        await firestoreRetry(() => db.collection('settings').doc(settingsDocId).set(newSettings, { merge: true }));
+                        setAppSettings(prev => ({ ...prev, ...newSettings }));
+                        showUndoToast("Configuración guardada", null);
+                    } catch(e) { showUndoToast(getErrorMessage(e), null); }
+                    setShowSettingsModal(false);
+                }}
+            />}
             {activeAlert && <AlarmBanner data={activeAlert} onClose={handleDismissAlert} />}
 
             {/* TOAST NOTIFICATION */}
@@ -1548,6 +1630,13 @@ function App() {
                             title={groupData?.groupId ? (groupData.role === 'admin' ? 'Grupo (Admin)' : 'Grupo (Miembro)') : 'Grupo Familiar'}
                         >
                             <Icons.Users className="w-5 h-5" />
+                        </button>
+                        <button
+                            onClick={() => setShowSettingsModal(true)}
+                            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                            title="Configuración"
+                        >
+                            <Icons.Settings className="w-5 h-5" />
                         </button>
                         <button onClick={handleLogout}><Icons.LogOut className="w-5 h-5" /></button>
                     </div>
@@ -1856,7 +1945,10 @@ function App() {
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 sticky top-0 z-10">
                             <div className="flex justify-between items-center mb-3">
                                 <h2 className="text-xl font-bold dark:text-white flex items-center gap-2"><Icons.Users /> Directorio</h2>
-                                <button onClick={handleExportClients} className="text-xs bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-3 py-1.5 rounded-full font-bold hover:bg-green-200 dark:hover:bg-green-800 flex items-center gap-1"><Icons.Import size={14} className="rotate-180" /> Exportar</button>
+                                <div className="flex gap-1.5">
+                                    <button onClick={handleExportClients} className="text-xs bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-green-200 dark:hover:bg-green-800 flex items-center gap-1"><Icons.Import size={14} className="rotate-180" /> CSV</button>
+                                    <button onClick={handleExportBackup} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center gap-1"><Icons.Save size={14} /> Backup</button>
+                                </div>
                             </div>
                             <div className="relative">
                                 <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />

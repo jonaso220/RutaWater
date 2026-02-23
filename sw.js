@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rutawater-v37';
+const CACHE_NAME = 'rutawater-v38';
 const urlsToCache = [
   './',
   './index.html',
@@ -84,4 +84,19 @@ self.addEventListener('fetch', event => {
       })
       .catch(() => caches.match(event.request))
   );
+});
+
+// Manejar click en notificaciones de alarma
+self.addEventListener('notificationclick', event => {
+    event.notification.close();
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+            for (const client of clientList) {
+                if (client.url.includes('index.html') || client.url.endsWith('/')) {
+                    return client.focus();
+                }
+            }
+            return clients.openWindow('./');
+        })
+    );
 });
