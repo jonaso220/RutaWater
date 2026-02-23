@@ -89,6 +89,7 @@ service cloud.firestore {
     }
 
     // --- GROUPS ---
+    // read abierto para permitir búsqueda por código de invitación (where code == X)
     match /groups/{groupId} {
       allow read: if isAuth();
       allow create: if isAuth() && request.resource.data.adminId == request.auth.uid;
@@ -98,9 +99,15 @@ service cloud.firestore {
 
     // --- DAILY_LOADS ---
     match /daily_loads/{loadId} {
-      allow read: if isAuth();
-      allow create: if isAuth();
-      allow update: if isAuth();
+      allow read: if isAuth() && (
+        resource.data.userId == request.auth.uid ||
+        (userExists() && getUserData().groupId != null && resource.data.groupId == getUserData().groupId)
+      );
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.userId == request.auth.uid ||
+        (userExists() && getUserData().groupId != null && resource.data.groupId == getUserData().groupId)
+      );
       allow delete: if isAuth() && hasWriteAccess(resource);
     }
 

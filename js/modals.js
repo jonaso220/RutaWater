@@ -219,7 +219,7 @@ const EditDebtModal = ({ isOpen, debt, onClose, onSave }) => {
                 </div>
                 <div className="flex gap-3">
                     <Button variant="secondary" onClick={onClose} className="flex-1">Cancelar</Button>
-                    <Button onClick={() => { onSave(debt, amount); onClose(); }} className="flex-1">
+                    <Button onClick={async () => { await onSave(debt, amount); onClose(); }} className="flex-1">
                         <Icons.Save size={16}/> Guardar
                     </Button>
                 </div>
@@ -334,11 +334,13 @@ const ScheduleModal = ({ isOpen, client, onClose, onSave }) => {
             setLocalFreq(client.freq === 'on_demand' ? 'once' : (client.freq || 'once'));
             setLocalDate(client.specificDate || '');
             setLocalProducts(client.products || { b20: '', b12: '', b6: '', soda: '', bombita: '', disp_elec_new: '', disp_elec_chg: '', disp_nat: '' });
-            // Si ya tiene días asignados, cargarlos
+            // Cargar días asignados, o resetear al default
             if (client.visitDays && client.visitDays.length > 0) {
                 setLocalDays(client.visitDays);
             } else if (client.visitDay && client.visitDay !== 'Sin Asignar') {
                 setLocalDays([client.visitDay]);
+            } else {
+                setLocalDays(['Lunes']);
             }
         }
     }, [client]);

@@ -176,10 +176,14 @@ var formatDate = function(date) {
 var normalizePhone = function(phone) {
     if (!phone) return '';
     var clean = phone.replace(/\D/g, '');
+    // Ya tiene código de país uruguayo
     if (clean.startsWith('598')) return clean;
+    // Número internacional largo (ej: 5491112345678) - no asumir Uruguay
+    if (clean.length >= 11) return clean;
+    // Formato local uruguayo
     if (clean.startsWith('0')) return '598' + clean.slice(1);
-    if (clean.length === 8 && clean.startsWith('9')) return '598' + clean;
-    return '598' + clean;
+    if (clean.length <= 9) return '598' + clean;
+    return clean;
 };
 
 var isShortLink = function(input) {

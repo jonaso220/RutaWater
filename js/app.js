@@ -95,6 +95,7 @@ function App() {
     }, []);
 
     const toastTimeout = React.useRef(null);
+    const addingTransferFor = React.useRef(null);
 
 
     // --- USE EFFECTS ---
@@ -115,11 +116,12 @@ function App() {
             if (u) {
                 // Crear documento de usuario si no existe (primer login)
                 const userRef = db.collection('users').doc(u.uid);
-                const userDoc = await userRef.get();
+                let userDoc = await userRef.get();
                 if (!userDoc.exists) {
                     await userRef.set({ email: u.email, displayName: u.displayName || '', createdAt: new Date(), role: 'admin' });
+                    userDoc = await userRef.get();
                 }
-                const userData = userDoc.exists ? userDoc.data() : null;
+                const userData = userDoc.data() || null;
 
                 if (userData?.groupId) {
                     // Usuario en grupo - cargar datos del grupo
@@ -292,7 +294,8 @@ function App() {
     const handleSaveDailyLoad = async (day, data) => {
         try {
             const docId = `${user.uid}_${day}`;
-            await firestoreRetry(() => db.collection('daily_loads').doc(docId).set(data, { merge: true }));
+            const payload = { ...data, userId: user.uid, ...getDataScope() };
+            await firestoreRetry(() => db.collection('daily_loads').doc(docId).set(payload, { merge: true }));
             setDailyLoad(data);
         } catch(e) { showUndoToast(getErrorMessage(e), null); }
     };
@@ -350,14 +353,17 @@ function App() {
 
     // --- TRANSFERENCIAS HANDLERS ---
     const handleAddTransfer = async (client) => {
+        // Guard contra doble-click: si ya estamos creando una transferencia para este cliente, ignorar
+        if (addingTransferFor.current === client.id) return;
         try {
+            addingTransferFor.current = client.id;
             // Verificar si ya tiene transferencia pendiente
             const existing = transfers.find(t => t.clientId === client.id);
             if (existing) {
                 showUndoToast("Ya tiene transferencia pendiente", null);
                 return;
             }
-            
+
             await firestoreRetry(() => db.collection('transfers').add({
                 ...getDataScope(),
                 userId: user.uid,
@@ -372,6 +378,7 @@ function App() {
             }));
             await firestoreRetry(() => db.collection('clients').doc(client.id).update({ hasPendingTransfer: true }));
         } catch(e) { console.error("Error creando transferencia:", e); showUndoToast(getErrorMessage(e), null); }
+        finally { addingTransferFor.current = null; }
     };
 
     const handleTransferReviewed = async (transfer) => {
@@ -676,7 +683,15 @@ function App() {
             if (isMobile) {
                 await auth.signInWithRedirect(googleProvider);
             } else {
-                await auth.signInWithPopup(googleProvider);
+                try {
+                    await auth.signInWithPopup(googleProvider);
+                } catch (popupError) {
+                    if (popupError.code === 'auth/popup-blocked') {
+                        await auth.signInWithRedirect(googleProvider);
+                    } else {
+                        throw popupError;
+                    }
+                }
             }
         } catch (error) {
             showUndoToast("Error al iniciar sesión. Intentá de nuevo.", null);
@@ -1711,7 +1726,11 @@ function App() {
                                                     </div>
                                                     <div>
                                                         <h4 className="font-medium text-gray-500 dark:text-gray-400 line-through">{(client.name || '').toUpperCase()}</h4>
-                                                        <p className="text-xs text-gray-400 dark:text-gray-500">{client.address}</p>
+                                                        {client.isNote && client.notes ? (
+                                                            <p className="text-xs text-gray-400 dark:text-gray-500 line-clamp-2">{client.notes}</p>
+                                                        ) : (
+                                                            <p className="text-xs text-gray-400 dark:text-gray-500">{client.address}</p>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2">
