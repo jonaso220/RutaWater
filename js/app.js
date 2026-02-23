@@ -1289,16 +1289,17 @@ function App() {
         dayClients.splice(targetIndex, 0, movedClient);
 
         try {
-            const batch = db.batch();
-            // Re-assign sequential order (0, 1, 2, 3...) for ALL clients in this day
-            dayClients.forEach((client, index) => {
-                const ref = db.collection('clients').doc(client.id);
-                batch.update(ref, {
-                    [`listOrders.${dayToFilter}`]: index
+            await firestoreRetry(() => {
+                const batch = db.batch();
+                // Re-assign sequential order (0, 1, 2, 3...) for ALL clients in this day
+                dayClients.forEach((client, index) => {
+                    const ref = db.collection('clients').doc(client.id);
+                    batch.update(ref, {
+                        [`listOrders.${dayToFilter}`]: index
+                    });
                 });
+                return batch.commit();
             });
-
-            await firestoreRetry(() => batch.commit());
         } catch(e) {
             console.error("Error reordering:", e);
             showUndoToast(getErrorMessage(e), null);
