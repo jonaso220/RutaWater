@@ -231,7 +231,8 @@ const EditDebtModal = ({ isOpen, debt, onClose, onSave }) => {
 // --- COMPONENTE MODAL VER DEUDAS DE CLIENTE ---
 const ViewDebtModal = ({ isOpen, client, debts, onClose, onPaid, onEdit, onAddMore, onSendDebtTotal }) => {
     if (!isOpen || !client) return null;
-    const clientDebts = debts.filter(d => d.clientId === client.id);
+    const clientIds = client._mergedIds || [client.id];
+    const clientDebts = debts.filter(d => clientIds.indexOf(d.clientId) > -1);
     const total = clientDebts.reduce((sum, d) => sum + (d.amount || 0), 0);
 
     return (

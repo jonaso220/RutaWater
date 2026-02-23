@@ -96,6 +96,7 @@ function App() {
 
     const toastTimeout = React.useRef(null);
     const addingTransferFor = React.useRef(null);
+    const mergingDuplicates = React.useRef(false);
 
 
     // --- USE EFFECTS ---
@@ -272,6 +273,90 @@ function App() {
         window.addEventListener('beforeinstallprompt', onBeforeInstall);
         return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
     }, []);
+
+    // --- AUTO-MERGE DUPLICATE PHONE CLIENTS IN DIRECTORY ---
+    React.useEffect(() => {
+        if (mergingDuplicates.current || !user || clients.length === 0) return;
+
+        // Group on_demand clients by normalized phone
+        const phoneGroups = {};
+        clients.forEach(c => {
+            if (!c.phone || c.phone.length < 6) return;
+            const key = c.phone.replace(/\D/g, '');
+            if (!phoneGroups[key]) phoneGroups[key] = [];
+            phoneGroups[key].push(c);
+        });
+
+        // Find groups with duplicates where ALL entries are on_demand (safe to merge)
+        const toMerge = Object.values(phoneGroups).filter(group => {
+            if (group.length < 2) return false;
+            // Only auto-merge when all duplicates are in directory (on_demand)
+            return group.every(c => c.freq === 'on_demand');
+        });
+
+        if (toMerge.length === 0) return;
+
+        mergingDuplicates.current = true;
+
+        (async () => {
+            try {
+                for (const group of toMerge) {
+                    // Sort by updatedAt descending - keep the newest
+                    group.sort((a, b) => {
+                        const ta = a.updatedAt?.seconds || 0;
+                        const tb = b.updatedAt?.seconds || 0;
+                        return tb - ta;
+                    });
+                    const keeper = group[0];
+                    const duplicates = group.slice(1);
+
+                    for (const dup of duplicates) {
+                        const dupDebts = debts.filter(d => d.clientId === dup.id);
+                        const dupTransfers = transfers.filter(t => t.clientId === dup.id);
+
+                        await firestoreRetry(() => {
+                            const batch = db.batch();
+
+                            // Reassign debts from duplicate to keeper
+                            for (const d of dupDebts) {
+                                batch.update(db.collection('debts').doc(d.id), {
+                                    clientId: keeper.id,
+                                    clientName: keeper.name,
+                                    clientAddress: keeper.address || '',
+                                    clientLat: keeper.lat || null,
+                                    clientLng: keeper.lng || null,
+                                    clientMapsLink: keeper.mapsLink || null
+                                });
+                            }
+
+                            // Reassign transfers from duplicate to keeper
+                            for (const t of dupTransfers) {
+                                batch.update(db.collection('transfers').doc(t.id), {
+                                    clientId: keeper.id,
+                                    clientName: keeper.name
+                                });
+                            }
+
+                            // Update keeper's hasDebt if duplicate had debts
+                            if (dupDebts.length > 0 && !keeper.hasDebt) {
+                                batch.update(db.collection('clients').doc(keeper.id), { hasDebt: true });
+                            }
+
+                            // Delete the duplicate client
+                            batch.delete(db.collection('clients').doc(dup.id));
+
+                            return batch.commit();
+                        });
+                    }
+                }
+                console.log("Auto-merge: duplicados fusionados correctamente");
+            } catch (e) {
+                console.error("Error al fusionar duplicados:", e);
+            } finally {
+                mergingDuplicates.current = false;
+            }
+        })();
+    }, [clients, debts, transfers, user]);
 
     // --- TOAST LOGIC ---
     const showUndoToast = (message, undoAction) => {
@@ -491,38 +576,39 @@ function App() {
 
     
     const handleClearCompleted = (day) => {
-        const completedForDay = clients.filter(c => 
-            c.isCompleted && 
-            c.freq === 'once' && 
+        const completedForDay = clients.filter(c =>
+            c.isCompleted &&
+            c.freq === 'once' &&
             c.visitDay === day
         );
         if (completedForDay.length === 0) return;
-        
+
         setConfirmModal({
             isOpen: true,
-            title: '¿Eliminar completados?',
-            message: `Se eliminarán ${completedForDay.length} pedido(s) completado(s) de ${day}.`,
-            confirmText: "Eliminar",
-            isDanger: true,
+            title: '¿Limpiar completados?',
+            message: `${completedForDay.length} pedido(s) completado(s) se moverán al Directorio.`,
+            confirmText: "Limpiar",
+            isDanger: false,
             action: async () => {
                 try {
-                    // Recopilar todas las operaciones de delete
-                    const allDeletes = [];
-                    completedForDay.forEach(c => {
-                        allDeletes.push(db.collection('clients').doc(c.id));
-                        debts.filter(d => d.clientId === c.id).forEach(d => {
-                            allDeletes.push(db.collection('debts').doc(d.id));
+                    for (let i = 0; i < completedForDay.length; i += 450) {
+                        const chunk = completedForDay.slice(i, i + 450);
+                        await firestoreRetry(() => {
+                            const batch = db.batch();
+                            chunk.forEach(c => {
+                                batch.update(db.collection('clients').doc(c.id), {
+                                    freq: 'on_demand',
+                                    visitDay: 'Sin Asignar',
+                                    visitDays: [],
+                                    isCompleted: false,
+                                    completedAt: null,
+                                    updatedAt: new Date()
+                                });
+                            });
+                            return batch.commit();
                         });
-                        transfers.filter(t => t.clientId === c.id).forEach(t => {
-                            allDeletes.push(db.collection('transfers').doc(t.id));
-                        });
-                    });
-                    // Ejecutar en batches de 450 para respetar límite de 500
-                    for (let i = 0; i < allDeletes.length; i += 450) {
-                        const batch = db.batch();
-                        allDeletes.slice(i, i + 450).forEach(ref => batch.delete(ref));
-                        await firestoreRetry(() => batch.commit());
                     }
+                    showUndoToast("Movidos al Directorio", null);
                 } catch(e) { console.error(e); showUndoToast(getErrorMessage(e), null); }
                 setConfirmModal(prev => ({...prev, isOpen: false}));
             }
@@ -1179,22 +1265,25 @@ function App() {
                 const phone = (c.phone || '').toLowerCase();
                 return name.includes(term) || address.includes(term) || phone.includes(term);
             })
-            // Filter duplicates by phone number logic
+            // Merge duplicates by phone number (keep newest, preserve debt info)
             .reduce((unique, item) => {
-                // Normalize phone to digits for key
                 const key = item.phone ? item.phone.replace(/\D/g, '') : item.id;
-                // If phone is empty/short, don't dedupe by it, use ID
                 if (!item.phone || item.phone.length < 6) {
                     unique.push(item);
                     return unique;
                 }
-                // If duplicate found, keep the one with most recent updatedAt
                 const existingIndex = unique.findIndex(u => u.phone && u.phone.replace(/\D/g, '') === key);
                 if (existingIndex > -1) {
                     const existing = unique[existingIndex];
-                    // Firestore seconds → milliseconds para Date
-                    if (new Date((item.updatedAt?.seconds || 0) * 1000) > new Date((existing.updatedAt?.seconds || 0) * 1000)) {
-                        unique[existingIndex] = item;
+                    const itemTime = new Date((item.updatedAt?.seconds || 0) * 1000);
+                    const existingTime = new Date((existing.updatedAt?.seconds || 0) * 1000);
+                    // Keep the newer one but merge hasDebt and collect all IDs
+                    const mergedIds = [...(existing._mergedIds || [existing.id]), item.id];
+                    const mergedHasDebt = existing.hasDebt || item.hasDebt;
+                    if (itemTime > existingTime) {
+                        unique[existingIndex] = { ...item, hasDebt: mergedHasDebt, _mergedIds: mergedIds };
+                    } else {
+                        unique[existingIndex] = { ...existing, hasDebt: mergedHasDebt, _mergedIds: mergedIds };
                     }
                 } else {
                     unique.push(item);
@@ -1785,7 +1874,8 @@ function App() {
                                         .map(function(k) { var p = PRODUCTS.find(function(prod) { return prod.id === k; }); return client.products[k] + 'x ' + (p ? p.short : k); })
                                         .join(', ');
                                 }
-                                var debtTotal = debts.filter(function(d) { return d.clientId === client.id; }).reduce(function(sum, d) { return sum + (d.amount || 0); }, 0);
+                                var clientIds = client._mergedIds || [client.id];
+                                var debtTotal = debts.filter(function(d) { return clientIds.indexOf(d.clientId) > -1; }).reduce(function(sum, d) { return sum + (d.amount || 0); }, 0);
                                 var freqLabel = '';
                                 switch(client.freq) {
                                     case 'weekly': freqLabel = 'Semanal'; break;
