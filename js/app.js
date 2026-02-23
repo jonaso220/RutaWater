@@ -2121,7 +2121,7 @@ function App() {
                                                     onClick={() => setEditDebtModal({ isOpen: true, debt })}
                                                     className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-gray-200 dark:hover:bg-gray-600"
                                                 >
-                                                    <Icons.Edit size={14} /> Editar
+                                                    <Icons.Edit size={14} />
                                                 </button>
                                                 {/* Botón WhatsApp */}
                                                 {(() => {
@@ -2170,7 +2170,7 @@ function App() {
                                                             }}
                                                             className="px-3 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-emerald-200 dark:hover:bg-emerald-800"
                                                         >
-                                                            <Icons.CreditCard size={14} /> Transferencia
+                                                            <Icons.CreditCard size={14} /> Transf.
                                                         </button>
                                                     );
                                                 })()}
