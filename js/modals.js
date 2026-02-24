@@ -649,6 +649,7 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
     };
 
     const handleSave = () => {
+        if (needsSpecificDate && !startDate) return;
         var cleanProducts = {};
         Object.entries(products).forEach(function([key, val]) {
             if (val > 0) cleanProducts[key] = val;
@@ -755,7 +756,7 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
                     )}
                 </div>
                 <div className="p-4 border-t border-gray-100 dark:border-gray-700">
-                    <Button onClick={handleSave} className="w-full">
+                    <Button onClick={handleSave} className={`w-full ${needsSpecificDate && !startDate ? 'opacity-50 pointer-events-none' : ''}`}>
                         <Icons.Save size={16} /> Guardar
                     </Button>
                 </div>
