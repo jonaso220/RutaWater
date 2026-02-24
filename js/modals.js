@@ -611,6 +611,7 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
     ];
 
     const needsStartDate = freq === 'weekly' || freq === 'biweekly' || freq === 'triweekly' || freq === 'monthly';
+    const needsSpecificDate = freq === 'once';
 
     const formatDisplayDate = (dateStr) => {
         if (!dateStr) return '';
@@ -659,7 +660,9 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
         };
         if (needsStartDate && startDate) {
             data.specificDate = startDate;
-        } else if (!needsStartDate) {
+        } else if (needsSpecificDate && startDate) {
+            data.specificDate = startDate;
+        } else if (!needsStartDate && !needsSpecificDate) {
             data.specificDate = '';
         }
         if (showClientInfo) {
@@ -732,6 +735,20 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
                                 </div>
                             ) : (
                                 <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Selecciona desde cuándo inicia la frecuencia</p>
+                            )}
+                            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                    )}
+                    {needsSpecificDate && (
+                        <div>
+                            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Fecha del pedido</p>
+                            {startDate ? (
+                                <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-2">
+                                    <span className="text-sm font-semibold text-gray-800 dark:text-white">{formatDisplayDate(startDate)}</span>
+                                    <button type="button" onClick={() => setStartDate('')} className="text-xs font-semibold text-red-500 hover:text-red-600">Quitar</button>
+                                </div>
+                            ) : (
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Selecciona la fecha para este pedido</p>
                             )}
                             <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} min={new Date().toISOString().split('T')[0]} className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
