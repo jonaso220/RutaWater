@@ -862,6 +862,30 @@ const [toast, setToast] = React.useState(null);
     const handleQuickUpdateClient = async (clientId, data) => {
         try {
             var updateData = { ...data, updatedAt: new Date() };
+            // Si es pedido "una vez" y cambió la fecha, recalcular día y orden
+            if (data.freq === 'once' && data.specificDate) {
+                const d = new Date(data.specificDate + 'T12:00:00');
+                const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                const dayName = days[d.getDay()];
+                const existingInDay = clients.filter(c =>
+                    c.id !== clientId &&
+                    c.freq !== 'on_demand' &&
+                    !c.isCompleted &&
+                    ((c.visitDays && c.visitDays.includes(dayName)) || c.visitDay === dayName)
+                );
+                let minOrder = 0;
+                if (existingInDay.length > 0) {
+                    const orders = existingInDay.map(c => {
+                        const order = c.listOrders?.[dayName] ?? c.listOrder ?? 0;
+                        return order > 100000 ? 0 : order;
+                    });
+                    minOrder = Math.min(...orders);
+                }
+                updateData.visitDay = dayName;
+                updateData.visitDays = [dayName];
+                updateData.listOrder = minOrder - 1;
+                updateData.listOrders = { [dayName]: minOrder - 1 };
+            }
             await firestoreRetry(() => db.collection('clients').doc(clientId).update(updateData));
             showUndoToast("Cliente actualizado.", null);
         } catch(e) {
