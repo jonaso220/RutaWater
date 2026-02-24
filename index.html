@@ -65,7 +65,8 @@
         @media (prefers-color-scheme: dark) {
              .sortable-drag { background-color: #1f2937; }
         }
-        .drag-handle { cursor: grab; touch-action: pan-y; }
+        .drag-handle { cursor: grab; -webkit-user-select: none; user-select: none; }
+        .drag-handle:active { cursor: grabbing; }
 
         @keyframes slideUpFade {
             from { opacity: 0; transform: translateY(20px); }

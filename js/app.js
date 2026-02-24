@@ -1492,6 +1492,73 @@ const [toast, setToast] = React.useState(null);
         }
     };
 
+    // --- SORTABLEJS: DRAG-TO-REORDER TARJETAS ---
+    const sortableInstances = React.useRef([]);
+    React.useEffect(() => {
+        // Limpiar instancias previas
+        sortableInstances.current.forEach(s => s.destroy());
+        sortableInstances.current = [];
+
+        if (view !== 'list' || !selectedDay || typeof Sortable === 'undefined') return;
+
+        // Esperar al siguiente frame para que el DOM esté listo
+        const timer = setTimeout(() => {
+            const groupKeys = Object.keys(groupedClients);
+            groupKeys.forEach(key => {
+                const container = document.getElementById(`group-${key}`);
+                if (!container) return;
+                const instance = Sortable.create(container, {
+                    handle: '.drag-handle',
+                    filter: '.order-input',
+                    preventOnFilter: false,
+                    animation: 200,
+                    ghostClass: 'sortable-ghost',
+                    dragClass: 'sortable-drag',
+                    delay: 150,
+                    delayOnTouchOnly: true,
+                    touchStartThreshold: 5,
+                    onEnd: async (evt) => {
+                        if (evt.oldIndex === evt.newIndex) return;
+                        // Capturar el nuevo orden del DOM ANTES de revertir (solo hijos directos)
+                        const newOrder = Array.from(container.children)
+                            .map(el => el.getAttribute('data-client-id'))
+                            .filter(Boolean);
+
+                        // Revertir el movimiento DOM para que React controle el render
+                        const { item, oldIndex: oi, newIndex: ni } = evt;
+                        if (oi < ni) {
+                            container.insertBefore(item, container.children[oi]);
+                        } else {
+                            container.insertBefore(item, container.children[oi + 1]);
+                        }
+
+                        try {
+                            await firestoreRetry(() => {
+                                const batch = db.batch();
+                                newOrder.forEach((id, index) => {
+                                    const ref = db.collection('clients').doc(id);
+                                    batch.update(ref, {
+                                        [`listOrders.${selectedDay}`]: index
+                                    });
+                                });
+                                return batch.commit();
+                            });
+                        } catch(e) {
+                            console.error("Error reordering (drag):", e);
+                            showUndoToast(getErrorMessage(e), null);
+                        }
+                    }
+                });
+                sortableInstances.current.push(instance);
+            });
+        }, 100);
+        return () => {
+            clearTimeout(timer);
+            sortableInstances.current.forEach(s => s.destroy());
+            sortableInstances.current = [];
+        };
+    }, [groupedClients, selectedDay, view]);
+
     if (loadingAuth) return <div className="min-h-screen flex items-center justify-center text-blue-600 font-bold">Cargando...</div>;
     if (!user) return <LoginScreen onLogin={handleGoogleLogin} />;
 
@@ -1881,24 +1948,25 @@ const [toast, setToast] = React.useState(null);
                                     </h3>
                                     <div id={`group-${key}`} className="grid gap-3">
                                         {groupedClients[key].items.map((client) => (
-                                            <ClientCard
-                                                key={client.id}
-                                                client={client}
-                                                trueIndex={clientIndexMap[client.id] ?? 0}
-                                                isAdmin={isAdmin}
-                                                onToggleStar={handleToggleStar}
-                                                onDebtClick={handleDebtClick}
-                                                onAddTransfer={handleAddTransfer}
-                                                onSetAlarm={handleSetAlarmForClient}
-                                                onEdit={(c) => { setQuickEditClient(c); setQuickEditShowInfo(false); }}
-                                                onEditNote={(note) => setEditNoteData(note)}
-                                                onDelete={handleDeleteClient}
-                                                onOpenMaps={openGoogleMaps}
-                                                onSendPhoto={sendPhotoWhatsApp}
-                                                onSendWhatsApp={sendWhatsApp}
-                                                onMarkDone={handleMarkAsDoneInList}
-                                                onChangePosition={changeClientPosition}
-                                            />
+                                            <div key={client.id} data-client-id={client.id}>
+                                                <ClientCard
+                                                    client={client}
+                                                    trueIndex={clientIndexMap[client.id] ?? 0}
+                                                    isAdmin={isAdmin}
+                                                    onToggleStar={handleToggleStar}
+                                                    onDebtClick={handleDebtClick}
+                                                    onAddTransfer={handleAddTransfer}
+                                                    onSetAlarm={handleSetAlarmForClient}
+                                                    onEdit={(c) => { setQuickEditClient(c); setQuickEditShowInfo(false); }}
+                                                    onEditNote={(note) => setEditNoteData(note)}
+                                                    onDelete={handleDeleteClient}
+                                                    onOpenMaps={openGoogleMaps}
+                                                    onSendPhoto={sendPhotoWhatsApp}
+                                                    onSendWhatsApp={sendWhatsApp}
+                                                    onMarkDone={handleMarkAsDoneInList}
+                                                    onChangePosition={changeClientPosition}
+                                                />
+                                            </div>
                                         ))}
                                     </div>
                                 </div>

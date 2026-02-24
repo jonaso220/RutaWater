@@ -204,11 +204,12 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
     if (client.isNote) {
         return (
             <Card className="flex flex-row overflow-hidden border-l-4 border-l-yellow-400 dark:border-l-yellow-500 bg-yellow-50 dark:bg-gray-800">
-                <div className="w-10 bg-yellow-100/50 dark:bg-gray-700/50 flex flex-col justify-center items-center border-r border-yellow-200 dark:border-gray-700 p-0.5">
+                <div className="w-10 bg-yellow-100/50 dark:bg-gray-700/50 flex flex-col justify-center items-center border-r border-yellow-200 dark:border-gray-700 p-0.5 drag-handle" data-id={client.id}>
                     <OrderInput
                         value={trueIndex + 1}
                         onChange={(newPos) => onChangePosition(client.id, newPos)}
                     />
+                    <Icons.Drag size={14} className="text-yellow-400 dark:text-gray-500 mt-1 opacity-60" />
                 </div>
                 <div className="flex-1 p-3 flex flex-col gap-2">
                     <div className="flex items-center justify-between">
@@ -240,12 +241,13 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
     // --- TARJETA DE CLIENTE NORMAL ---
     return (
         <Card className={`flex flex-row overflow-hidden ${(client.freq === 'once' || client.isStarred) ? 'border-l-4 border-l-orange-500 dark:border-l-orange-600 bg-orange-50 dark:bg-gray-800' : ''}`}>
-            {/* ORDER INPUT BADGE */}
-            <div className="w-10 bg-gray-50 dark:bg-gray-700/50 flex flex-col justify-center items-center border-r border-gray-100 dark:border-gray-700 p-0.5">
+            {/* ORDER INPUT BADGE + DRAG HANDLE */}
+            <div className="w-10 bg-gray-50 dark:bg-gray-700/50 flex flex-col justify-center items-center border-r border-gray-100 dark:border-gray-700 p-0.5 drag-handle" data-id={client.id}>
                  <OrderInput
                     value={trueIndex + 1}
                     onChange={(newPos) => onChangePosition(client.id, newPos)}
                  />
+                 <Icons.Drag size={14} className="text-gray-300 dark:text-gray-500 mt-1 opacity-60" />
             </div>
 
             {/* CARD CONTENT */}
