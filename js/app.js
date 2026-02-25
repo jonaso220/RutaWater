@@ -1469,22 +1469,42 @@ const [toast, setToast] = React.useState(null);
         const currentIndex = dayClients.findIndex(c => c.id === clientId);
         if (currentIndex === -1) return;
 
+        // Remover de posición actual e insertar en la nueva
         const [movedClient] = dayClients.splice(currentIndex, 1);
-        // Adjust index for human (1-based) to array (0-based)
         const targetIndex = Math.min(Math.max(0, newPos - 1), dayClients.length);
         dayClients.splice(targetIndex, 0, movedClient);
 
+        // Solo actualizar la tarjeta movida (punto medio entre vecinos)
+        // para NO corromper posiciones de otras tarjetas
+        const getPos = (c) => {
+            if (c.listOrders && typeof c.listOrders[dayToFilter] === 'number') {
+                return c.listOrders[dayToFilter];
+            }
+            return c.listOrder > 1000000 ? 999999 + (c.listOrder / 1e15) : (c.listOrder || 999999);
+        };
+
+        const movedIdx = dayClients.indexOf(movedClient);
+        const prev = movedIdx > 0 ? dayClients[movedIdx - 1] : null;
+        const next = movedIdx < dayClients.length - 1 ? dayClients[movedIdx + 1] : null;
+        const prevPos = prev ? getPos(prev) : null;
+        const nextPos = next ? getPos(next) : null;
+
+        let newPosition;
+        if (prevPos !== null && nextPos !== null) {
+            newPosition = (prevPos + nextPos) / 2;
+        } else if (prevPos !== null) {
+            newPosition = prevPos + 1;
+        } else if (nextPos !== null) {
+            newPosition = nextPos - 1;
+        } else {
+            newPosition = 0;
+        }
+
         try {
             await firestoreRetry(() => {
-                const batch = db.batch();
-                // Re-assign sequential order (0, 1, 2, 3...) for ALL clients in this day
-                dayClients.forEach((client, index) => {
-                    const ref = db.collection('clients').doc(client.id);
-                    batch.update(ref, {
-                        [`listOrders.${dayToFilter}`]: index
-                    });
+                return db.collection('clients').doc(clientId).update({
+                    [`listOrders.${dayToFilter}`]: newPosition
                 });
-                return batch.commit();
             });
         } catch(e) {
             console.error("Error reordering:", e);
@@ -1532,16 +1552,44 @@ const [toast, setToast] = React.useState(null);
                             container.insertBefore(item, container.children[oi + 1]);
                         }
 
+                        // Solo actualizar la tarjeta movida (punto medio entre vecinos)
+                        // para NO corromper posiciones de otras tarjetas en otros grupos
+                        const movedClientId = item.getAttribute('data-client-id');
+                        if (!movedClientId) return;
+
+                        const movedNewIndex = newOrder.indexOf(movedClientId);
+                        if (movedNewIndex === -1) return;
+
+                        const getClientPos = (id) => {
+                            const c = clients.find(cl => cl.id === id);
+                            if (!c) return null;
+                            if (c.listOrders && typeof c.listOrders[selectedDay] === 'number') {
+                                return c.listOrders[selectedDay];
+                            }
+                            return c.listOrder > 1000000 ? 999999 + (c.listOrder / 1e15) : (c.listOrder || 999999);
+                        };
+
+                        const prevId = movedNewIndex > 0 ? newOrder[movedNewIndex - 1] : null;
+                        const nextId = movedNewIndex < newOrder.length - 1 ? newOrder[movedNewIndex + 1] : null;
+                        const prevPos = prevId ? getClientPos(prevId) : null;
+                        const nextPos = nextId ? getClientPos(nextId) : null;
+
+                        let newPosition;
+                        if (prevPos !== null && nextPos !== null) {
+                            newPosition = (prevPos + nextPos) / 2;
+                        } else if (prevPos !== null) {
+                            newPosition = prevPos + 1;
+                        } else if (nextPos !== null) {
+                            newPosition = nextPos - 1;
+                        } else {
+                            newPosition = 0;
+                        }
+
                         try {
                             await firestoreRetry(() => {
-                                const batch = db.batch();
-                                newOrder.forEach((id, index) => {
-                                    const ref = db.collection('clients').doc(id);
-                                    batch.update(ref, {
-                                        [`listOrders.${selectedDay}`]: index
-                                    });
+                                return db.collection('clients').doc(movedClientId).update({
+                                    [`listOrders.${selectedDay}`]: newPosition
                                 });
-                                return batch.commit();
                             });
                         } catch(e) {
                             console.error("Error reordering (drag):", e);
