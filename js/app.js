@@ -1458,58 +1458,78 @@ const [toast, setToast] = React.useState(null);
         }
     };
 
-    const changeClientPosition = async (clientId, newPosStr) => {
-        const newPos = parseInt(newPosStr, 10);
-        if (isNaN(newPos) || newPos < 1) return;
-
-        const dayToFilter = selectedDay;
-        // Get visible clients in current sorted order (hacer copia)
-        const dayClients = [...getVisibleClients(dayToFilter)];
-
-        const currentIndex = dayClients.findIndex(c => c.id === clientId);
+    // --- REORDENAR CLIENTE: posiciones enteras secuenciales con desplazamiento ---
+    // Maneja tanto asignación manual de posición como drag-and-drop.
+    // Renumera TODOS los clientes del día con enteros secuenciales (0,1,2,...),
+    // garantizando coherencia entre grupos de fechas (hoy, próxima semana, etc.)
+    // y que cada tarjeta se desplace como máximo 1 posición.
+    const reorderClientForDay = async (clientId, dayToFilter, options) => {
+        // Obtener TODOS los clientes visibles del día, ordenados por posición actual
+        const allClients = [...getVisibleClients(dayToFilter)];
+        const currentIndex = allClients.findIndex(c => c.id === clientId);
         if (currentIndex === -1) return;
 
-        // Remover de posición actual e insertar en la nueva
-        const [movedClient] = dayClients.splice(currentIndex, 1);
-        const targetIndex = Math.min(Math.max(0, newPos - 1), dayClients.length);
-        dayClients.splice(targetIndex, 0, movedClient);
+        // Remover la tarjeta de su posición actual
+        const [movedClient] = allClients.splice(currentIndex, 1);
 
-        // Solo actualizar la tarjeta movida (punto medio entre vecinos)
-        // para NO corromper posiciones de otras tarjetas
-        const getPos = (c) => {
-            if (c.listOrders && typeof c.listOrders[dayToFilter] === 'number') {
-                return c.listOrders[dayToFilter];
-            }
-            return c.listOrder > 1000000 ? 999999 + (c.listOrder / 1e15) : (c.listOrder || 999999);
-        };
-
-        const movedIdx = dayClients.indexOf(movedClient);
-        const prev = movedIdx > 0 ? dayClients[movedIdx - 1] : null;
-        const next = movedIdx < dayClients.length - 1 ? dayClients[movedIdx + 1] : null;
-        const prevPos = prev ? getPos(prev) : null;
-        const nextPos = next ? getPos(next) : null;
-
-        let newPosition;
-        if (prevPos !== null && nextPos !== null) {
-            newPosition = (prevPos + nextPos) / 2;
-        } else if (prevPos !== null) {
-            newPosition = prevPos + 1;
-        } else if (nextPos !== null) {
-            newPosition = nextPos - 1;
+        // Determinar índice de inserción (0-based, en la lista SIN la tarjeta movida)
+        let insertIndex;
+        if (options.targetPosition !== undefined) {
+            // Asignación manual de posición (1-indexed desde el usuario)
+            insertIndex = Math.max(0, Math.min(options.targetPosition - 1, allClients.length));
+        } else if (options.afterClientId) {
+            // Drag: insertar justo después de un cliente específico
+            const afterIdx = allClients.findIndex(c => c.id === options.afterClientId);
+            insertIndex = afterIdx >= 0 ? afterIdx + 1 : allClients.length;
+        } else if (options.beforeClientId) {
+            // Drag: insertar justo antes de un cliente específico (primera posición del grupo)
+            const beforeIdx = allClients.findIndex(c => c.id === options.beforeClientId);
+            insertIndex = beforeIdx >= 0 ? beforeIdx : 0;
         } else {
-            newPosition = 0;
+            insertIndex = 0;
         }
+
+        // Insertar en la posición objetivo
+        allClients.splice(insertIndex, 0, movedClient);
+
+        // Si la tarjeta quedó en la misma posición, no hacer nada
+        const newIndex = allClients.indexOf(movedClient);
+        if (newIndex === currentIndex) return;
+
+        // Asignar posiciones enteras secuenciales a TODOS los clientes.
+        // Solo escribir actualizaciones para los que cambiaron.
+        const updates = [];
+        allClients.forEach((client, newPos) => {
+            const storedPos = client.listOrders && typeof client.listOrders[dayToFilter] === 'number'
+                ? client.listOrders[dayToFilter]
+                : undefined;
+            if (storedPos !== newPos) {
+                updates.push({ id: client.id, position: newPos });
+            }
+        });
+
+        if (updates.length === 0) return;
 
         try {
             await firestoreRetry(() => {
-                return db.collection('clients').doc(clientId).update({
-                    [`listOrders.${dayToFilter}`]: newPosition
+                const batch = db.batch();
+                updates.forEach(({ id, position }) => {
+                    batch.update(db.collection('clients').doc(id), {
+                        [`listOrders.${dayToFilter}`]: position
+                    });
                 });
+                return batch.commit();
             });
-        } catch(e) {
+        } catch (e) {
             console.error("Error reordering:", e);
             showUndoToast(getErrorMessage(e), null);
         }
+    };
+
+    const changeClientPosition = async (clientId, newPosStr) => {
+        const newPos = parseInt(newPosStr, 10);
+        if (isNaN(newPos) || newPos < 1) return;
+        await reorderClientForDay(clientId, selectedDay, { targetPosition: newPos });
     };
 
     // --- SORTABLEJS: DRAG-TO-REORDER TARJETAS ---
@@ -1552,48 +1572,22 @@ const [toast, setToast] = React.useState(null);
                             container.insertBefore(item, container.children[oi + 1]);
                         }
 
-                        // Solo actualizar la tarjeta movida (punto medio entre vecinos)
-                        // para NO corromper posiciones de otras tarjetas en otros grupos
                         const movedClientId = item.getAttribute('data-client-id');
                         if (!movedClientId) return;
 
                         const movedNewIndex = newOrder.indexOf(movedClientId);
                         if (movedNewIndex === -1) return;
 
-                        const getClientPos = (id) => {
-                            const c = clients.find(cl => cl.id === id);
-                            if (!c) return null;
-                            if (c.listOrders && typeof c.listOrders[selectedDay] === 'number') {
-                                return c.listOrders[selectedDay];
-                            }
-                            return c.listOrder > 1000000 ? 999999 + (c.listOrder / 1e15) : (c.listOrder || 999999);
-                        };
-
+                        // Determinar vecinos en el grupo para posicionamiento coherente
                         const prevId = movedNewIndex > 0 ? newOrder[movedNewIndex - 1] : null;
                         const nextId = movedNewIndex < newOrder.length - 1 ? newOrder[movedNewIndex + 1] : null;
-                        const prevPos = prevId ? getClientPos(prevId) : null;
-                        const nextPos = nextId ? getClientPos(nextId) : null;
 
-                        let newPosition;
-                        if (prevPos !== null && nextPos !== null) {
-                            newPosition = (prevPos + nextPos) / 2;
-                        } else if (prevPos !== null) {
-                            newPosition = prevPos + 1;
-                        } else if (nextPos !== null) {
-                            newPosition = nextPos - 1;
-                        } else {
-                            newPosition = 0;
-                        }
-
-                        try {
-                            await firestoreRetry(() => {
-                                return db.collection('clients').doc(movedClientId).update({
-                                    [`listOrders.${selectedDay}`]: newPosition
-                                });
-                            });
-                        } catch(e) {
-                            console.error("Error reordering (drag):", e);
-                            showUndoToast(getErrorMessage(e), null);
+                        // Usar reorderClientForDay con posicionamiento por vecinos
+                        // para mantener coherencia entre grupos de fechas
+                        if (prevId) {
+                            await reorderClientForDay(movedClientId, selectedDay, { afterClientId: prevId });
+                        } else if (nextId) {
+                            await reorderClientForDay(movedClientId, selectedDay, { beforeClientId: nextId });
                         }
                     }
                 });
