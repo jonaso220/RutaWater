@@ -2614,10 +2614,10 @@ const [toast, setToast] = React.useState(null);
 
             {/* NAV - Solo visible en sección Cartera */}
             {activeSection === 'cartera' && (
-            <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-gray-200/50 dark:border-gray-700/50 flex items-end py-2.5 px-4 z-20 pb-safe shadow-lg shadow-black/5 transition-all duration-200">
-                <button onClick={() => setView('list')} className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded-lg ${view === 'list' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><span className="text-2xl">🏠</span><span className="text-[11px] font-medium">Inicio</span></button>
+            <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-gray-200/50 dark:border-gray-700/50 flex justify-around p-2 z-20 pb-safe shadow-lg shadow-black/5 transition-all duration-200">
+                <button onClick={() => setView('list')} className={`p-2 rounded-lg flex flex-col items-center ${view === 'list' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><span className="text-xl">🏠</span><span className="text-xs font-medium">Inicio</span></button>
                 {isAdmin ? (
-                    <div className="relative flex-1 flex items-center justify-center">
+                    <div className="relative flex items-center justify-center w-20">
                         {showFabMenu && (
                             <>
                                 <div className="fixed inset-0 z-20" onClick={() => setShowFabMenu(false)} />
@@ -2647,7 +2647,7 @@ const [toast, setToast] = React.useState(null);
                         </button>
                     </div>
                 ) : (
-                    <div className="relative flex-1 flex items-center justify-center">
+                    <div className="relative flex items-center justify-center w-20">
                         {showFabMenu && (
                             <>
                                 <div className="fixed inset-0 z-20" onClick={() => setShowFabMenu(false)} />
@@ -2677,7 +2677,7 @@ const [toast, setToast] = React.useState(null);
                         </button>
                     </div>
                 )}
-                <button onClick={() => setView('directory')} className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded-lg ${view === 'directory' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><span className="text-2xl">👥</span><span className="text-[11px] font-medium">Directorio</span></button>
+                <button onClick={() => setView('directory')} className={`p-2 rounded-lg flex flex-col items-center ${view === 'directory' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><span className="text-xl">👥</span><span className="text-xs font-medium">Directorio</span></button>
             </nav>
             )}
         </div>
