@@ -1720,7 +1720,7 @@ const [toast, setToast] = React.useState(null);
                         className="flex items-center gap-2 cursor-pointer active:opacity-80 transition-opacity" 
                         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                     >
-                        <Icons.Truck className="w-6 h-6" />
+                        <span className="text-xl">🚚</span>
                         <h1 className="text-xl font-bold">RutaWater</h1>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1730,10 +1730,10 @@ const [toast, setToast] = React.useState(null);
                                 onClick={() => setShowSectionMenu(!showSectionMenu)} 
                                 className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 active:bg-white/30 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
                             >
-                                {activeSection === 'cartera' && <><Icons.Users size={15}/> Cartera</>}
-                                {activeSection === 'deudas' && <><Icons.DollarSign size={15}/> Deudas</>}
-                                {activeSection === 'transferencias' && <><Icons.CreditCard size={15}/> Transferencias</>}
-                                <Icons.ChevronDown size={14} className={`transition-transform duration-200 ${showSectionMenu ? 'rotate-180' : ''}`} />
+                                {activeSection === 'cartera' && <>👥 Cartera</>}
+                                {activeSection === 'deudas' && <>💰 Deudas</>}
+                                {activeSection === 'transferencias' && <>💳 Transferencias</>}
+                                <span className={`transition-transform duration-200 inline-block ${showSectionMenu ? 'rotate-180' : ''}`}>▾</span>
                                 {/* Badges de pendientes */}
                                 {activeSection !== 'deudas' && debts.length > 0 && (
                                     <span className="bg-red-500 text-white text-[9px] font-black min-w-[16px] h-4 rounded-full flex items-center justify-center px-1">{debts.length}</span>
@@ -1750,7 +1750,7 @@ const [toast, setToast] = React.useState(null);
                                             onClick={() => { setActiveSection('cartera'); setShowSectionMenu(false); setView('list'); }}
                                             className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${activeSection === 'cartera' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-bold' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                                         >
-                                            <Icons.Users size={18} />
+                                            <span>👥</span>
                                             <span className="flex-1 text-left">Cartera de Clientes</span>
                                         </button>
                                         <div className="border-t border-gray-100 dark:border-gray-700" />
@@ -1758,7 +1758,7 @@ const [toast, setToast] = React.useState(null);
                                             onClick={() => { setActiveSection('deudas'); setShowSectionMenu(false); }}
                                             className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${activeSection === 'deudas' ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 font-bold' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                                         >
-                                            <Icons.DollarSign size={18} />
+                                            <span>💰</span>
                                             <span className="flex-1 text-left">Deudas de Clientes</span>
                                             {debts.length > 0 && <span className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-bold px-2 py-0.5 rounded-full">{debts.length}</span>}
                                         </button>
@@ -1767,7 +1767,7 @@ const [toast, setToast] = React.useState(null);
                                             onClick={() => { setActiveSection('transferencias'); setShowSectionMenu(false); }}
                                             className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${activeSection === 'transferencias' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 font-bold' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                                         >
-                                            <Icons.CreditCard size={18} />
+                                            <span>💳</span>
                                             <span className="flex-1 text-left">Revisar Transferencias</span>
                                             {transfers.length > 0 && <span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded-full">{transfers.length}</span>}
                                         </button>
@@ -1781,16 +1781,16 @@ const [toast, setToast] = React.useState(null);
                             className={`p-1.5 rounded-lg transition-colors ${groupData?.groupId ? 'bg-purple-500/20 text-purple-200' : 'hover:bg-white/10'}`}
                             title={groupData?.groupId ? (groupData.role === 'admin' ? 'Grupo (Admin)' : 'Grupo (Miembro)') : 'Grupo Familiar'}
                         >
-                            <Icons.Users className="w-5 h-5" />
+                            👥
                         </button>
                         <button
                             onClick={() => setShowSettingsModal(true)}
                             className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
                             title="Configuración"
                         >
-                            <Icons.Settings className="w-5 h-5" />
+                            ⚙️
                         </button>
-                        <button onClick={handleLogout}><Icons.LogOut className="w-5 h-5" /></button>
+                        <button onClick={handleLogout}>🚪</button>
                     </div>
                 </div>
             </header>
@@ -1827,14 +1827,14 @@ const [toast, setToast] = React.useState(null);
                                             className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm"
                                         />
                                         <div className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500">
-                                            <Icons.Search size={18} />
+                                            🔍
                                         </div>
                                         {listSearchTerm && (
                                             <button 
                                                 onClick={() => setListSearchTerm('')}
                                                 className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                                             >
-                                                <Icons.X size={18} />
+                                                ✕
                                             </button>
                                         )}
                                     </div>
@@ -2097,18 +2097,18 @@ const [toast, setToast] = React.useState(null);
                     <div className="space-y-4">
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 sticky top-0 z-10">
                             <div className="flex justify-between items-center mb-3">
-                                <h2 className="text-xl font-bold dark:text-white flex items-center gap-2"><Icons.Users /> Directorio</h2>
+                                <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">👥 Directorio</h2>
                                 <div className="flex gap-1.5">
-                                    <button onClick={handleExportClients} className="text-xs bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-green-200 dark:hover:bg-green-800 flex items-center gap-1"><Icons.Import size={14} className="rotate-180" /> CSV</button>
-                                    <button onClick={handleExportBackup} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center gap-1"><Icons.Save size={14} /> Backup</button>
+                                    <button onClick={handleExportClients} className="text-xs bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-green-200 dark:hover:bg-green-800 flex items-center gap-1">📤 CSV</button>
+                                    <button onClick={handleExportBackup} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center gap-1">💾 Backup</button>
                                 </div>
                             </div>
                             <div className="relative">
                                 <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
-                                <div className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500"><Icons.Search size={20} /></div>
+                                <div className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500">🔍</div>
                                 {searchTerm && (
                                     <button onClick={() => setSearchTerm('')} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                                        <Icons.X size={20} />
+                                        ✕
                                     </button>
                                 )}
                             </div>
@@ -2179,10 +2179,10 @@ const [toast, setToast] = React.useState(null);
                 )}
                  {view === 'add' && (
                     <form onSubmit={handleSaveClient} className="space-y-4">
-                        <h2 className="text-xl font-bold dark:text-white flex items-center gap-2"><div className="bg-blue-600 text-white p-1 rounded"><Icons.Plus /></div> {editingId ? 'Editar' : 'Nuevo'} Cliente</h2>
+                        <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">✏️ {editingId ? 'Editar' : 'Nuevo'} Cliente</h2>
                         
                         <div className="flex justify-end">
-                            <button type="button" onClick={() => setShowPasteModal(true)} className="text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded border border-blue-200 dark:border-blue-800"><Icons.Clipboard size={14}/> Pegar Formato Contacto</button>
+                            <button type="button" onClick={() => setShowPasteModal(true)} className="text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded border border-blue-200 dark:border-blue-800">📋 Pegar Formato Contacto</button>
                         </div>
 
                         <input required name="name" value={formData.name} onChange={handleInputChange} maxLength={100} className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Nombre" />
@@ -2225,8 +2225,8 @@ const [toast, setToast] = React.useState(null);
 
                         <input required name="address" value={formData.address} onChange={handleInputChange} maxLength={200} className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Dirección" />
                         <div className="bg-blue-50 dark:bg-gray-800 p-4 rounded-lg border border-blue-100 dark:border-gray-700">
-                            <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2"><Icons.MapPin size={16}/> Ubicación (GPS/Link)</label>
-                            <div className="relative"><input type="text" value={formData.locationInput} onChange={handleLocationPaste} className="w-full p-3 pl-10 border rounded-lg outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Pega link de Maps..." /><div className="absolute left-3 top-3 text-gray-400"><Icons.Link size={20} /></div></div>
+                            <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">📍 Ubicación (GPS/Link)</label>
+                            <div className="relative"><input type="text" value={formData.locationInput} onChange={handleLocationPaste} className="w-full p-3 pl-10 border rounded-lg outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Pega link de Maps..." /><div className="absolute left-3 top-3">🔗</div></div>
                         </div>
                         
                         {/* SECCIÓN PRODUCTOS */}
@@ -2280,7 +2280,7 @@ const [toast, setToast] = React.useState(null);
                             <input type="date" name="specificDate" value={formData.specificDate || ''} onChange={handleInputChange} className="w-full p-3 border rounded-lg bg-gray-50 outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-white" min={new Date().toISOString().split('T')[0]} />
                         </div>
                         <textarea name="notes" value={formData.notes} onChange={handleInputChange} maxLength={500} className="w-full p-3 border rounded-lg h-24 dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Notas..." />
-                        <div className="flex gap-3"><Button variant="secondary" onClick={() => { setView('list'); resetForm(); }} className="flex-1">Cancelar</Button><Button type="submit" disabled={saving} className="flex-1">{saving ? 'Guardando...' : <><Icons.Save /> Guardar</>}</Button></div>
+                        <div className="flex gap-3"><Button variant="secondary" onClick={() => { setView('list'); resetForm(); }} className="flex-1">Cancelar</Button><Button type="submit" disabled={saving} className="flex-1">{saving ? 'Guardando...' : <>💾 Guardar</>}</Button></div>
                     </form>
                 )}
                 </>
@@ -2292,15 +2292,14 @@ const [toast, setToast] = React.useState(null);
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
                             <div className="flex justify-between items-center mb-3">
                                 <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">
-                                    <div className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-1.5 rounded-lg"><Icons.DollarSign size={20} /></div>
-                                    Deudas
+                                    💰 Deudas
                                 </h2>
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setShowDebtClientSearch(true)}
                                         className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg flex items-center gap-1 transition-colors"
                                     >
-                                        <Icons.Plus size={14} /> Añadir
+                                        ➕ Añadir
                                     </button>
                                 </div>
                             </div>
@@ -2327,9 +2326,9 @@ const [toast, setToast] = React.useState(null);
                             })()}
                             <div className="relative">
                                 <input type="text" placeholder="Buscar por nombre o dirección..." value={debtSearchTerm} onChange={(e) => setDebtSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm" />
-                                <div className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500"><Icons.Search size={18} /></div>
+                                <div className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500">🔍</div>
                                 {debtSearchTerm && (
-                                    <button onClick={() => setDebtSearchTerm('')} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><Icons.X size={18} /></button>
+                                    <button onClick={() => setDebtSearchTerm('')} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
                                 )}
                             </div>
                             {/* Botones de ordenamiento */}
@@ -2347,8 +2346,8 @@ const [toast, setToast] = React.useState(null);
 
                         {debts.length === 0 ? (
                             <div className="text-center py-16">
-                                <div className="bg-gray-100 dark:bg-gray-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400 dark:text-gray-500">
-                                    <Icons.DollarSign size={32} />
+                                <div className="bg-gray-100 dark:bg-gray-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                                    💰
                                 </div>
                                 <p className="text-gray-500 dark:text-gray-400 font-medium">No hay deudas pendientes</p>
                                 <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">Las deudas se agregan desde la tarjeta del cliente con el botón $</p>
@@ -2552,8 +2551,7 @@ const [toast, setToast] = React.useState(null);
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
                             <div className="flex justify-between items-center mb-3">
                                 <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">
-                                    <div className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 p-1.5 rounded-lg"><Icons.CreditCard size={20} /></div>
-                                    Transferencias
+                                    💳 Transferencias
                                 </h2>
                                 {transfers.length > 0 && (
                                     <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1 rounded-full">
@@ -2563,17 +2561,17 @@ const [toast, setToast] = React.useState(null);
                             </div>
                             <div className="relative">
                                 <input type="text" placeholder="Buscar por nombre o dirección..." value={transferSearchTerm} onChange={(e) => setTransferSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm" />
-                                <div className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500"><Icons.Search size={18} /></div>
+                                <div className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500">🔍</div>
                                 {transferSearchTerm && (
-                                    <button onClick={() => setTransferSearchTerm('')} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><Icons.X size={18} /></button>
+                                    <button onClick={() => setTransferSearchTerm('')} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
                                 )}
                             </div>
                         </div>
 
                         {transfers.length === 0 ? (
                             <div className="text-center py-16">
-                                <div className="bg-gray-100 dark:bg-gray-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400 dark:text-gray-500">
-                                    <Icons.CreditCard size={32} />
+                                <div className="bg-gray-100 dark:bg-gray-800 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                                    💳
                                 </div>
                                 <p className="text-gray-500 dark:text-gray-400 font-medium">No hay transferencias por revisar</p>
                                 <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">Las transferencias se marcan desde la tarjeta del cliente</p>
@@ -2617,7 +2615,7 @@ const [toast, setToast] = React.useState(null);
             {/* NAV - Solo visible en sección Cartera */}
             {activeSection === 'cartera' && (
             <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 dark:bg-gray-800 dark:border-gray-700 flex justify-around p-2 z-20 pb-safe shadow-lg transition-colors duration-200">
-                <button onClick={() => setView('list')} className={`flex flex-col items-center p-2 rounded-lg ${view === 'list' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><Icons.Home /><span className="text-xs font-medium">Inicio</span></button>
+                <button onClick={() => setView('list')} className={`flex flex-col items-center p-2 rounded-lg ${view === 'list' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><span className="text-xl">🏠</span><span className="text-xs font-medium">Inicio</span></button>
                 {isAdmin ? (
                     <div className="relative flex items-center justify-center w-20">
                         {showFabMenu && (
@@ -2628,7 +2626,7 @@ const [toast, setToast] = React.useState(null);
                                         onClick={() => { resetForm(); setView('add'); setShowFabMenu(false); }}
                                         className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                     >
-                                        <Icons.Users size={18} className="text-blue-500" />
+                                        <span>👤</span>
                                         <span className="font-medium">Nuevo cliente</span>
                                     </button>
                                     <div className="border-t border-gray-100 dark:border-gray-700" />
@@ -2636,7 +2634,7 @@ const [toast, setToast] = React.useState(null);
                                         onClick={() => { setNoteModal(true); setShowFabMenu(false); }}
                                         className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                     >
-                                        <Icons.FileText size={18} className="text-yellow-500" />
+                                        <span>📝</span>
                                         <span className="font-medium">Añadir nota</span>
                                     </button>
                                 </div>
@@ -2658,7 +2656,7 @@ const [toast, setToast] = React.useState(null);
                                         onClick={() => { resetForm(); setView('add'); setShowFabMenu(false); }}
                                         className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                     >
-                                        <Icons.Users size={18} className="text-blue-500" />
+                                        <span>👤</span>
                                         <span className="font-medium">Nuevo cliente</span>
                                     </button>
                                     <div className="border-t border-gray-100 dark:border-gray-700" />
@@ -2666,7 +2664,7 @@ const [toast, setToast] = React.useState(null);
                                         onClick={() => { setNoteModal(true); setShowFabMenu(false); }}
                                         className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                     >
-                                        <Icons.FileText size={18} className="text-yellow-500" />
+                                        <span>📝</span>
                                         <span className="font-medium">Añadir nota</span>
                                     </button>
                                 </div>
@@ -2679,7 +2677,7 @@ const [toast, setToast] = React.useState(null);
                         </button>
                     </div>
                 )}
-                <button onClick={() => setView('directory')} className={`flex flex-col items-center p-2 rounded-lg ${view === 'directory' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><Icons.Users /><span className="text-xs font-medium">Directorio</span></button>
+                <button onClick={() => setView('directory')} className={`flex flex-col items-center p-2 rounded-lg ${view === 'directory' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><span className="text-xl">👥</span><span className="text-xs font-medium">Directorio</span></button>
             </nav>
             )}
         </div>

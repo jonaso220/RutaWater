@@ -60,7 +60,7 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, confirmText
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-xs w-full p-6">
                 <div className="flex flex-col items-center text-center mb-6">
                     <div className={`${isDanger ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'} p-3 rounded-full mb-4`}>
-                        <Icons.AlertTriangle />
+                        ⚠️
                     </div>
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{title}</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
@@ -379,7 +379,7 @@ const ProductCounter = ({ clients, label }) => {
         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-blue-100 dark:border-gray-700 mb-4 animate-in fade-in slide-in-from-top-4 duration-300">
              <div className="flex justify-between items-center mb-3">
                 <h3 className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider flex items-center gap-2">
-                    <Icons.Package size={14} /> {label ? `${label} — ` : ''}Total Carga ({clients.length})
+                    📦 {label ? `${label} — ` : ''}Total Carga ({clients.length})
                 </h3>
              </div>
             {activeProducts.length > 0 ? (
@@ -406,7 +406,7 @@ const LoginScreen = ({ onLogin }) => (
     <div className="min-h-screen flex items-center justify-center bg-blue-600 dark:bg-gray-900 p-6">
         <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl text-center max-w-sm w-full">
             <div className="bg-blue-50 dark:bg-gray-700 p-6 rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                <Icons.Truck />
+                <span className="text-4xl">🚚</span>
             </div>
             <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-2">RutaWater</h1>
             <p className="text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">Gestiona tus clientes y rutas de reparto de forma inteligente.</p>
@@ -438,7 +438,7 @@ class ErrorBoundary extends React.Component {
                 <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-6">
                     <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl text-center max-w-sm w-full">
                         <div className="bg-red-50 dark:bg-red-900/30 p-6 rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center text-red-600 dark:text-red-400">
-                            <Icons.AlertTriangle size={40} />
+                            <span className="text-4xl">⚠️</span>
                         </div>
                         <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Algo salió mal</h1>
                         <p className="text-gray-500 dark:text-gray-400 mb-6 text-sm">{this.state.error?.message || 'Error inesperado'}</p>
