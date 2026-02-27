@@ -721,17 +721,21 @@ const [toast, setToast] = React.useState(null);
         
         // Aplicar filtros activos
         if (activeFilters.length > 0) {
+            const typeFilters = activeFilters.filter(f => f === 'once_starred' || f === 'has_debt');
+            const productFilters = activeFilters.filter(f => f !== 'once_starred' && f !== 'has_debt');
+
             visible = visible.filter(c => {
-                return activeFilters.every(filter => {
-                    if (filter === 'once_starred') {
-                        return c.freq === 'once' || c.isStarred;
-                    }
-                    if (filter === 'has_debt') {
-                        return c.hasDebt === true;
-                    }
-                    // Es un filtro de producto (b20, b12, b6, soda, etc.)
+                // Filtros de tipo: AND (debe cumplir todos)
+                const passesType = typeFilters.every(filter => {
+                    if (filter === 'once_starred') return c.freq === 'once' || c.isStarred;
+                    if (filter === 'has_debt') return c.hasDebt === true;
+                    return true;
+                });
+                // Filtros de producto: OR (debe tener al menos uno)
+                const passesProduct = productFilters.length === 0 || productFilters.some(filter => {
                     return c.products && parseInt(c.products[filter] || 0) > 0;
                 });
+                return passesType && passesProduct;
             });
         }
         
@@ -1843,7 +1847,7 @@ const [toast, setToast] = React.useState(null);
                                                     : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700'
                                             }`}
                                         >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                            <span>🔍</span>
                                             Filtros
                                             {activeFilters.length > 0 && (
                                                 <span className="bg-white text-blue-600 text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center leading-none">{activeFilters.length}</span>
@@ -1886,10 +1890,10 @@ const [toast, setToast] = React.useState(null);
                                                                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                                             }`}
                                                         >
-                                                            <Icons.Star size={15} fill={activeFilters.includes('once_starred') ? "currentColor" : "none"} />
+                                                            <span>⭐</span>
                                                             <span>Una vez / Favoritos</span>
                                                             {activeFilters.includes('once_starred') && (
-                                                                <Icons.CheckCircle size={14} className="ml-auto text-orange-500" />
+                                                                <span className="ml-auto">✅</span>
                                                             )}
                                                         </button>
                                                         <button
@@ -1907,10 +1911,10 @@ const [toast, setToast] = React.useState(null);
                                                                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                                                             }`}
                                                         >
-                                                            <Icons.DollarSign size={15} />
+                                                            <span>💰</span>
                                                             <span>Con deuda</span>
                                                             {activeFilters.includes('has_debt') && (
-                                                                <Icons.CheckCircle size={14} className="ml-auto text-red-500" />
+                                                                <span className="ml-auto">✅</span>
                                                             )}
                                                         </button>
                                                     </div>
@@ -1944,7 +1948,7 @@ const [toast, setToast] = React.useState(null);
                                                                         <span>{prod.icon}</span>
                                                                         <span className="truncate">{prod.short}</span>
                                                                         {isActive && (
-                                                                            <Icons.CheckCircle size={12} className="ml-auto text-blue-500 shrink-0" />
+                                                                            <span className="ml-auto shrink-0">✅</span>
                                                                         )}
                                                                     </button>
                                                                 );
