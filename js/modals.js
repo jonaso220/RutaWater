@@ -523,13 +523,12 @@ const NoteModal = ({ isOpen, onClose, onSave, editNote }) => {
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm" style={{zIndex: 110}}>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-6 overflow-hidden">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-bold dark:text-white flex items-center gap-2">
-                        <div className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 p-1.5 rounded-lg"><Icons.FileText size={18} /></div>
-                        {isEditing ? 'Editar Nota' : 'Añadir Nota'}
+                        📝 {isEditing ? 'Editar Nota' : 'Añadir Nota'}
                     </h3>
-                    <button onClick={onClose}><Icons.X size={20} className="text-gray-400 dark:text-gray-500" /></button>
+                    <button onClick={onClose} className="text-gray-400 dark:text-gray-500">✕</button>
                 </div>
                 <textarea
                     value={noteText}
@@ -543,10 +542,10 @@ const NoteModal = ({ isOpen, onClose, onSave, editNote }) => {
                     type="date"
                     value={noteDate}
                     onChange={(e) => setNoteDate(e.target.value)}
-                    className="w-full p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-yellow-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4"
+                    className="w-full min-w-0 p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-yellow-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4"
                 />
                 <Button onClick={handleSubmit} className="w-full !bg-yellow-500 hover:!bg-yellow-600 !text-white">
-                    <Icons.FileText size={16} /> {isEditing ? 'Guardar Cambios' : 'Añadir Nota'}
+                    📝 {isEditing ? 'Guardar Cambios' : 'Añadir Nota'}
                 </Button>
             </div>
         </div>
