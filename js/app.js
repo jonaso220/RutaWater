@@ -2,6 +2,10 @@
 function App() {
     const [view, setView] = React.useState('list');
     const [clients, setClients] = React.useState([]);
+    // Ref sincrónico: siempre tiene los datos más recientes de clients
+    // (incluyendo updates optimistas), evita race conditions en reorder
+    const clientsRef = React.useRef(clients);
+    clientsRef.current = clients;
     const [editingId, setEditingId] = React.useState(null);
     const [isCloudActive, setIsCloudActive] = React.useState(false);
     const [user, setUser] = React.useState(null);
@@ -642,8 +646,8 @@ const [toast, setToast] = React.useState(null);
     };
 
     
-    const getVisibleClients = React.useCallback((dayToFilter) => {
-         const filtered = clients
+    const getVisibleClients = React.useCallback((dayToFilter, source) => {
+         const filtered = (source || clients)
             .filter(c => c.freq !== 'on_demand')
             .filter(c => !c.isCompleted)
             // Excluir pedidos "once" sin fecha asignada (dato incompleto)
@@ -1464,8 +1468,9 @@ const [toast, setToast] = React.useState(null);
     // garantizando coherencia entre grupos de fechas (hoy, próxima semana, etc.)
     // y que cada tarjeta se desplace como máximo 1 posición.
     const reorderClientForDay = async (clientId, dayToFilter, options) => {
-        // Obtener TODOS los clientes visibles del día, ordenados por posición actual
-        const allClients = [...getVisibleClients(dayToFilter)];
+        // Leer del ref sincrónico para tener siempre las posiciones más recientes
+        // (evita race condition cuando se asignan posiciones rápidamente)
+        const allClients = [...getVisibleClients(dayToFilter, clientsRef.current)];
         const currentIndex = allClients.findIndex(c => c.id === clientId);
         if (currentIndex === -1) return;
 
@@ -1510,16 +1515,19 @@ const [toast, setToast] = React.useState(null);
 
         if (updates.length === 0) return;
 
-        // Optimista: actualizar estado local ANTES del write a Firestore
-        // para evitar race condition si el usuario asigna otra posición rápidamente
+        // Optimista: actualizar ref SINCRÓNICAMENTE + estado React
+        // El ref garantiza que la siguiente llamada vea posiciones correctas
+        // incluso antes de que React re-renderice
         const updateMap = {};
         updates.forEach(u => { updateMap[u.id] = u.position; });
-        setClients(prev => prev.map(c => {
+        const applyUpdate = list => list.map(c => {
             if (updateMap[c.id] !== undefined) {
                 return { ...c, listOrders: { ...(c.listOrders || {}), [dayToFilter]: updateMap[c.id] } };
             }
             return c;
-        }));
+        });
+        clientsRef.current = applyUpdate(clientsRef.current);
+        setClients(applyUpdate);
 
         try {
             await firestoreRetry(() => {
