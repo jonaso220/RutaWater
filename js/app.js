@@ -1309,6 +1309,7 @@ const [toast, setToast] = React.useState(null);
 
     const filteredDirectory = React.useMemo(() => {
         return clients
+            .filter(c => !c.isNote)
             .filter(c => {
                 if (!debouncedSearch.trim()) return true;
                 const match = fuzzyMatch(debouncedSearch);
