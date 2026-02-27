@@ -214,12 +214,12 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
                 <div className="flex-1 min-w-0 p-3 flex flex-col gap-2">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <Icons.FileText size={16} className="text-yellow-600 dark:text-yellow-400" />
+                            <span>📄</span>
                             <span className="text-xs font-bold text-yellow-700 dark:text-yellow-400 uppercase">Nota</span>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                            <button onClick={() => onEditNote(client)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors"><Icons.Edit size={15} /></button>
-                            <button onClick={() => onDelete(client.id)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Icons.Trash2 size={15} /></button>
+                        <div className="flex items-center gap-1 shrink-0 text-sm">
+                            <button onClick={() => onEditNote(client)} className="p-1.5 rounded-md opacity-40 hover:opacity-100 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-all">✏️</button>
+                            <button onClick={() => onDelete(client.id)} className="p-1.5 rounded-md opacity-40 hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">🗑️</button>
                         </div>
                     </div>
                     <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap break-words overflow-hidden">
@@ -229,7 +229,7 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
                         <Badge type={client.freq} date={client.specificDate} />
                         <div className="flex-1" />
                         <button onClick={() => onMarkDone(client)} className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-2 px-3 rounded-lg shadow-sm flex items-center justify-center gap-1 text-sm transition-colors whitespace-nowrap shrink-0">
-                            <Icons.CheckCircle size={17} />
+                            <span>✅</span>
                             <span>Listo</span>
                         </button>
                     </div>

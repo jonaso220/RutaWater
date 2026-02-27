@@ -1971,7 +1971,7 @@ const [toast, setToast] = React.useState(null);
                                                 label = '⭐ Una vez / Favoritos';
                                                 bgColor = 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 border-orange-200 dark:border-orange-800';
                                             } else if (filter === 'has_debt') {
-                                                label = '💲 Con deuda';
+                                                label = '💰 Con deuda';
                                                 bgColor = 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800';
                                             } else {
                                                 const prod = PRODUCTS.find(p => p.id === filter);
@@ -1985,7 +1985,7 @@ const [toast, setToast] = React.useState(null);
                                                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all active:scale-95 ${bgColor}`}
                                                 >
                                                     {label}
-                                                    <Icons.X size={12} />
+                                                    <span>✕</span>
                                                 </button>
                                             );
                                         })}
@@ -2043,13 +2043,13 @@ const [toast, setToast] = React.useState(null);
                             <div className="mt-8 pt-4 border-t-2 border-dashed border-gray-200 dark:border-gray-700">
                                 <div className="flex justify-between items-center mb-3">
                                     <h3 className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                                        <Icons.CheckCircle size={16} /> Completados ({getCompletedClients(selectedDay).length})
+                                        ✅ Completados ({getCompletedClients(selectedDay).length})
                                     </h3>
-                                    <button 
+                                    <button
                                         onClick={() => handleClearCompleted(selectedDay)}
                                         className="text-xs text-red-500 dark:text-red-400 font-medium flex items-center gap-1 hover:text-red-600 dark:hover:text-red-300 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20"
                                     >
-                                        <Icons.Trash2 size={14} /> Eliminar todos
+                                        🗑️ Eliminar todos
                                     </button>
                                 </div>
                                 <div className="grid grid-cols-1 gap-2">
@@ -2057,8 +2057,8 @@ const [toast, setToast] = React.useState(null);
                                         <Card key={client.id} className="p-3 opacity-60 hover:opacity-100 transition-opacity bg-gray-50 dark:bg-gray-800/50">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-600 dark:text-green-400">
-                                                        <Icons.CheckCircle size={18} />
+                                                    <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                                                        ✅
                                                     </div>
                                                     <div>
                                                         <h4 className="font-medium text-gray-500 dark:text-gray-400 line-through">{(client.name || '').toUpperCase()}</h4>
@@ -2076,11 +2076,11 @@ const [toast, setToast] = React.useState(null);
                                                     >
                                                         Restaurar
                                                     </button>
-                                                    <button 
+                                                    <button
                                                         onClick={() => handleDeletePermanently(client.id)}
-                                                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"
+                                                        className="p-1.5 opacity-40 hover:opacity-100 transition-all"
                                                     >
-                                                        <Icons.Trash2 size={16} />
+                                                        🗑️
                                                     </button>
                                                 </div>
                                             </div>
@@ -2413,7 +2413,7 @@ const [toast, setToast] = React.useState(null);
                                                         onClick={() => openGoogleMaps(first.clientLat, first.clientLng, first.clientMapsLink)}
                                                         className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline mt-0.5 min-w-0"
                                                     >
-                                                        <Icons.MapPin size={12} className="shrink-0" /> <span className="break-words">{first.clientAddress}</span>
+                                                        <span className="shrink-0">📍</span> <span className="break-words">{first.clientAddress}</span>
                                                     </div>
                                                 </div>
                                                 <p className="text-2xl font-black text-red-600 dark:text-red-400 shrink-0">${clientTotal.toLocaleString()}</p>
@@ -2451,7 +2451,7 @@ const [toast, setToast] = React.useState(null);
                                                             onClick={() => setEditDebtModal({ isOpen: true, debt })}
                                                             className="p-1.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
                                                         >
-                                                            <Icons.Edit size={13} />
+                                                            ✏️
                                                         </button>
                                                         <button
                                                             onClick={() => setConfirmModal({
@@ -2464,7 +2464,7 @@ const [toast, setToast] = React.useState(null);
                                                             })}
                                                             className="px-2 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-md text-xs font-bold flex items-center gap-1 hover:bg-green-200 dark:hover:bg-green-800"
                                                         >
-                                                            <Icons.CheckCircle size={13} /> Pagada
+                                                            ✅ Pagada
                                                         </button>
                                                     </div>
                                                 </div>
@@ -2496,7 +2496,7 @@ const [toast, setToast] = React.useState(null);
                                                     })}
                                                     className="px-3 py-2 bg-green-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-green-600"
                                                 >
-                                                    <Icons.CheckCircle size={14} /> Pagar todas
+                                                    ✅ Pagar todas
                                                 </button>
                                             )}
                                             {phone && (
@@ -2504,7 +2504,7 @@ const [toast, setToast] = React.useState(null);
                                                     onClick={() => sendWhatsAppDirect(phone)}
                                                     className="px-3 py-2 bg-green-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-green-600"
                                                 >
-                                                    <Icons.MessageCircle size={14} /> Chat
+                                                    💬 Chat
                                                 </button>
                                             )}
                                             {clientTransfers.length > 0 ? (
@@ -2522,7 +2522,7 @@ const [toast, setToast] = React.useState(null);
                                                     })}
                                                     className="px-3 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-emerald-200 dark:hover:bg-emerald-800"
                                                 >
-                                                    <Icons.CheckCircle size={14} /> Revisada{clientTransfers.length > 1 ? ` (${clientTransfers.length})` : ''}
+                                                    ✅ Revisada{clientTransfers.length > 1 ? ` (${clientTransfers.length})` : ''}
                                                 </button>
                                             ) : client ? (
                                                 <button
@@ -2532,7 +2532,7 @@ const [toast, setToast] = React.useState(null);
                                                     }}
                                                     className="px-3 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-emerald-200 dark:hover:bg-emerald-800"
                                                 >
-                                                    <Icons.CreditCard size={14} /> Transf.
+                                                    💳 Transf.
                                                 </button>
                                             ) : null}
                                         </div>
@@ -2591,7 +2591,7 @@ const [toast, setToast] = React.useState(null);
                                                     onClick={() => openGoogleMaps(transfer.clientLat, transfer.clientLng, transfer.clientMapsLink)}
                                                     className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline mt-0.5"
                                                 >
-                                                    <Icons.MapPin size={12} /> {transfer.clientAddress}
+                                                    📍 {transfer.clientAddress}
                                                 </div>
                                                 {transfer.createdAt && (
                                                     <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
@@ -2603,7 +2603,7 @@ const [toast, setToast] = React.useState(null);
                                                 onClick={() => handleTransferReviewed(transfer)}
                                                 className="px-4 py-2.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-sm font-bold flex items-center gap-1.5 hover:bg-emerald-200 dark:hover:bg-emerald-800 ml-3"
                                             >
-                                                <Icons.CheckCircle size={16} /> Revisada
+                                                ✅ Revisada
                                             </button>
                                         </div>
                                     </Card>
