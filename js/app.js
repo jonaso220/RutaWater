@@ -59,6 +59,7 @@ const [toast, setToast] = React.useState(null);
     // --- ESTADO BÚSQUEDA DEUDAS/TRANSFERENCIAS ---
     const [debtSearchTerm, setDebtSearchTerm] = React.useState('');
     const [transferSearchTerm, setTransferSearchTerm] = React.useState('');
+    const [debtSortMode, setDebtSortMode] = React.useState('date'); // 'date' | 'amount'
 
     // --- ESTADO GRUPO FAMILIAR ---
     const [groupData, setGroupData] = React.useState(null); // { groupId, role, code }
@@ -2296,11 +2297,6 @@ const [toast, setToast] = React.useState(null);
                                     Deudas
                                 </h2>
                                 <div className="flex items-center gap-2">
-                                    {debts.length > 0 && (
-                                        <span className="text-sm font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full">
-                                            ${debts.reduce((sum, d) => sum + (d.amount || 0), 0).toLocaleString()}
-                                        </span>
-                                    )}
                                     <button
                                         onClick={() => setShowDebtClientSearch(true)}
                                         className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg flex items-center gap-1 transition-colors"
@@ -2309,6 +2305,27 @@ const [toast, setToast] = React.useState(null);
                                     </button>
                                 </div>
                             </div>
+                            {/* Resumen general */}
+                            {debts.length > 0 && (() => {
+                                const totalAmount = debts.reduce((sum, d) => sum + (d.amount || 0), 0);
+                                const uniqueClients = new Set(debts.map(d => d.clientId || d.id)).size;
+                                return (
+                                <div className="flex gap-2 mb-3">
+                                    <div className="flex-1 bg-red-50 dark:bg-red-900/20 rounded-lg p-2.5 text-center">
+                                        <p className="text-lg font-black text-red-600 dark:text-red-400">${totalAmount.toLocaleString()}</p>
+                                        <p className="text-[10px] text-red-500/70 dark:text-red-400/60 font-medium">Total pendiente</p>
+                                    </div>
+                                    <div className="flex-1 bg-gray-50 dark:bg-gray-700 rounded-lg p-2.5 text-center">
+                                        <p className="text-lg font-black text-gray-700 dark:text-gray-200">{uniqueClients}</p>
+                                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">Cliente{uniqueClients !== 1 ? 's' : ''}</p>
+                                    </div>
+                                    <div className="flex-1 bg-gray-50 dark:bg-gray-700 rounded-lg p-2.5 text-center">
+                                        <p className="text-lg font-black text-gray-700 dark:text-gray-200">{debts.length}</p>
+                                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">Deuda{debts.length !== 1 ? 's' : ''}</p>
+                                    </div>
+                                </div>
+                                );
+                            })()}
                             <div className="relative">
                                 <input type="text" placeholder="Buscar por nombre o dirección..." value={debtSearchTerm} onChange={(e) => setDebtSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm" />
                                 <div className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500"><Icons.Search size={18} /></div>
@@ -2316,6 +2333,17 @@ const [toast, setToast] = React.useState(null);
                                     <button onClick={() => setDebtSearchTerm('')} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><Icons.X size={18} /></button>
                                 )}
                             </div>
+                            {/* Botones de ordenamiento */}
+                            {debts.length > 0 && (
+                                <div className="flex gap-2 mt-3">
+                                    <button onClick={() => setDebtSortMode('date')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${debtSortMode === 'date' ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                                        Más reciente
+                                    </button>
+                                    <button onClick={() => setDebtSortMode('amount')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${debtSortMode === 'amount' ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                                        Mayor monto
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {debts.length === 0 ? (
@@ -2327,6 +2355,7 @@ const [toast, setToast] = React.useState(null);
                                 <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">Las deudas se agregan desde la tarjeta del cliente con el botón $</p>
                             </div>
                         ) : (() => {
+                            const now = Date.now();
                             const filteredDebts = debts.filter(d => {
                                 if (!debouncedDebtSearch.trim()) return true;
                                 const term = normalizeText(debouncedDebtSearch);
@@ -2341,12 +2370,27 @@ const [toast, setToast] = React.useState(null);
                                 if (!groupMap[key]) groupMap[key] = [];
                                 groupMap[key].push(d);
                             });
-                            // Ordenar grupos por la deuda más reciente de cada uno
+                            // Ordenar grupos según modo seleccionado
                             const debtGroups = Object.values(groupMap).sort((a, b) => {
+                                if (debtSortMode === 'amount') {
+                                    const totalA = a.reduce((sum, d) => sum + (d.amount || 0), 0);
+                                    const totalB = b.reduce((sum, d) => sum + (d.amount || 0), 0);
+                                    return totalB - totalA;
+                                }
                                 const latestA = Math.max(...a.map(d => d.createdAt?.seconds || 0));
                                 const latestB = Math.max(...b.map(d => d.createdAt?.seconds || 0));
                                 return latestB - latestA;
                             });
+
+                            // Helper: días de antigüedad de una deuda
+                            const getDebtAgeDays = (debt) => {
+                                if (!debt.createdAt) return 0;
+                                const ts = debt.createdAt.seconds ? debt.createdAt.seconds * 1000 : debt.createdAt;
+                                return Math.floor((now - ts) / 86400000);
+                            };
+
+                            // Helper: peor antigüedad del grupo (para el borde de la tarjeta)
+                            const getGroupMaxAge = (groupDebts) => Math.max(...groupDebts.map(getDebtAgeDays));
 
                             return (
                             <div className="space-y-3">
@@ -2360,8 +2404,10 @@ const [toast, setToast] = React.useState(null);
                                     const client = clients.find(c => c.id === first.clientId);
                                     const phone = client?.phone;
                                     const clientTransfers = transfers.filter(t => t.clientId === first.clientId);
+                                    const maxAge = getGroupMaxAge(groupDebts);
+                                    const borderColor = maxAge > 30 ? 'border-l-red-600' : maxAge > 15 ? 'border-l-amber-500' : 'border-l-red-400';
                                     return (
-                                    <Card key={first.clientId || first.id} className="border-l-4 border-l-red-500">
+                                    <Card key={first.clientId || first.id} className={`border-l-4 ${borderColor}`}>
                                         {/* Header: nombre, dirección, total */}
                                         <div className="p-4 pb-0">
                                             <div className="flex justify-between items-start gap-2">
@@ -2380,15 +2426,27 @@ const [toast, setToast] = React.useState(null);
 
                                         {/* Lista de deudas individuales */}
                                         <div className="mt-3">
-                                            {groupDebts.map((debt, idx) => (
+                                            {groupDebts.map((debt, idx) => {
+                                                const ageDays = getDebtAgeDays(debt);
+                                                const ageBadge = ageDays > 30
+                                                    ? { text: `${ageDays}d`, className: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' }
+                                                    : ageDays > 15
+                                                    ? { text: `${ageDays}d`, className: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' }
+                                                    : null;
+                                                return (
                                                 <div key={debt.id} className={`px-4 py-2.5 flex items-center justify-between gap-2 ${idx === 0 ? 'border-t border-gray-100 dark:border-gray-700' : 'border-t border-dashed border-gray-100 dark:border-gray-700'}`}>
                                                     <div className="flex items-center gap-3 min-w-0">
                                                         <div className="min-w-0">
-                                                            {debt.createdAt && (
-                                                                <p className="text-xs text-gray-400 dark:text-gray-500">
-                                                                    {new Date(debt.createdAt.seconds ? debt.createdAt.seconds * 1000 : debt.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                                                </p>
-                                                            )}
+                                                            <div className="flex items-center gap-1.5">
+                                                                {debt.createdAt && (
+                                                                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                                                                        {new Date(debt.createdAt.seconds ? debt.createdAt.seconds * 1000 : debt.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                                    </p>
+                                                                )}
+                                                                {ageBadge && (
+                                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${ageBadge.className}`}>{ageBadge.text}</span>
+                                                                )}
+                                                            </div>
                                                             <p className="text-sm font-bold text-gray-800 dark:text-gray-200">${debt.amount?.toLocaleString()}</p>
                                                         </div>
                                                     </div>
@@ -2414,11 +2472,37 @@ const [toast, setToast] = React.useState(null);
                                                         </button>
                                                     </div>
                                                 </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
 
                                         {/* Acciones comunes del cliente */}
                                         <div className="flex flex-wrap gap-2 px-4 py-3 border-t border-gray-100 dark:border-gray-700">
+                                            {groupDebts.length > 1 && (
+                                                <button
+                                                    onClick={() => setConfirmModal({
+                                                        isOpen: true,
+                                                        title: '¿Todas pagadas?',
+                                                        message: `Confirmar que ${first.clientName} pagó todas sus deudas (${groupDebts.length}) por un total de $${clientTotal.toLocaleString()}`,
+                                                        confirmText: "Todas pagadas",
+                                                        isDanger: false,
+                                                        action: async () => {
+                                                            try {
+                                                                const batch = db.batch();
+                                                                groupDebts.forEach(d => batch.delete(db.collection('debts').doc(d.id)));
+                                                                if (first.clientId) {
+                                                                    batch.update(db.collection('clients').doc(first.clientId), { hasDebt: false });
+                                                                }
+                                                                await batch.commit();
+                                                            } catch(e) { console.error("Error pagando todas:", e); showUndoToast(getErrorMessage(e), null); }
+                                                            setConfirmModal(prev => ({...prev, isOpen: false}));
+                                                        }
+                                                    })}
+                                                    className="px-3 py-2 bg-green-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-green-600"
+                                                >
+                                                    <Icons.CheckCircle size={14} /> Pagar todas
+                                                </button>
+                                            )}
                                             {phone && (
                                                 <button
                                                     onClick={() => sendWhatsAppDirect(phone)}
