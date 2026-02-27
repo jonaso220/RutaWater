@@ -2003,9 +2003,9 @@ const [toast, setToast] = React.useState(null);
                                     <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider pl-2 border-l-4 border-blue-200 dark:border-blue-900">
                                         {groupedClients[key].label} <span className="text-gray-400 dark:text-gray-500 font-normal">({groupedClients[key].items.length})</span>
                                     </h3>
-                                    <div id={`group-${key}`} className="grid gap-3">
+                                    <div id={`group-${key}`} className="grid grid-cols-1 gap-3">
                                         {groupedClients[key].items.map((client) => (
-                                            <div key={client.id} data-client-id={client.id}>
+                                            <div key={client.id} data-client-id={client.id} className="min-w-0">
                                                 <ClientCard
                                                     client={client}
                                                     trueIndex={clientIndexMap[client.id] ?? 0}
@@ -2048,7 +2048,7 @@ const [toast, setToast] = React.useState(null);
                                         <Icons.Trash2 size={14} /> Eliminar todos
                                     </button>
                                 </div>
-                                <div className="grid gap-2">
+                                <div className="grid grid-cols-1 gap-2">
                                     {getCompletedClients(selectedDay).map(client => (
                                         <Card key={client.id} className="p-3 opacity-60 hover:opacity-100 transition-opacity bg-gray-50 dark:bg-gray-800/50">
                                             <div className="flex items-center justify-between">
@@ -2110,7 +2110,7 @@ const [toast, setToast] = React.useState(null);
                             </div>
                             <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center font-medium">{filteredDirectory.length} cliente{filteredDirectory.length !== 1 ? 's' : ''} en el directorio</p>
                         </div>
-                        <div className="grid gap-3">
+                        <div className="grid grid-cols-1 gap-3">
                             {filteredDirectory.map(client => {
                                 var prodSummary = '';
                                 if (client.products) {
@@ -2389,7 +2389,7 @@ const [toast, setToast] = React.useState(null);
                                 {debouncedDebtSearch.trim() && (
                                     <p className="text-xs text-gray-400 dark:text-gray-500 text-center font-medium">{filteredDebts.length} deuda{filteredDebts.length !== 1 ? 's' : ''} en {debtGroups.length} cliente{debtGroups.length !== 1 ? 's' : ''} — Total: ${filteredTotal.toLocaleString()}</p>
                                 )}
-                                <div className="grid gap-3">
+                                <div className="grid grid-cols-1 gap-3">
                                 {debtGroups.map(groupDebts => {
                                     const first = groupDebts[0];
                                     const clientTotal = groupDebts.reduce((sum, d) => sum + (d.amount || 0), 0);
@@ -2575,7 +2575,7 @@ const [toast, setToast] = React.useState(null);
                                 <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">Las transferencias se marcan desde la tarjeta del cliente</p>
                             </div>
                         ) : (
-                            <div className="grid gap-3">
+                            <div className="grid grid-cols-1 gap-3">
                                 {transfers
                                     .filter((() => { const m = fuzzyMatch(debouncedTransferSearch); return t => m(t.clientName || '', t.clientAddress || ''); })())
                                     .map(transfer => (
