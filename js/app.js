@@ -1714,7 +1714,7 @@ const [toast, setToast] = React.useState(null);
                 </div>
             )}
 
-            <header className={`bg-blue-600 dark:bg-gray-800 text-white p-4 shadow-lg sticky top-0 z-30 transition-colors duration-200`} style={{marginTop: ((!isOnline ? 36 : 0) + (swUpdate ? 36 : 0) + (installPrompt ? 36 : 0)) || undefined}}>
+            <header className={`bg-blue-600/90 dark:bg-gray-900/80 backdrop-blur-lg text-white p-4 shadow-lg shadow-blue-900/10 dark:shadow-black/20 sticky top-0 z-30 transition-all duration-200`} style={{marginTop: ((!isOnline ? 36 : 0) + (swUpdate ? 36 : 0) + (installPrompt ? 36 : 0)) || undefined}}>
                 <div className="flex justify-between items-center max-w-2xl mx-auto">
                     <div 
                         className="flex items-center gap-2 cursor-pointer active:opacity-80 transition-opacity" 
@@ -2614,7 +2614,7 @@ const [toast, setToast] = React.useState(null);
 
             {/* NAV - Solo visible en sección Cartera */}
             {activeSection === 'cartera' && (
-            <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 dark:bg-gray-800 dark:border-gray-700 flex justify-around p-2 z-20 pb-safe shadow-lg transition-colors duration-200">
+            <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-gray-200/50 dark:border-gray-700/50 flex justify-around p-2 z-20 pb-safe shadow-lg shadow-black/5 transition-all duration-200">
                 <button onClick={() => setView('list')} className={`flex flex-col items-center p-2 rounded-lg ${view === 'list' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><span className="text-xl">🏠</span><span className="text-xs font-medium">Inicio</span></button>
                 {isAdmin ? (
                     <div className="relative flex items-center justify-center w-20">
@@ -2641,8 +2641,8 @@ const [toast, setToast] = React.useState(null);
                             </>
                         )}
                         <button onClick={() => setShowFabMenu(!showFabMenu)} className="group flex items-center justify-center w-20" aria-label="Nuevo">
-                            <div className={`absolute -top-8 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-[80px] h-[80px] flex items-center justify-center shadow-2xl border-[6px] border-white dark:border-gray-900 transition-all duration-300 transform group-active:scale-95 ${showFabMenu ? 'rotate-45' : ''}`}>
-                                <Icons.Plus size={40} strokeWidth={3} />
+                            <div className={`absolute -top-5 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg shadow-blue-600/30 border-4 border-white dark:border-gray-900 transition-all duration-300 transform group-active:scale-95 ${showFabMenu ? 'rotate-45' : ''}`}>
+                                <Icons.Plus size={28} strokeWidth={3} />
                             </div>
                         </button>
                     </div>
@@ -2671,8 +2671,8 @@ const [toast, setToast] = React.useState(null);
                             </>
                         )}
                         <button onClick={() => setShowFabMenu(!showFabMenu)} className="group flex items-center justify-center w-20" aria-label="Nuevo">
-                            <div className={`absolute -top-8 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-[80px] h-[80px] flex items-center justify-center shadow-2xl border-[6px] border-white dark:border-gray-900 transition-all duration-300 transform group-active:scale-95 ${showFabMenu ? 'rotate-45' : ''}`}>
-                                <Icons.Plus size={40} strokeWidth={3} />
+                            <div className={`absolute -top-5 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg shadow-blue-600/30 border-4 border-white dark:border-gray-900 transition-all duration-300 transform group-active:scale-95 ${showFabMenu ? 'rotate-45' : ''}`}>
+                                <Icons.Plus size={28} strokeWidth={3} />
                             </div>
                         </button>
                     </div>

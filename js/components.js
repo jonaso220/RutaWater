@@ -1,7 +1,7 @@
 // --- COMPONENTS: Componentes UI reutilizables ---
 
 const Card = ({ children, className = "" }) => (
-    <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden ${className}`}>
+    <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-md shadow-black/5 dark:shadow-black/20 overflow-hidden ${className}`}>
         {children}
     </div>
 );
@@ -301,13 +301,13 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
                         <span className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 rounded-lg cursor-not-allowed w-9 shrink-0 opacity-30">📷</span>
                     )}
                     {client.phone ? (
-                        <button onClick={() => onSendWhatsApp(client.phone)} className="flex-1 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-2 px-2 rounded-lg shadow-sm flex items-center justify-center gap-1 text-sm transition-colors whitespace-nowrap">
-                            <span>💬</span>
+                        <button onClick={() => onSendWhatsApp(client.phone)} className="flex-1 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-2 px-2 rounded-lg shadow-sm flex items-center justify-center gap-1.5 text-sm transition-colors whitespace-nowrap">
+                            <Icons.WhatsApp size={16} />
                             <span>En camino</span>
                         </button>
                     ) : (
-                        <span className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 font-bold py-2 px-2 rounded-lg flex items-center justify-center gap-1 text-sm cursor-not-allowed whitespace-nowrap">
-                            <span>💬</span>
+                        <span className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 font-bold py-2 px-2 rounded-lg flex items-center justify-center gap-1.5 text-sm cursor-not-allowed whitespace-nowrap">
+                            <Icons.WhatsApp size={16} />
                             <span>Sin tel.</span>
                         </span>
                     )}
