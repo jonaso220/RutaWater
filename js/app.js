@@ -2276,9 +2276,9 @@ const [toast, setToast] = React.useState(null);
                                 <span className="text-sm">Solo guardar en Directorio (Sin día asignado)</span>
                             </label>
                         </div>
-                        <div className="space-y-4">
+                        <div className="min-w-0 overflow-hidden">
                             <label className="block text-sm font-medium mb-1 dark:text-gray-300">Fecha (Opcional)</label>
-                            <input type="date" name="specificDate" value={formData.specificDate || ''} onChange={handleInputChange} className="w-full p-3 border rounded-lg bg-gray-50 outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-white" min={new Date().toISOString().split('T')[0]} />
+                            <input type="date" name="specificDate" value={formData.specificDate || ''} onChange={handleInputChange} className="w-full p-3 border rounded-lg bg-gray-50 outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-white" style={{maxWidth: '100%', boxSizing: 'border-box'}} min={new Date().toISOString().split('T')[0]} />
                         </div>
                         <textarea name="notes" value={formData.notes} onChange={handleInputChange} maxLength={500} className="w-full p-3 border rounded-lg h-24 dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Notas..." />
                         <div className="flex gap-3"><Button variant="secondary" onClick={() => { setView('list'); resetForm(); }} className="flex-1">Cancelar</Button><Button type="submit" disabled={saving} className="flex-1">{saving ? 'Guardando...' : <>💾 Guardar</>}</Button></div>
