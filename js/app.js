@@ -1858,7 +1858,7 @@ const [toast, setToast] = React.useState(null);
                                         {showFilterMenu && (
                                             <>
                                                 <div className="fixed inset-0 z-20" onClick={() => setShowFilterMenu(false)} />
-                                                <div className="absolute right-0 top-12 z-30 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-64 overflow-hidden" style={{animation: 'slideUpFade 0.2s ease-out forwards'}}>
+                                                <div className="absolute right-0 top-12 z-30 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-64 overflow-y-auto" style={{animation: 'slideUpFade 0.2s ease-out forwards', maxHeight: 'calc(100vh - 200px)'}}>
                                                     {/* Header del menú */}
                                                     <div className="flex justify-between items-center px-4 pt-3 pb-2 border-b border-gray-100 dark:border-gray-700">
                                                         <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Filtros</span>
