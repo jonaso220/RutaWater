@@ -2614,10 +2614,10 @@ const [toast, setToast] = React.useState(null);
 
             {/* NAV - Solo visible en sección Cartera */}
             {activeSection === 'cartera' && (
-            <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-gray-200/50 dark:border-gray-700/50 flex justify-around p-2 z-20 pb-safe shadow-lg shadow-black/5 transition-all duration-200">
-                <button onClick={() => setView('list')} className={`flex flex-col items-center p-2 rounded-lg ${view === 'list' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><span className="text-xl">🏠</span><span className="text-xs font-medium">Inicio</span></button>
+            <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-gray-200/50 dark:border-gray-700/50 flex items-end py-2.5 px-4 z-20 pb-safe shadow-lg shadow-black/5 transition-all duration-200">
+                <button onClick={() => setView('list')} className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded-lg ${view === 'list' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><span className="text-2xl">🏠</span><span className="text-[11px] font-medium">Inicio</span></button>
                 {isAdmin ? (
-                    <div className="relative flex items-center justify-center w-20">
+                    <div className="relative flex-1 flex items-center justify-center">
                         {showFabMenu && (
                             <>
                                 <div className="fixed inset-0 z-20" onClick={() => setShowFabMenu(false)} />
@@ -2640,14 +2640,14 @@ const [toast, setToast] = React.useState(null);
                                 </div>
                             </>
                         )}
-                        <button onClick={() => setShowFabMenu(!showFabMenu)} className="group flex items-center justify-center w-20" aria-label="Nuevo">
+                        <button onClick={() => setShowFabMenu(!showFabMenu)} className="group flex items-center justify-center" aria-label="Nuevo">
                             <div className={`absolute -top-5 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg shadow-blue-600/30 border-4 border-white dark:border-gray-900 transition-all duration-300 transform group-active:scale-95 ${showFabMenu ? 'rotate-45' : ''}`}>
                                 <Icons.Plus size={28} strokeWidth={3} />
                             </div>
                         </button>
                     </div>
                 ) : (
-                    <div className="relative flex items-center justify-center w-20">
+                    <div className="relative flex-1 flex items-center justify-center">
                         {showFabMenu && (
                             <>
                                 <div className="fixed inset-0 z-20" onClick={() => setShowFabMenu(false)} />
@@ -2670,14 +2670,14 @@ const [toast, setToast] = React.useState(null);
                                 </div>
                             </>
                         )}
-                        <button onClick={() => setShowFabMenu(!showFabMenu)} className="group flex items-center justify-center w-20" aria-label="Nuevo">
+                        <button onClick={() => setShowFabMenu(!showFabMenu)} className="group flex items-center justify-center" aria-label="Nuevo">
                             <div className={`absolute -top-5 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg shadow-blue-600/30 border-4 border-white dark:border-gray-900 transition-all duration-300 transform group-active:scale-95 ${showFabMenu ? 'rotate-45' : ''}`}>
                                 <Icons.Plus size={28} strokeWidth={3} />
                             </div>
                         </button>
                     </div>
                 )}
-                <button onClick={() => setView('directory')} className={`flex flex-col items-center p-2 rounded-lg ${view === 'directory' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><span className="text-xl">👥</span><span className="text-xs font-medium">Directorio</span></button>
+                <button onClick={() => setView('directory')} className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded-lg ${view === 'directory' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><span className="text-2xl">👥</span><span className="text-[11px] font-medium">Directorio</span></button>
             </nav>
             )}
         </div>
