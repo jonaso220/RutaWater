@@ -97,6 +97,52 @@ var normalizeText = function(text) {
     return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 };
 
+var levenshtein = function(a, b) {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    if (Math.abs(a.length - b.length) > 2) return 3;
+    var prev = [], curr = [];
+    for (var j = 0; j <= b.length; j++) prev[j] = j;
+    for (var i = 1; i <= a.length; i++) {
+        curr[0] = i;
+        for (j = 1; j <= b.length; j++) {
+            curr[j] = a[i-1] === b[j-1] ? prev[j-1] : Math.min(prev[j-1], prev[j], curr[j-1]) + 1;
+        }
+        var tmp = prev; prev = curr; curr = tmp;
+    }
+    return prev[b.length];
+};
+
+var fuzzyMatch = function(searchTerm) {
+    if (!searchTerm) return function() { return true; };
+    var cleaned = normalizeText(searchTerm).trim().replace(/\s+/g, ' ');
+    if (!cleaned) return function() { return true; };
+    var words = cleaned.split(' ');
+
+    return function() {
+        var fields = Array.prototype.slice.call(arguments);
+        var combined = fields.map(function(f) { return normalizeText(f); }).join(' ');
+
+        // Fast path: direct full-term substring
+        if (combined.includes(cleaned)) return true;
+
+        // Each search word must match at least one field
+        return words.every(function(w) {
+            if (combined.includes(w)) return true;
+
+            var textWords = combined.split(/\s+/);
+            var maxDist = w.length <= 2 ? 0 : w.length <= 4 ? 1 : 2;
+            if (maxDist === 0) return false;
+
+            return textWords.some(function(tw) {
+                if (tw.startsWith(w) || w.startsWith(tw)) return true;
+                return levenshtein(tw, w) <= maxDist;
+            });
+        });
+    };
+};
+
 var getDayIndex = function(dayName) {
     if (!dayName) return -1;
     var normalized = normalizeText(dayName);

@@ -715,11 +715,8 @@ const [toast, setToast] = React.useState(null);
         
         // Aplicar filtro de búsqueda (usa valor debounced)
         if (debouncedListSearch.trim()) {
-            const term = normalizeText(debouncedListSearch);
-            visible = visible.filter(c =>
-                normalizeText(c.name || '').includes(term) ||
-                normalizeText(c.address || '').includes(term)
-            );
+            const match = fuzzyMatch(debouncedListSearch);
+            visible = visible.filter(c => match(c.name || '', c.address || ''));
         }
         
         // Aplicar filtros activos
@@ -1309,11 +1306,9 @@ const [toast, setToast] = React.useState(null);
     const filteredDirectory = React.useMemo(() => {
         return clients
             .filter(c => {
-                const term = normalizeText(debouncedSearch);
-                const name = normalizeText(c.name || '');
-                const address = normalizeText(c.address || '');
-                const phone = (c.phone || '').toLowerCase();
-                return name.includes(term) || address.includes(term) || phone.includes(term);
+                if (!debouncedSearch.trim()) return true;
+                const match = fuzzyMatch(debouncedSearch);
+                return match(c.name || '', c.address || '', c.phone || '');
             })
             // Merge duplicates by phone number (keep newest, preserve debt info)
             .reduce((unique, item) => {
@@ -2356,11 +2351,8 @@ const [toast, setToast] = React.useState(null);
                             </div>
                         ) : (() => {
                             const now = Date.now();
-                            const filteredDebts = debts.filter(d => {
-                                if (!debouncedDebtSearch.trim()) return true;
-                                const term = normalizeText(debouncedDebtSearch);
-                                return normalizeText(d.clientName || '').includes(term) || normalizeText(d.clientAddress || '').includes(term);
-                            });
+                            const debtMatch = fuzzyMatch(debouncedDebtSearch);
+                            const filteredDebts = debts.filter(d => debtMatch(d.clientName || '', d.clientAddress || ''));
                             const filteredTotal = filteredDebts.reduce((sum, d) => sum + (d.amount || 0), 0);
 
                             // Agrupar deudas por cliente
@@ -2585,11 +2577,7 @@ const [toast, setToast] = React.useState(null);
                         ) : (
                             <div className="grid gap-3">
                                 {transfers
-                                    .filter(t => {
-                                        if (!debouncedTransferSearch.trim()) return true;
-                                        const term = debouncedTransferSearch.toLowerCase();
-                                        return (t.clientName || '').toLowerCase().includes(term) || (t.clientAddress || '').toLowerCase().includes(term);
-                                    })
+                                    .filter((() => { const m = fuzzyMatch(debouncedTransferSearch); return t => m(t.clientName || '', t.clientAddress || ''); })())
                                     .map(transfer => (
                                     <Card key={transfer.id} className="p-4 border-l-4 border-l-emerald-500">
                                         <div className="flex justify-between items-center">

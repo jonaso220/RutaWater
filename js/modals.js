@@ -79,13 +79,8 @@ const ClientSearchModal = ({ isOpen, clients, onClose, onSelect }) => {
 
     if (!isOpen) return null;
 
-    const filtered = clients.filter(c => {
-        if (!search.trim()) return true;
-        const term = search.toLowerCase();
-        return (c.name || '').toLowerCase().includes(term) ||
-               (c.address || '').toLowerCase().includes(term) ||
-               (c.phone || '').includes(term);
-    }).slice(0, 50);
+    const matchClient = fuzzyMatch(search);
+    const filtered = clients.filter(c => matchClient(c.name || '', c.address || '', c.phone || '')).slice(0, 50);
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm" style={{zIndex: 110}}>
