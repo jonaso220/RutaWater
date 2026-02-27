@@ -253,21 +253,21 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
             {/* CARD CONTENT */}
             <div className="flex-1 min-w-0 p-3 flex flex-col gap-2">
                 {/* Botones de herramientas */}
-                <div className="flex items-center justify-end gap-1 flex-wrap">
-                    <button onClick={() => onToggleStar(client)} className={`p-1.5 rounded-md transition-colors ${client.isStarred ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.Star size={15} fill={client.isStarred ? "currentColor" : "none"} /></button>
-                    <button onClick={() => onDebtClick(client)} className={`p-1.5 rounded-md transition-colors ${client.hasDebt ? 'text-red-500 bg-red-50 dark:bg-red-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.DollarSign size={15} /></button>
-                    <button onClick={() => onAddTransfer(client)} className={`p-1.5 rounded-md transition-colors ${client.hasPendingTransfer ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.CreditCard size={15} /></button>
+                <div className="flex items-center justify-end gap-1 flex-wrap text-sm">
+                    <button onClick={() => onToggleStar(client)} className={`p-1.5 rounded-md transition-all ${client.isStarred ? 'bg-orange-50 dark:bg-orange-900/20' : 'opacity-40 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>⭐</button>
+                    <button onClick={() => onDebtClick(client)} className={`p-1.5 rounded-md transition-all ${client.hasDebt ? 'bg-red-50 dark:bg-red-900/20' : 'opacity-40 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>{client.hasDebt ? '🔴' : '💰'}</button>
+                    <button onClick={() => onAddTransfer(client)} className={`p-1.5 rounded-md transition-all ${client.hasPendingTransfer ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'opacity-40 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>💳</button>
                     <div className="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-0.5"></div>
-                    <button onClick={() => onSetAlarm(client)} className={`p-1.5 rounded-md transition-colors ${client.alarm ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.Bell size={15} /></button>
-                    <button onClick={() => onEdit(client)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"><Icons.Edit size={15} /></button>
-                    <button onClick={() => onDelete(client.id)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Icons.Trash2 size={15} /></button>
+                    <button onClick={() => onSetAlarm(client)} className={`p-1.5 rounded-md transition-all ${client.alarm ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'opacity-40 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>{client.alarm ? '🔔' : '🔕'}</button>
+                    <button onClick={() => onEdit(client)} className="p-1.5 rounded-md opacity-40 hover:opacity-100 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all">✏️</button>
+                    <button onClick={() => onDelete(client.id)} className="p-1.5 rounded-md opacity-40 hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">🗑️</button>
                 </div>
 
                 {/* Nombre y dirección */}
                 <div className="-mt-1 min-w-0">
                     <h3 className="font-bold text-lg leading-tight text-gray-900 dark:text-white break-words">{(client.name || '').toUpperCase()}</h3>
                     <div onClick={() => onOpenMaps(client.lat, client.lng, client.mapsLink)} className="text-gray-500 dark:text-gray-400 text-sm flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 mt-0.5 hover:underline min-w-0">
-                        <Icons.MapPin size={14} className="shrink-0" /> <span className="break-words">{client.address}</span>
+                        <span className="shrink-0">📍</span> <span className="break-words">{client.address}</span>
                     </div>
                 </div>
 
@@ -291,28 +291,28 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
                 {/* Action Bar */}
                 <div className="flex gap-1.5 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 items-center">
                     {client.phone ? (
-                        <a href={`tel:${client.phone}`} className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 w-9 shrink-0"><Icons.Phone size={17} /></a>
+                        <a href={`tel:${client.phone}`} className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 w-9 shrink-0">📞</a>
                     ) : (
-                        <span className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 text-gray-300 dark:text-gray-600 rounded-lg cursor-not-allowed w-9 shrink-0"><Icons.Phone size={17} /></span>
+                        <span className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 rounded-lg cursor-not-allowed w-9 shrink-0 opacity-30">📞</span>
                     )}
                     {client.phone ? (
-                        <button onClick={() => onSendPhoto(client.phone)} className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 w-9 shrink-0"><Icons.Camera size={17} /></button>
+                        <button onClick={() => onSendPhoto(client.phone)} className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 w-9 shrink-0">📷</button>
                     ) : (
-                        <span className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 text-gray-300 dark:text-gray-600 rounded-lg cursor-not-allowed w-9 shrink-0"><Icons.Camera size={17} /></span>
+                        <span className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 rounded-lg cursor-not-allowed w-9 shrink-0 opacity-30">📷</span>
                     )}
                     {client.phone ? (
                         <button onClick={() => onSendWhatsApp(client.phone)} className="flex-1 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-2 px-2 rounded-lg shadow-sm flex items-center justify-center gap-1 text-sm transition-colors whitespace-nowrap">
-                            <Icons.MessageCircle size={17} />
+                            <span>💬</span>
                             <span>En camino</span>
                         </button>
                     ) : (
                         <span className="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 font-bold py-2 px-2 rounded-lg flex items-center justify-center gap-1 text-sm cursor-not-allowed whitespace-nowrap">
-                            <Icons.MessageCircle size={17} />
+                            <span>💬</span>
                             <span>Sin tel.</span>
                         </span>
                     )}
                     <button onClick={() => onMarkDone(client)} className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-2 px-3 rounded-lg shadow-sm flex items-center justify-center gap-1 text-sm transition-colors whitespace-nowrap shrink-0">
-                        <Icons.CheckCircle size={17} />
+                        <span>✅</span>
                         <span>Listo</span>
                     </button>
                 </div>
