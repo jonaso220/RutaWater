@@ -523,30 +523,33 @@ const NoteModal = ({ isOpen, onClose, onSave, editNote }) => {
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm" style={{zIndex: 110}}>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-6 overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full p-5 overflow-hidden">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-bold dark:text-white flex items-center gap-2">
                         📝 {isEditing ? 'Editar Nota' : 'Añadir Nota'}
                     </h3>
                     <button onClick={onClose} className="text-gray-400 dark:text-gray-500">✕</button>
                 </div>
-                <textarea
-                    value={noteText}
-                    onChange={(e) => setNoteText(e.target.value)}
-                    className="w-full p-3 border rounded-lg bg-gray-50 h-32 dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4"
-                    placeholder="Escribe tu nota aquí... Las URLs serán detectadas automáticamente."
-                    autoFocus
-                />
-                <label className="block text-sm font-medium mb-1 dark:text-gray-300">Fecha</label>
-                <input
-                    type="date"
-                    value={noteDate}
-                    onChange={(e) => setNoteDate(e.target.value)}
-                    className="w-full min-w-0 p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-yellow-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4"
-                />
-                <Button onClick={handleSubmit} className="w-full !bg-yellow-500 hover:!bg-yellow-600 !text-white">
-                    📝 {isEditing ? 'Guardar Cambios' : 'Añadir Nota'}
-                </Button>
+                <div className="min-w-0 overflow-hidden">
+                    <textarea
+                        value={noteText}
+                        onChange={(e) => setNoteText(e.target.value)}
+                        className="w-full p-3 border rounded-lg bg-gray-50 h-32 dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4"
+                        placeholder="Escribe tu nota aquí... Las URLs serán detectadas automáticamente."
+                        autoFocus
+                    />
+                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Fecha</label>
+                    <input
+                        type="date"
+                        value={noteDate}
+                        onChange={(e) => setNoteDate(e.target.value)}
+                        className="w-full min-w-0 p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-yellow-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white mb-4"
+                        style={{maxWidth: '100%'}}
+                    />
+                    <Button onClick={handleSubmit} className="w-full !bg-yellow-500 hover:!bg-yellow-600 !text-white">
+                        📝 {isEditing ? 'Guardar Cambios' : 'Añadir Nota'}
+                    </Button>
+                </div>
             </div>
         </div>
     );
