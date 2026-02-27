@@ -1795,7 +1795,7 @@ const [toast, setToast] = React.useState(null);
                 </div>
             </header>
 
-            <main className="max-w-2xl mx-auto p-4">
+            <main className="max-w-2xl mx-auto p-4 overflow-x-hidden">
                 {/* ==================== SECCIÓN: CARTERA DE CLIENTES ==================== */}
                 {activeSection === 'cartera' && (
                 <>

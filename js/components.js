@@ -211,18 +211,18 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
                     />
                     <Icons.Drag size={14} className="text-yellow-400 dark:text-gray-500 mt-1 opacity-60" />
                 </div>
-                <div className="flex-1 p-3 flex flex-col gap-2">
+                <div className="flex-1 min-w-0 p-3 flex flex-col gap-2">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <Icons.FileText size={16} className="text-yellow-600 dark:text-yellow-400" />
                             <span className="text-xs font-bold text-yellow-700 dark:text-yellow-400 uppercase">Nota</span>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 shrink-0">
                             <button onClick={() => onEditNote(client)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors"><Icons.Edit size={15} /></button>
                             <button onClick={() => onDelete(client.id)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Icons.Trash2 size={15} /></button>
                         </div>
                     </div>
-                    <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
+                    <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap break-words overflow-hidden">
                         {renderTextWithLinks(client.notes || '')}
                     </div>
                     <div className="flex gap-1.5 mt-1 pt-2 border-t border-yellow-200 dark:border-gray-700 items-center">
@@ -251,9 +251,9 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
             </div>
 
             {/* CARD CONTENT */}
-            <div className="flex-1 p-3 flex flex-col gap-2">
+            <div className="flex-1 min-w-0 p-3 flex flex-col gap-2">
                 {/* Botones de herramientas */}
-                <div className="flex items-center justify-end gap-1">
+                <div className="flex items-center justify-end gap-1 flex-wrap">
                     <button onClick={() => onToggleStar(client)} className={`p-1.5 rounded-md transition-colors ${client.isStarred ? 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.Star size={15} fill={client.isStarred ? "currentColor" : "none"} /></button>
                     <button onClick={() => onDebtClick(client)} className={`p-1.5 rounded-md transition-colors ${client.hasDebt ? 'text-red-500 bg-red-50 dark:bg-red-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.DollarSign size={15} /></button>
                     <button onClick={() => onAddTransfer(client)} className={`p-1.5 rounded-md transition-colors ${client.hasPendingTransfer ? 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icons.CreditCard size={15} /></button>
@@ -264,10 +264,10 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
                 </div>
 
                 {/* Nombre y dirección */}
-                <div className="-mt-1">
-                    <h3 className="font-bold text-lg leading-tight text-gray-900 dark:text-white">{(client.name || '').toUpperCase()}</h3>
-                    <div onClick={() => onOpenMaps(client.lat, client.lng, client.mapsLink)} className="text-gray-500 dark:text-gray-400 text-sm flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 mt-0.5 hover:underline">
-                        <Icons.MapPin size={14} /> {client.address}
+                <div className="-mt-1 min-w-0">
+                    <h3 className="font-bold text-lg leading-tight text-gray-900 dark:text-white break-words">{(client.name || '').toUpperCase()}</h3>
+                    <div onClick={() => onOpenMaps(client.lat, client.lng, client.mapsLink)} className="text-gray-500 dark:text-gray-400 text-sm flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 mt-0.5 hover:underline min-w-0">
+                        <Icons.MapPin size={14} className="shrink-0" /> <span className="break-words">{client.address}</span>
                     </div>
                 </div>
 
@@ -282,9 +282,9 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
                     )}
                 </div>
                 {client.notes && (
-                    <div className="text-sm bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 p-2 rounded border border-yellow-100 dark:border-yellow-900/30 flex gap-1 items-start">
+                    <div className="text-sm bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 p-2 rounded border border-yellow-100 dark:border-yellow-900/30 flex gap-1 items-start min-w-0 overflow-hidden">
                         <span className="shrink-0">📝</span>
-                        <span>{client.notes}</span>
+                        <span className="break-words min-w-0">{client.notes}</span>
                     </div>
                 )}
 
