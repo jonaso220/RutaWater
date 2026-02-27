@@ -2333,109 +2333,132 @@ const [toast, setToast] = React.useState(null);
                                 return normalizeText(d.clientName || '').includes(term) || normalizeText(d.clientAddress || '').includes(term);
                             });
                             const filteredTotal = filteredDebts.reduce((sum, d) => sum + (d.amount || 0), 0);
+
+                            // Agrupar deudas por cliente
+                            const groupMap = {};
+                            filteredDebts.forEach(d => {
+                                const key = d.clientId || d.id;
+                                if (!groupMap[key]) groupMap[key] = [];
+                                groupMap[key].push(d);
+                            });
+                            // Ordenar grupos por la deuda más reciente de cada uno
+                            const debtGroups = Object.values(groupMap).sort((a, b) => {
+                                const latestA = Math.max(...a.map(d => d.createdAt?.seconds || 0));
+                                const latestB = Math.max(...b.map(d => d.createdAt?.seconds || 0));
+                                return latestB - latestA;
+                            });
+
                             return (
                             <div className="space-y-3">
                                 {debouncedDebtSearch.trim() && (
-                                    <p className="text-xs text-gray-400 dark:text-gray-500 text-center font-medium">{filteredDebts.length} resultado{filteredDebts.length !== 1 ? 's' : ''} — Total: ${filteredTotal.toLocaleString()}</p>
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 text-center font-medium">{filteredDebts.length} deuda{filteredDebts.length !== 1 ? 's' : ''} en {debtGroups.length} cliente{debtGroups.length !== 1 ? 's' : ''} — Total: ${filteredTotal.toLocaleString()}</p>
                                 )}
                                 <div className="grid gap-3">
-                                {filteredDebts.map(debt => (
-                                    <Card key={debt.id} className="p-4 border-l-4 border-l-red-500">
-                                        <div>
-                                            <div>
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <h3 className="font-bold text-gray-900 dark:text-white">{(debt.clientName || '').toUpperCase()}</h3>
-                                                        <div
-                                                            onClick={() => openGoogleMaps(debt.clientLat, debt.clientLng, debt.clientMapsLink)}
-                                                            className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline mt-0.5"
-                                                        >
-                                                            <Icons.MapPin size={12} /> {debt.clientAddress}
+                                {debtGroups.map(groupDebts => {
+                                    const first = groupDebts[0];
+                                    const clientTotal = groupDebts.reduce((sum, d) => sum + (d.amount || 0), 0);
+                                    const client = clients.find(c => c.id === first.clientId);
+                                    const phone = client?.phone;
+                                    const clientTransfers = transfers.filter(t => t.clientId === first.clientId);
+                                    return (
+                                    <Card key={first.clientId || first.id} className="border-l-4 border-l-red-500">
+                                        {/* Header: nombre, dirección, total */}
+                                        <div className="p-4 pb-0">
+                                            <div className="flex justify-between items-start gap-2">
+                                                <div className="min-w-0">
+                                                    <h3 className="font-bold text-gray-900 dark:text-white break-words">{(first.clientName || '').toUpperCase()}</h3>
+                                                    <div
+                                                        onClick={() => openGoogleMaps(first.clientLat, first.clientLng, first.clientMapsLink)}
+                                                        className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline mt-0.5 min-w-0"
+                                                    >
+                                                        <Icons.MapPin size={12} className="shrink-0" /> <span className="break-words">{first.clientAddress}</span>
+                                                    </div>
+                                                </div>
+                                                <p className="text-2xl font-black text-red-600 dark:text-red-400 shrink-0">${clientTotal.toLocaleString()}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Lista de deudas individuales */}
+                                        <div className="mt-3">
+                                            {groupDebts.map((debt, idx) => (
+                                                <div key={debt.id} className={`px-4 py-2.5 flex items-center justify-between gap-2 ${idx === 0 ? 'border-t border-gray-100 dark:border-gray-700' : 'border-t border-dashed border-gray-100 dark:border-gray-700'}`}>
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className="min-w-0">
+                                                            {debt.createdAt && (
+                                                                <p className="text-xs text-gray-400 dark:text-gray-500">
+                                                                    {new Date(debt.createdAt.seconds ? debt.createdAt.seconds * 1000 : debt.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                                </p>
+                                                            )}
+                                                            <p className="text-sm font-bold text-gray-800 dark:text-gray-200">${debt.amount?.toLocaleString()}</p>
                                                         </div>
                                                     </div>
-                                                    <p className="text-2xl font-black text-red-600 dark:text-red-400">${debt.amount?.toLocaleString()}</p>
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        <button
+                                                            onClick={() => setEditDebtModal({ isOpen: true, debt })}
+                                                            className="p-1.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600"
+                                                        >
+                                                            <Icons.Edit size={13} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setConfirmModal({
+                                                                isOpen: true,
+                                                                title: '¿Deuda pagada?',
+                                                                message: `Confirmar que ${debt.clientName} pagó $${debt.amount?.toLocaleString()}`,
+                                                                confirmText: "Pagada",
+                                                                isDanger: false,
+                                                                action: async () => { await handleDebtPaid(debt); setConfirmModal(prev => ({...prev, isOpen: false})); }
+                                                            })}
+                                                            className="px-2 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-md text-xs font-bold flex items-center gap-1 hover:bg-green-200 dark:hover:bg-green-800"
+                                                        >
+                                                            <Icons.CheckCircle size={13} /> Pagada
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                {debt.createdAt && (
-                                                    <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
-                                                        {new Date(debt.createdAt.seconds ? debt.createdAt.seconds * 1000 : debt.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                                            ))}
+                                        </div>
+
+                                        {/* Acciones comunes del cliente */}
+                                        <div className="flex flex-wrap gap-2 px-4 py-3 border-t border-gray-100 dark:border-gray-700">
+                                            {phone && (
                                                 <button
-                                                    onClick={() => setEditDebtModal({ isOpen: true, debt })}
-                                                    className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-gray-200 dark:hover:bg-gray-600"
+                                                    onClick={() => sendWhatsAppDirect(phone)}
+                                                    className="px-3 py-2 bg-green-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-green-600"
                                                 >
-                                                    <Icons.Edit size={14} />
+                                                    <Icons.MessageCircle size={14} /> Chat
                                                 </button>
-                                                {/* Botón WhatsApp */}
-                                                {(() => {
-                                                    const client = clients.find(c => c.id === debt.clientId);
-                                                    const phone = client?.phone;
-                                                    if (!phone) return null;
-                                                    return (
-                                                        <button
-                                                            onClick={() => sendWhatsAppDirect(phone)}
-                                                            className="px-3 py-2 bg-green-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-green-600"
-                                                            title="Abrir chat"
-                                                        >
-                                                            <Icons.MessageCircle size={14} /> Chat
-                                                        </button>
-                                                    );
-                                                })()}
-                                                {(() => {
-                                                    const clientTransfers = transfers.filter(t => t.clientId === debt.clientId);
-                                                    if (clientTransfers.length > 0) {
-                                                        return (
-                                                            <button
-                                                                onClick={() => setConfirmModal({
-                                                                    isOpen: true,
-                                                                    title: 'Revisar transferencia',
-                                                                    message: `¿Confirmar que revisaste la transferencia de ${debt.clientName}?`,
-                                                                    confirmText: "Revisada",
-                                                                    isDanger: false,
-                                                                    action: async () => {
-                                                                        for (const t of clientTransfers) { await handleTransferReviewed(t); }
-                                                                        setConfirmModal(prev => ({...prev, isOpen: false}));
-                                                                    }
-                                                                })}
-                                                                className="px-3 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-emerald-200 dark:hover:bg-emerald-800"
-                                                            >
-                                                                <Icons.CheckCircle size={14} /> Revisada{clientTransfers.length > 1 ? ` (${clientTransfers.length})` : ''}
-                                                            </button>
-                                                        );
-                                                    }
-                                                    const client = clients.find(c => c.id === debt.clientId);
-                                                    if (!client) return null;
-                                                    return (
-                                                        <button
-                                                            onClick={() => {
-                                                                handleAddTransfer(client);
-                                                                showUndoToast("Transferencia marcada para revisar", null);
-                                                            }}
-                                                            className="px-3 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-emerald-200 dark:hover:bg-emerald-800"
-                                                        >
-                                                            <Icons.CreditCard size={14} /> Transf.
-                                                        </button>
-                                                    );
-                                                })()}
+                                            )}
+                                            {clientTransfers.length > 0 ? (
                                                 <button
                                                     onClick={() => setConfirmModal({
                                                         isOpen: true,
-                                                        title: '¿Deuda pagada?',
-                                                        message: `Confirmar que ${debt.clientName} pagó $${debt.amount?.toLocaleString()}`,
-                                                        confirmText: "Pagada",
+                                                        title: 'Revisar transferencia',
+                                                        message: `¿Confirmar que revisaste la transferencia de ${first.clientName}?`,
+                                                        confirmText: "Revisada",
                                                         isDanger: false,
-                                                        action: async () => { await handleDebtPaid(debt); setConfirmModal(prev => ({...prev, isOpen: false})); }
+                                                        action: async () => {
+                                                            for (const t of clientTransfers) { await handleTransferReviewed(t); }
+                                                            setConfirmModal(prev => ({...prev, isOpen: false}));
+                                                        }
                                                     })}
-                                                    className="px-3 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-green-200 dark:hover:bg-green-800"
+                                                    className="px-3 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-emerald-200 dark:hover:bg-emerald-800"
                                                 >
-                                                    <Icons.CheckCircle size={14} /> Pagada
+                                                    <Icons.CheckCircle size={14} /> Revisada{clientTransfers.length > 1 ? ` (${clientTransfers.length})` : ''}
                                                 </button>
-                                            </div>
+                                            ) : client ? (
+                                                <button
+                                                    onClick={() => {
+                                                        handleAddTransfer(client);
+                                                        showUndoToast("Transferencia marcada para revisar", null);
+                                                    }}
+                                                    className="px-3 py-2 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-emerald-200 dark:hover:bg-emerald-800"
+                                                >
+                                                    <Icons.CreditCard size={14} /> Transf.
+                                                </button>
+                                            ) : null}
                                         </div>
                                     </Card>
-                                ))}
+                                    );
+                                })}
                                 </div>
                             </div>
                             );
