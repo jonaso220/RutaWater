@@ -1510,6 +1510,17 @@ const [toast, setToast] = React.useState(null);
 
         if (updates.length === 0) return;
 
+        // Optimista: actualizar estado local ANTES del write a Firestore
+        // para evitar race condition si el usuario asigna otra posición rápidamente
+        const updateMap = {};
+        updates.forEach(u => { updateMap[u.id] = u.position; });
+        setClients(prev => prev.map(c => {
+            if (updateMap[c.id] !== undefined) {
+                return { ...c, listOrders: { ...(c.listOrders || {}), [dayToFilter]: updateMap[c.id] } };
+            }
+            return c;
+        }));
+
         try {
             await firestoreRetry(() => {
                 const batch = db.batch();
