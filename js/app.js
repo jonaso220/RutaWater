@@ -2179,109 +2179,146 @@ const [toast, setToast] = React.useState(null);
                     </div>
                 )}
                  {view === 'add' && (
-                    <form onSubmit={handleSaveClient} className="space-y-4">
-                        <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">✏️ {editingId ? 'Editar' : 'Nuevo'} Cliente</h2>
-                        
-                        <div className="flex justify-end">
-                            <button type="button" onClick={() => setShowPasteModal(true)} className="text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded border border-blue-200 dark:border-blue-800">📋 Pegar Formato Contacto</button>
+                    <form onSubmit={handleSaveClient} className="space-y-5">
+                        {/* HEADER */}
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">{editingId ? '✏️ Editar' : '👤 Nuevo'} Cliente</h2>
+                            <button type="button" onClick={() => setShowPasteModal(true)} className="text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2.5 py-1.5 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors hover:bg-blue-100 dark:hover:bg-blue-900/40">📋 Pegar Contacto</button>
                         </div>
 
-                        <input required name="name" value={formData.name} onChange={handleInputChange} maxLength={100} className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Nombre" />
-                        <input name="phone" value={formData.phone} onChange={handleInputChange} maxLength={20} className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Teléfono" />
-                        
-                        {/* Selector de múltiples días */}
-                        <div>
-                            <label className="block text-sm font-medium mb-2 dark:text-gray-300">Días de Visita <span className="text-xs text-gray-400">(puede elegir varios)</span></label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].map(day => (
-                                    <button
-                                        key={day}
-                                        type="button"
-                                        onClick={() => {
-                                            const current = formData.visitDays || [formData.visitDay];
-                                            if (current.includes(day)) {
-                                                if (current.length > 1) {
-                                                    const newDays = current.filter(d => d !== day);
-                                                    setFormData({...formData, visitDays: newDays, visitDay: newDays[0]});
-                                                }
-                                            } else {
-                                                const newDays = [...current, day];
-                                                setFormData({...formData, visitDays: newDays, visitDay: newDays[0]});
-                                            }
-                                        }}
-                                        className={`p-2.5 rounded-lg text-sm font-medium transition-all ${
-                                            (formData.visitDays || [formData.visitDay]).includes(day)
-                                                ? 'bg-blue-500 text-white shadow-md'
-                                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                                        }`}
-                                    >
-                                        {day.slice(0, 3)}
-                                    </button>
-                                ))}
+                        {/* ── SECCIÓN: DATOS DEL CLIENTE ── */}
+                        <div className="space-y-3">
+                            <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Datos del cliente</p>
+                            <div className="relative">
+                                <input required name="name" value={formData.name} onChange={handleInputChange} maxLength={100} className="w-full p-3 pl-10 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Nombre" />
+                                <div className="absolute left-3 top-3 text-gray-400">👤</div>
                             </div>
-                            {(formData.visitDays || []).length > 1 && (
-                                <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">📅 {(formData.visitDays || []).length} días seleccionados: {(formData.visitDays || []).join(', ')}</p>
-                            )}
+                            <div className="relative">
+                                <input name="phone" value={formData.phone} onChange={handleInputChange} maxLength={20} className="w-full p-3 pl-10 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Teléfono" />
+                                <div className="absolute left-3 top-3 text-gray-400">📞</div>
+                            </div>
+                            <div className="relative">
+                                <input required name="address" value={formData.address} onChange={handleInputChange} maxLength={200} className="w-full p-3 pl-10 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Dirección" />
+                                <div className="absolute left-3 top-3 text-gray-400">📍</div>
+                            </div>
+                            <div className="relative">
+                                <input type="text" value={formData.locationInput} onChange={handleLocationPaste} className="w-full p-3 pl-10 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Pega link de Google Maps..." />
+                                <div className="absolute left-3 top-3 text-gray-400">🔗</div>
+                            </div>
                         </div>
 
-                        <input required name="address" value={formData.address} onChange={handleInputChange} maxLength={200} className="w-full p-3 border rounded-lg dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Dirección" />
-                        <div className="bg-blue-50 dark:bg-gray-800 p-4 rounded-lg border border-blue-100 dark:border-gray-700">
-                            <label className="block text-sm font-bold text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">📍 Ubicación (GPS/Link)</label>
-                            <div className="relative"><input type="text" value={formData.locationInput} onChange={handleLocationPaste} className="w-full p-3 pl-10 border rounded-lg outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white" placeholder="Pega link de Maps..." /><div className="absolute left-3 top-3">🔗</div></div>
+                        {/* ── SECCIÓN: PROGRAMACIÓN ── */}
+                        <div className="space-y-4">
+                            <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Programación</p>
+
+                            {/* Días de visita */}
+                            <div>
+                                <label className="block text-sm font-medium mb-2 dark:text-gray-300">Días de visita <span className="text-xs text-gray-400">(puede elegir varios)</span></label>
+                                <div className="flex flex-wrap gap-2">
+                                    {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].map(day => {
+                                        const isSelected = (formData.visitDays || [formData.visitDay]).includes(day);
+                                        return (
+                                            <button
+                                                key={day}
+                                                type="button"
+                                                onClick={() => {
+                                                    const current = formData.visitDays || [formData.visitDay];
+                                                    if (current.includes(day)) {
+                                                        if (current.length > 1) {
+                                                            const newDays = current.filter(d => d !== day);
+                                                            setFormData({...formData, visitDays: newDays, visitDay: newDays[0]});
+                                                        }
+                                                    } else {
+                                                        const newDays = [...current, day];
+                                                        setFormData({...formData, visitDays: newDays, visitDay: newDays[0]});
+                                                    }
+                                                }}
+                                                className={`px-3.5 py-2 rounded-full text-sm font-medium transition-all ${
+                                                    isSelected
+                                                        ? 'bg-blue-500 text-white shadow-md shadow-blue-500/25'
+                                                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                                                }`}
+                                            >
+                                                {isSelected && '✓ '}{day.slice(0, 3)}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                {(formData.visitDays || []).length > 1 && (
+                                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">📅 {(formData.visitDays || []).length} días seleccionados</p>
+                                )}
+                            </div>
+
+                            {/* Frecuencia */}
+                            <div>
+                                <label className="block text-sm font-medium mb-2 dark:text-gray-300">Frecuencia</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {['weekly', 'once', 'biweekly', 'triweekly', 'monthly'].map(freqType => {
+                                        let label = '', icon = '';
+                                        switch(freqType) {
+                                            case 'weekly': label = 'Semanal'; icon = '🔄'; break;
+                                            case 'once': label = 'Una vez'; icon = '1️⃣'; break;
+                                            case 'biweekly': label = 'Cada 2 sem'; icon = '📅'; break;
+                                            case 'triweekly': label = 'Cada 3 sem'; icon = '📅'; break;
+                                            case 'monthly': label = 'Cada 4 sem'; icon = '📅'; break;
+                                        }
+                                        const isSelected = formData.freq === freqType;
+                                        return (
+                                            <button key={freqType} type="button" onClick={() => setFormData({...formData, freq: freqType})}
+                                                className={`p-2.5 rounded-lg text-xs font-medium transition-all text-center ${isSelected ? 'bg-blue-500 text-white shadow-md shadow-blue-500/25 font-bold' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                                            >
+                                                <span className="block text-base mb-0.5">{icon}</span>
+                                                {label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <button type="button" onClick={() => setFormData({...formData, freq: 'on_demand'})}
+                                    className={`w-full mt-2 p-2.5 rounded-lg text-sm font-medium transition-all text-center ${formData.freq === 'on_demand' ? 'bg-gray-600 dark:bg-gray-500 text-white font-bold' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                                >
+                                    📂 Solo guardar en Directorio (Sin día asignado)
+                                </button>
+                            </div>
+
+                            {/* Fecha */}
+                            <div className="min-w-0 overflow-hidden">
+                                <label className="block text-sm font-medium mb-1 dark:text-gray-300">Fecha (Opcional)</label>
+                                <input type="date" name="specificDate" value={formData.specificDate || ''} onChange={handleInputChange} className="w-full p-3 border rounded-lg bg-gray-50 outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-white" style={{maxWidth: '100%', boxSizing: 'border-box'}} min={new Date().toISOString().split('T')[0]} />
+                            </div>
                         </div>
-                        
-                        {/* SECCIÓN PRODUCTOS */}
-                        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
-                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">📦 Productos Habituales</label>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+
+                        {/* ── SECCIÓN: PEDIDO ── */}
+                        <div className="space-y-3">
+                            <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Pedido habitual</p>
+                            <div className="grid grid-cols-2 gap-2">
                                 {PRODUCTS.map(prod => (
-                                    <div key={prod.id} className="flex items-center justify-between bg-white dark:bg-gray-700 p-2 rounded border border-gray-200 dark:border-gray-600">
-                                        <span className="text-xs font-medium flex items-center gap-1 dark:text-gray-300">{prod.icon} {prod.label}</span>
-                                        <input 
-                                            type="number" 
-                                            placeholder="0" 
+                                    <div key={prod.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700">
+                                        <span className="text-sm font-medium flex items-center gap-1.5 dark:text-gray-300">{prod.icon} {prod.label}</span>
+                                        <input
+                                            type="number"
+                                            placeholder="0"
                                             value={formData.products[prod.id] || ''}
                                             onChange={(e) => handleProductChange(prod.id, e.target.value)}
-                                            className="w-12 p-1 text-center border rounded focus:ring-1 focus:ring-blue-500 outline-none text-sm dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+                                            className="w-14 p-1.5 text-center border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-bold dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                         />
                                     </div>
                                 ))}
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium mb-2 dark:text-gray-300">Frecuencia</label>
-                            <div className="grid grid-cols-2 gap-3">
-                                {['weekly', 'once', 'biweekly', 'triweekly', 'monthly'].map(freqType => {
-                                    let label = '';
-                                    switch(freqType) {
-                                        case 'weekly': label = 'Semanal'; break;
-                                        case 'once': label = 'Una vez'; break;
-                                        case 'biweekly': label = 'Cada 2 sem'; break;
-                                        case 'triweekly': label = 'Cada 3 sem'; break;
-                                        case 'monthly': label = 'Cada 4 sem'; break;
-                                    }
-                                    const isSelected = formData.freq === freqType;
-                                    return (
-                                        <label key={freqType} className={`flex items-center gap-2 border p-3 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-500 dark:border-blue-500 text-blue-700 dark:text-blue-300 font-bold' : 'border-gray-200 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
-                                            <input type="radio" name="freq" value={freqType} checked={isSelected} onChange={handleInputChange} className="accent-blue-600" /> 
-                                            {label}
-                                        </label>
-                                    );
-                                })}
-                            </div>
-                            {/* NUEVA OPCIÓN "SOLO DIRECTORIO" */}
-                            <label className={`flex items-center gap-2 border p-3 mt-2 rounded-lg cursor-pointer transition-colors ${formData.freq === 'on_demand' ? 'bg-gray-200 dark:bg-gray-700 border-gray-400 dark:border-gray-500 font-bold' : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-gray-300'}`}>
-                                <input type="radio" name="freq" value="on_demand" checked={formData.freq === 'on_demand'} onChange={handleInputChange} className="accent-gray-600" /> 
-                                <span className="text-sm">Solo guardar en Directorio (Sin día asignado)</span>
-                            </label>
+                        {/* ── SECCIÓN: NOTAS ── */}
+                        <div className="space-y-2">
+                            <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Notas</p>
+                            <textarea name="notes" value={formData.notes} onChange={handleInputChange} maxLength={500} className="w-full p-3 border rounded-lg h-24 dark:bg-gray-800 dark:border-gray-700 dark:text-white resize-none" placeholder="Observaciones del cliente..." />
                         </div>
-                        <div className="min-w-0 overflow-hidden">
-                            <label className="block text-sm font-medium mb-1 dark:text-gray-300">Fecha (Opcional)</label>
-                            <input type="date" name="specificDate" value={formData.specificDate || ''} onChange={handleInputChange} className="w-full p-3 border rounded-lg bg-gray-50 outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-white" style={{maxWidth: '100%', boxSizing: 'border-box'}} min={new Date().toISOString().split('T')[0]} />
+
+                        {/* ── BOTONES ── */}
+                        <div className="flex gap-3 pt-2">
+                            <Button variant="secondary" onClick={() => { setView('list'); resetForm(); }} className="flex-1">Cancelar</Button>
+                            <button type="submit" disabled={saving} className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-400 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-blue-600/25 transition-all active:scale-[0.98]">
+                                {saving ? 'Guardando...' : '💾 Guardar'}
+                            </button>
                         </div>
-                        <textarea name="notes" value={formData.notes} onChange={handleInputChange} maxLength={500} className="w-full p-3 border rounded-lg h-24 dark:bg-gray-800 dark:border-gray-700 dark:text-white" placeholder="Notas..." />
-                        <div className="flex gap-3"><Button variant="secondary" onClick={() => { setView('list'); resetForm(); }} className="flex-1">Cancelar</Button><Button type="submit" disabled={saving} className="flex-1">{saving ? 'Guardando...' : <>💾 Guardar</>}</Button></div>
                     </form>
                 )}
                 </>
