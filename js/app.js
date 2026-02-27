@@ -2641,8 +2641,8 @@ const [toast, setToast] = React.useState(null);
                             </>
                         )}
                         <button onClick={() => setShowFabMenu(!showFabMenu)} className="group flex items-center justify-center" aria-label="Nuevo">
-                            <div className={`absolute -top-5 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg shadow-blue-600/30 border-4 border-white dark:border-gray-900 transition-all duration-300 transform group-active:scale-95 ${showFabMenu ? 'rotate-45' : ''}`}>
-                                <Icons.Plus size={28} strokeWidth={3} />
+                            <div className={`absolute -top-6 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg shadow-blue-600/30 border-4 border-white dark:border-gray-900 transition-all duration-300 transform group-active:scale-95 ${showFabMenu ? 'rotate-45' : ''}`}>
+                                <Icons.Plus size={30} strokeWidth={3} />
                             </div>
                         </button>
                     </div>
@@ -2671,8 +2671,8 @@ const [toast, setToast] = React.useState(null);
                             </>
                         )}
                         <button onClick={() => setShowFabMenu(!showFabMenu)} className="group flex items-center justify-center" aria-label="Nuevo">
-                            <div className={`absolute -top-5 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg shadow-blue-600/30 border-4 border-white dark:border-gray-900 transition-all duration-300 transform group-active:scale-95 ${showFabMenu ? 'rotate-45' : ''}`}>
-                                <Icons.Plus size={28} strokeWidth={3} />
+                            <div className={`absolute -top-6 bg-blue-600 hover:bg-blue-500 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg shadow-blue-600/30 border-4 border-white dark:border-gray-900 transition-all duration-300 transform group-active:scale-95 ${showFabMenu ? 'rotate-45' : ''}`}>
+                                <Icons.Plus size={30} strokeWidth={3} />
                             </div>
                         </button>
                     </div>
