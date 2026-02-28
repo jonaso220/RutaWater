@@ -212,7 +212,56 @@ const [toast, setToast] = React.useState(null);
             unsubTransfers();
         };
     }, [user, groupData]);
-    
+
+    // --- AUTO-LIMPIEZA: Completados "una vez" expirados ---
+    const cleanupDoneRef = React.useRef(false);
+    React.useEffect(() => {
+        if (clients.length === 0 || cleanupDoneRef.current) return;
+        cleanupDoneRef.current = true;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const expiredCompleted = clients.filter(c =>
+            c.isCompleted &&
+            c.freq === 'once' &&
+            c.specificDate &&
+            new Date(c.specificDate + 'T12:00:00') < today
+        );
+
+        if (expiredCompleted.length === 0) return;
+
+        const batchSize = 450;
+        const chunks = [];
+        for (let i = 0; i < expiredCompleted.length; i += batchSize) {
+            chunks.push(expiredCompleted.slice(i, i + batchSize));
+        }
+
+        chunks.forEach(chunk => {
+            const batch = db.batch();
+            chunk.forEach(c => {
+                const ref = db.collection('clients').doc(c.id);
+                if (c.isNote) {
+                    // Notas: eliminar permanentemente
+                    batch.delete(ref);
+                } else {
+                    // Clientes: mover al directorio
+                    batch.update(ref, {
+                        freq: 'on_demand',
+                        visitDay: 'Sin Asignar',
+                        visitDays: [],
+                        isCompleted: false,
+                        completedAt: null,
+                        updatedAt: new Date()
+                    });
+                }
+            });
+            batch.commit().catch(err => console.error('Auto-cleanup error:', err));
+        });
+
+        console.log(`Auto-limpieza: ${expiredCompleted.length} completados expirados procesados`);
+    }, [clients]);
+
     // --- EFFECT PARA ALARMAS (RESTAURADO Y MEJORADO) ---
     React.useEffect(() => {
         const interval = setInterval(() => {
