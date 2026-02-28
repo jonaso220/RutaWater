@@ -216,7 +216,8 @@ const [toast, setToast] = React.useState(null);
     // --- AUTO-LIMPIEZA: Completados "una vez" expirados ---
     const cleanupDoneRef = React.useRef(false);
     React.useEffect(() => {
-        if (clients.length === 0 || cleanupDoneRef.current) return;
+        if (cleanupDoneRef.current) return;
+        if (clients.length === 0) return;
         cleanupDoneRef.current = true;
 
         const today = new Date();
@@ -585,9 +586,14 @@ const [toast, setToast] = React.useState(null);
                     try { await db.collection('clients').doc(client.id).update(prevFields); }
                     catch(e) { console.error("Undo error", e); }
                 };
-                await firestoreRetry(() => db.collection('clients').doc(client.id).update({
+                const updateData = {
                     isCompleted: true, completedAt: new Date(), updatedAt: new Date(), alarm: '', isStarred: false
-                }));
+                };
+                // Garantizar que siempre tenga specificDate para la auto-limpieza
+                if (!client.specificDate) {
+                    updateData.specificDate = new Date().toISOString().split('T')[0];
+                }
+                await firestoreRetry(() => db.collection('clients').doc(client.id).update(updateData));
                 showUndoToast("Pedido completado", undoAction);
             } else {
                 // Periódico: escribir a Firestore y dejar que onSnapshot actualice la UI
@@ -659,7 +665,7 @@ const [toast, setToast] = React.useState(null);
         const completedForDay = clients.filter(c =>
             c.isCompleted &&
             c.freq === 'once' &&
-            c.visitDay === day
+            ((c.visitDays && c.visitDays.includes(day)) || c.visitDay === day)
         );
         if (completedForDay.length === 0) return;
 
@@ -1027,6 +1033,13 @@ const [toast, setToast] = React.useState(null);
             // Validación: asegurar que hay días válidos si no es on_demand
             if (formData.freq !== 'on_demand' && (visitDays.length === 0 || visitDays.includes('Sin Asignar'))) {
                 showUndoToast("Seleccioná al menos un día de visita.", null);
+                setSaving(false);
+                return;
+            }
+
+            // Validación: "una vez" requiere fecha específica
+            if (formData.freq === 'once' && !formData.specificDate) {
+                showUndoToast("Los pedidos de una vez requieren una fecha.", null);
                 setSaving(false);
                 return;
             }
