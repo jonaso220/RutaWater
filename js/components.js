@@ -390,6 +390,9 @@ const ProductCounter = ({ clients, label }) => {
                             <div key={key} className="bg-blue-50 dark:bg-gray-700 rounded-lg p-2 flex flex-col items-center justify-center border border-blue-100 dark:border-gray-600">
                                 <span className="text-xl font-black text-blue-600 dark:text-blue-300">{totals[key]}</span>
                                 <span className="text-[10px] text-blue-400 dark:text-blue-200 font-medium uppercase">{prod ? prod.short : key}</span>
+                                {key === 'soda' && totals[key] > 0 && (
+                                    <span className="text-[9px] text-blue-400/70 dark:text-blue-300/50 mt-0.5">({Math.ceil(totals[key] / 6)} caj.)</span>
+                                )}
                             </div>
                         );
                     })}
