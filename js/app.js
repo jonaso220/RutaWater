@@ -12,6 +12,7 @@ function App() {
     const [loadingAuth, setLoadingAuth] = React.useState(true);
     const [selectedDay, setSelectedDay] = React.useState('Lunes');
     const [searchTerm, setSearchTerm] = React.useState('');
+    const [directoryFilter, setDirectoryFilter] = React.useState('all');
     const [listSearchTerm, setListSearchTerm] = React.useState('');
     const [activeFilters, setActiveFilters] = React.useState([]); // ['once_starred', 'b20', 'b12', etc.]
     const [showFilterMenu, setShowFilterMenu] = React.useState(false);
@@ -1369,6 +1370,15 @@ const [toast, setToast] = React.useState(null);
                 const match = fuzzyMatch(debouncedSearch);
                 return match(c.name || '', c.address || '', c.phone || '');
             })
+            .filter(c => {
+                if (directoryFilter === 'all') return true;
+                if (directoryFilter === 'no_location') return !((!!(c.lat && c.lng)) || !!c.mapsLink);
+                if (directoryFilter === 'with_debt') {
+                    const ids = c._mergedIds || [c.id];
+                    return debts.some(d => ids.indexOf(d.clientId) > -1 && d.amount > 0);
+                }
+                return c.freq === directoryFilter;
+            })
             // Merge duplicates by phone number (keep newest, preserve debt info)
             .reduce((unique, item) => {
                 const key = item.phone ? item.phone.replace(/\D/g, '') : item.id;
@@ -1395,8 +1405,20 @@ const [toast, setToast] = React.useState(null);
                 return unique;
             }, [])
             .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    }, [clients, debouncedSearch]);
-    
+    }, [clients, debouncedSearch, directoryFilter, debts]);
+
+    const directoryCounts = React.useMemo(() => {
+        const all = clients.filter(c => !c.isNote);
+        const counts = { total: all.length, weekly: 0, biweekly: 0, triweekly: 0, monthly: 0, once: 0, on_demand: 0, no_location: 0, with_debt: 0 };
+        all.forEach(c => {
+            if (c.freq && counts[c.freq] !== undefined) counts[c.freq]++;
+            if (!((!!(c.lat && c.lng)) || !!c.mapsLink)) counts.no_location++;
+            const ids = c._mergedIds || [c.id];
+            if (debts.some(d => ids.indexOf(d.clientId) > -1 && d.amount > 0)) counts.with_debt++;
+        });
+        return counts;
+    }, [clients, debts]);
+
     const handleExportClients = () => {
         try {
             const allClients = clients.filter(c => c.name);
@@ -2168,7 +2190,27 @@ const [toast, setToast] = React.useState(null);
                                     </button>
                                 )}
                             </div>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center font-medium">{filteredDirectory.length} cliente{filteredDirectory.length !== 1 ? 's' : ''} en el directorio</p>
+                            <div className="flex gap-1.5 mt-3 overflow-x-auto pb-1 -mx-1 px-1" style={{scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch'}}>
+                                {[
+                                    { key: 'all', label: 'Todos', count: directoryCounts.total },
+                                    { key: 'weekly', label: 'Sem', count: directoryCounts.weekly },
+                                    { key: 'biweekly', label: 'Quin', count: directoryCounts.biweekly },
+                                    { key: 'triweekly', label: 'C/3', count: directoryCounts.triweekly },
+                                    { key: 'monthly', label: 'Mens', count: directoryCounts.monthly },
+                                    { key: 'once', label: '1 vez', count: directoryCounts.once },
+                                    { key: 'on_demand', label: 'Dir', count: directoryCounts.on_demand },
+                                    { key: 'no_location', label: 'Sin ubic.', count: directoryCounts.no_location },
+                                    { key: 'with_debt', label: 'Deuda', count: directoryCounts.with_debt },
+                                ].filter(f => f.key === 'all' || f.count > 0).map(f => (
+                                    <button key={f.key} onClick={() => setDirectoryFilter(directoryFilter === f.key ? 'all' : f.key)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors flex-shrink-0 ${directoryFilter === f.key ? (f.key === 'no_location' ? 'bg-yellow-500 text-white' : f.key === 'with_debt' ? 'bg-red-500 text-white' : 'bg-blue-600 text-white') : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+                                        {f.label} {f.count > 0 && <span className={`ml-0.5 ${directoryFilter === f.key ? 'opacity-80' : 'opacity-50'}`}>{f.count}</span>}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 text-center font-medium">
+                                {filteredDirectory.length} cliente{filteredDirectory.length !== 1 ? 's' : ''}
+                                {directoryFilter !== 'all' && (' de ' + directoryCounts.total)}
+                            </p>
                         </div>
                         <div className="grid grid-cols-1 gap-3">
                             {filteredDirectory.map(client => {
@@ -2233,6 +2275,7 @@ const [toast, setToast] = React.useState(null);
 
                                     {/* ACCIONES */}
                                     <div className="flex items-center gap-1.5 mt-3">
+                                        {client.phone && <button onClick={() => openExternal('tel:' + normalizePhone(client.phone))} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors" title="Llamar">📞</button>}
                                         {client.phone && <button onClick={() => sendWhatsAppDirect(client.phone)} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors" title="WhatsApp">💬</button>}
                                         <button onClick={() => hasLocation ? openGoogleMaps(client.lat, client.lng, client.mapsLink) : null} className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${hasLocation ? 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer' : 'bg-gray-50 dark:bg-gray-800 opacity-30 cursor-default'}`} title={hasLocation ? 'Maps' : 'Sin ubicación'}>📍</button>
                                         <button onClick={() => { var c = { ...client, hasDebt: debtTotal > 0 }; if (debtTotal > 0) { setViewDebtModal({ isOpen: true, client: c }); } else { setDebtModal({ isOpen: true, client: c }); } }} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors" title="Deuda">{debtTotal > 0 ? '🔴' : '💰'}</button>
