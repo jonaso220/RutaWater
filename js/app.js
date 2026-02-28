@@ -903,7 +903,8 @@ const [toast, setToast] = React.useState(null);
     // Helper: abrir URL externa sin dejar ventana en blanco en móvil
     const openExternal = (url) => {
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        if (isMobile) { location.href = url; } else { window.open(url, '_blank'); }
+        const isAppProtocol = url.startsWith('whatsapp://') || url.startsWith('tel:');
+        if (isMobile || isAppProtocol) { location.href = url; } else { window.open(url, '_blank'); }
     };
 
     // IMPLEMENTACIÓN DE sendPhotoWhatsApp
