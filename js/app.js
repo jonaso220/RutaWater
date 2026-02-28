@@ -924,7 +924,11 @@ const [toast, setToast] = React.useState(null);
         try {
             var updateData = { ...data, updatedAt: new Date() };
             // Si es pedido "una vez" y cambió la fecha, recalcular día y orden
-            if (data.freq === 'once' && data.specificDate) {
+            // Solo recalcular posición si la fecha realmente cambió
+            const existingClient = clients.find(c => c.id === clientId);
+            const dateActuallyChanged = data.freq === 'once' && data.specificDate &&
+                existingClient && data.specificDate !== existingClient.specificDate;
+            if (dateActuallyChanged) {
                 const d = new Date(data.specificDate + 'T12:00:00');
                 const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
                 const dayName = days[d.getDay()];
@@ -1053,7 +1057,7 @@ const [toast, setToast] = React.useState(null);
                 startWeek: currentWeek,
                 visitDays: visitDays,
                 visitDay: visitDays[0] || 'Sin Asignar', // Mantener compatibilidad
-                isPinned: false,
+                isPinned: editingId ? (formData.isPinned || false) : (formData.freq !== 'once'),
                 mapsLink: sanitized.mapsLink || sanitized.locationInput
             };
             
@@ -1100,29 +1104,16 @@ const [toast, setToast] = React.useState(null);
                         ((c.visitDays && c.visitDays.includes(day)) || c.visitDay === day)
                     );
                     
-                    if (formData.freq === 'once') {
-                        // Pedido de una vez: va al INICIO
-                        let minOrder = 0;
-                        if (existingInDay.length > 0) {
-                            const orders = existingInDay.map(c => {
-                                const order = c.listOrders?.[day] ?? c.listOrder ?? 0;
-                                return order > 100000 ? 0 : order;
-                            });
-                            minOrder = Math.min(...orders);
-                        }
-                        listOrders[day] = minOrder - 1;
-                    } else {
-                        // Pedido semanal: va al FINAL
-                        let maxOrder = -1;
-                        if (existingInDay.length > 0) {
-                            const orders = existingInDay.map(c => {
-                                const order = c.listOrders?.[day] ?? c.listOrder ?? 0;
-                                return order > 100000 ? 0 : order;
-                            });
-                            maxOrder = Math.max(...orders);
-                        }
-                        listOrders[day] = maxOrder + 1;
+                    // Todos los clientes nuevos van al INICIO
+                    let minOrder = 0;
+                    if (existingInDay.length > 0) {
+                        const orders = existingInDay.map(c => {
+                            const order = c.listOrders?.[day] ?? c.listOrder ?? 0;
+                            return order > 100000 ? 0 : order;
+                        });
+                        minOrder = Math.min(...orders);
                     }
+                    listOrders[day] = minOrder - 1;
                 });
                 data.listOrder = listOrders[visitDays[0]];
                 data.listOrders = listOrders;
