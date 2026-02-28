@@ -2181,60 +2181,75 @@ const [toast, setToast] = React.useState(null);
                         </div>
                         <div className="grid grid-cols-1 gap-3">
                             {filteredDirectory.map(client => {
-                                var prodSummary = '';
+                                var prodList = [];
                                 if (client.products) {
-                                    prodSummary = Object.keys(client.products)
+                                    prodList = Object.keys(client.products)
                                         .filter(function(k) { return parseInt(client.products[k] || 0) > 0; })
-                                        .map(function(k) { var p = PRODUCTS.find(function(prod) { return prod.id === k; }); return client.products[k] + 'x ' + (p ? p.short : k); })
-                                        .join(', ');
+                                        .map(function(k) { var p = PRODUCTS.find(function(prod) { return prod.id === k; }); return { qty: client.products[k], icon: p ? p.icon : '📦', label: p ? p.short : k }; });
                                 }
                                 var clientIds = client._mergedIds || [client.id];
                                 var debtTotal = debts.filter(function(d) { return clientIds.indexOf(d.clientId) > -1; }).reduce(function(sum, d) { return sum + (d.amount || 0); }, 0);
-                                var freqLabel = '';
+                                var freqLabel = '', freqColor = '';
                                 switch(client.freq) {
-                                    case 'weekly': freqLabel = 'Semanal'; break;
-                                    case 'biweekly': freqLabel = 'Quincenal'; break;
-                                    case 'triweekly': freqLabel = 'Cada 3 sem'; break;
-                                    case 'monthly': freqLabel = 'Mensual'; break;
-                                    case 'once': freqLabel = 'Una vez'; break;
-                                    case 'on_demand': freqLabel = 'Solo Directorio'; break;
-                                    default: freqLabel = client.freq || '';
+                                    case 'weekly': freqLabel = 'Semanal'; freqColor = 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'; break;
+                                    case 'biweekly': freqLabel = 'Quincenal'; freqColor = 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'; break;
+                                    case 'triweekly': freqLabel = 'Cada 3 sem'; freqColor = 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'; break;
+                                    case 'monthly': freqLabel = 'Mensual'; freqColor = 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'; break;
+                                    case 'once': freqLabel = 'Una vez'; freqColor = 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'; break;
+                                    case 'on_demand': freqLabel = 'Solo Directorio'; freqColor = 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'; break;
+                                    default: freqLabel = client.freq || ''; freqColor = 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400';
                                 }
                                 var isOnDemand = client.freq === 'on_demand' || !(client.visitDays && client.visitDays.length > 0);
                                 var hasLocation = !!(client.lat && client.lng) || !!client.mapsLink;
+                                var avatarColors = ['bg-blue-500','bg-green-500','bg-purple-500','bg-orange-500','bg-pink-500','bg-teal-500','bg-indigo-500','bg-red-500'];
+                                var avatarColor = avatarColors[(client.name || '').charCodeAt(0) % avatarColors.length];
+                                var initial = (client.name || '?').charAt(0).toUpperCase();
                                 return (
-                                <Card key={client.id} className={`p-4 border-l-4 ${debtTotal > 0 ? 'border-l-red-500' : 'border-l-transparent'}`}>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-start">
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="font-bold text-gray-900 dark:text-white text-sm">{(client.name || '').toUpperCase()}</h3>
-                                                {debtTotal > 0 && (
-                                                    <button onClick={() => {
-                                                        var c = { ...client, hasDebt: true };
-                                                        setViewDebtModal({ isOpen: true, client: c });
-                                                    }} className="text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full mt-1 inline-block">${debtTotal.toLocaleString()}</button>
-                                                )}
+                                <Card key={client.id} className="p-4">
+                                    {/* HEADER: Avatar + Nombre + Teléfono */}
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 ${avatarColor} rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-sm`}>
+                                            {initial}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <h3 className="font-bold text-gray-900 dark:text-white text-sm truncate">{(client.name || '').toUpperCase()}</h3>
+                                                {client.phone && <span className="text-[11px] text-gray-400 dark:text-gray-500 flex-shrink-0">{client.phone}</span>}
                                             </div>
+                                            {client.address && <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">📍 {client.address}</p>}
                                         </div>
-                                        {client.address && <p className="text-xs text-gray-500 dark:text-gray-400">{client.address}</p>}
-                                        {client.phone && <p className="text-[11px] text-gray-400 dark:text-gray-500">{client.phone}</p>}
-                                        {prodSummary && <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 mt-1">📦 {prodSummary}</p>}
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{freqLabel}</span>
-                                            {client.visitDays && client.visitDays.length > 0 && (
-                                                <span className="text-[10px] text-gray-400 dark:text-gray-500">{client.visitDays.map(function(d) { return d.slice(0, 3); }).join(', ')}</span>
-                                            )}
+                                    </div>
+
+                                    {/* BADGES: Frecuencia + Días + Deuda */}
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${freqColor}`}>{freqLabel}</span>
+                                        {client.visitDays && client.visitDays.length > 0 && (
+                                            <span className="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 px-2 py-0.5 rounded-full">{client.visitDays.map(function(d) { return d.slice(0, 3); }).join(', ')}</span>
+                                        )}
+                                        {debtTotal > 0 && (
+                                            <button onClick={() => { var c = { ...client, hasDebt: true }; setViewDebtModal({ isOpen: true, client: c }); }} className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">💰 ${debtTotal.toLocaleString()}</button>
+                                        )}
+                                    </div>
+
+                                    {/* PRODUCTOS: Chips individuales */}
+                                    {prodList.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5 mt-2.5">
+                                            {prodList.map(function(p, i) { return (
+                                                <span key={i} className="text-[11px] font-medium bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full border border-gray-100 dark:border-gray-600">{p.icon} {p.qty}x {p.label}</span>
+                                            ); })}
                                         </div>
-                                        <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
-                                            {client.phone && <button onClick={() => sendWhatsAppDirect(client.phone)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" title="WhatsApp">💬</button>}
-                                            {hasLocation && <button onClick={() => openGoogleMaps(client.lat, client.lng, client.mapsLink)} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" title="Maps">📍</button>}
-                                            <button onClick={() => { var c = { ...client, hasDebt: debtTotal > 0 }; if (debtTotal > 0) { setViewDebtModal({ isOpen: true, client: c }); } else { setDebtModal({ isOpen: true, client: c }); } }} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" title="Deuda">{debtTotal > 0 ? '🔴' : '💰'}</button>
-                                            {isAdmin && <button onClick={() => { setQuickEditClient(client); setQuickEditShowInfo(true); }} className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20" title="Editar">✏️</button>}
-                                            <div className="flex-1" />
-                                            <button onClick={() => setScheduleClient(client)} className="px-3 py-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-blue-200 dark:hover:bg-blue-800">
-                                                {isOnDemand ? 'Agendar' : '+ Visita'}
-                                            </button>
-                                        </div>
+                                    )}
+
+                                    {/* ACCIONES */}
+                                    <div className="flex items-center gap-1.5 mt-3">
+                                        {client.phone && <button onClick={() => sendWhatsAppDirect(client.phone)} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors" title="WhatsApp">💬</button>}
+                                        {hasLocation && <button onClick={() => openGoogleMaps(client.lat, client.lng, client.mapsLink)} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors" title="Maps">📍</button>}
+                                        <button onClick={() => { var c = { ...client, hasDebt: debtTotal > 0 }; if (debtTotal > 0) { setViewDebtModal({ isOpen: true, client: c }); } else { setDebtModal({ isOpen: true, client: c }); } }} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors" title="Deuda">{debtTotal > 0 ? '🔴' : '💰'}</button>
+                                        {isAdmin && <button onClick={() => { setQuickEditClient(client); setQuickEditShowInfo(true); }} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors" title="Editar">✏️</button>}
+                                        <div className="flex-1" />
+                                        <button onClick={() => setScheduleClient(client)} className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm shadow-blue-600/20 transition-colors active:scale-[0.97]">
+                                            {isOnDemand ? '📅 Agendar' : '+ Visita'}
+                                        </button>
                                     </div>
                                 </Card>
                                 );
