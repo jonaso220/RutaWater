@@ -2766,7 +2766,7 @@ const [toast, setToast] = React.useState(null);
             {/* NAV - Solo visible en sección Cartera */}
             {activeSection === 'cartera' && (
             <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-gray-200/50 dark:border-gray-700/50 flex justify-around p-2 z-20 pb-safe shadow-lg shadow-black/5 transition-all duration-200">
-                <button onClick={() => setView('list')} className={`p-2 rounded-lg flex flex-col items-center ${view === 'list' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><span className="text-xl">🏠</span><span className="text-xs font-medium">Inicio</span></button>
+                <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setView('list'); }} className={`p-2 rounded-lg flex flex-col items-center ${view === 'list' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><span className="text-xl">🏠</span><span className="text-xs font-medium">Inicio</span></button>
                 {isAdmin ? (
                     <div className="relative flex items-center justify-center w-20">
                         {showFabMenu && (
