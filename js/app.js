@@ -432,17 +432,16 @@ const [toast, setToast] = React.useState(null);
                             }
 
                             // For each product, keep the max quantity between keeper and duplicate
-                            if (dup.products && dup.products.length > 0) {
-                                const keeperProducts = (keeper.products || []).slice();
-                                dup.products.forEach(dp => {
-                                    const existing = keeperProducts.find(kp => kp.name === dp.name);
-                                    if (existing) {
-                                        existing.qty = Math.max(existing.qty || 0, dp.qty || 0);
-                                    } else {
-                                        keeperProducts.push(dp);
+                            if (dup.products && typeof dup.products === 'object' && Object.keys(dup.products).length > 0) {
+                                const mergedProducts = Object.assign({}, keeper.products || {});
+                                Object.keys(dup.products).forEach(key => {
+                                    const dupQty = parseInt(dup.products[key] || 0, 10);
+                                    const keeperQty = parseInt(mergedProducts[key] || 0, 10);
+                                    if (dupQty > keeperQty) {
+                                        mergedProducts[key] = dupQty;
                                     }
                                 });
-                                mergeUpdate.products = keeperProducts;
+                                mergeUpdate.products = mergedProducts;
                             }
 
                             // OR of both isStarred values
@@ -996,7 +995,8 @@ const [toast, setToast] = React.useState(null);
             if (dateActuallyChanged) {
                 const d = new Date(data.specificDate + 'T12:00:00');
                 const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-                const dayName = days[d.getDay()];
+                let dayName = days[d.getDay()];
+                if (dayName === 'Domingo') dayName = 'Lunes';
                 const existingInDay = clients.filter(c =>
                     c.id !== clientId &&
                     c.freq !== 'on_demand' &&
@@ -1095,7 +1095,8 @@ const [toast, setToast] = React.useState(null);
             if (formData.specificDate) {
                 const d = new Date(formData.specificDate + 'T12:00:00');
                 const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-                const derivedDay = dayNames[d.getDay()];
+                let derivedDay = dayNames[d.getDay()];
+                if (derivedDay === 'Domingo') derivedDay = 'Lunes';
                 visitDays = [derivedDay];
             }
 
@@ -1193,7 +1194,8 @@ const [toast, setToast] = React.useState(null);
         try {
             const d = new Date(noteDate + 'T12:00:00');
             const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-            const dayName = days[d.getDay()];
+            let dayName = days[d.getDay()];
+            if (dayName === 'Domingo') dayName = 'Lunes';
 
             // Notas van al inicio del recorrido
             const existingInDay = clients.filter(c =>
@@ -1247,7 +1249,8 @@ const [toast, setToast] = React.useState(null);
         try {
             const d = new Date(noteDate + 'T12:00:00');
             const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-            const newDayName = days[d.getDay()];
+            let newDayName = days[d.getDay()];
+            if (newDayName === 'Domingo') newDayName = 'Lunes';
             const oldDayName = editNoteData.visitDay;
 
             const updateData = {
@@ -1299,10 +1302,11 @@ const [toast, setToast] = React.useState(null);
             
             if (newDate) {
                  // Pedido de una vez - siempre al INICIO con número negativo
-                 const d = new Date(newDate + 'T12:00:00'); 
+                 const d = new Date(newDate + 'T12:00:00');
                  const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-                 const dayName = days[d.getDay()];
-                 
+                 let dayName = days[d.getDay()];
+                 if (dayName === 'Domingo') dayName = 'Lunes';
+
                  // Encontrar el mínimo orden existente y restar 1 para ir antes
                  const existingInDay = clients.filter(c => 
                     c.freq !== 'on_demand' && 
