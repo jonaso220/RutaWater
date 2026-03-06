@@ -63,8 +63,10 @@ var sanitizeClientData = function(data) {
 
 var firestoreRetry = function(operation, maxRetries) {
     maxRetries = maxRetries || 3;
+    var NON_RETRYABLE = ['permission-denied', 'invalid-argument', 'not-found', 'already-exists', 'failed-precondition', 'unauthenticated'];
     var attempt = function(retriesLeft) {
         return operation().catch(function(e) {
+            if (NON_RETRYABLE.includes(e.code)) throw e;
             if (retriesLeft <= 1) throw e;
             var delay = Math.pow(2, maxRetries - retriesLeft) * 1000;
             return new Promise(function(r) { setTimeout(r, delay); }).then(function() {

@@ -855,18 +855,22 @@ const GroupModal = ({ isOpen, onClose, user, groupData, onGroupUpdate }) => {
 
     if (!isOpen) return null;
 
-    const generateCode = () => {
+    const generateUniqueCode = async () => {
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let code = '';
-        for (let i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
-        return code;
+        for (let attempt = 0; attempt < 10; attempt++) {
+            let code = '';
+            for (let i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+            const existing = await db.collection('groups').where('code', '==', code).get();
+            if (existing.empty) return code;
+        }
+        throw new Error('No se pudo generar un código único');
     };
 
     const handleCreateGroup = async () => {
         setLoading(true);
         setError('');
         try {
-            const code = generateCode();
+            const code = await generateUniqueCode();
             const groupId = `group_${user.uid}_${Date.now()}`;
 
             // Crear documento del grupo

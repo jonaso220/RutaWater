@@ -215,11 +215,11 @@ const [toast, setToast] = React.useState(null);
     }, [user, groupData]);
 
     // --- AUTO-LIMPIEZA: Completados "una vez" expirados ---
-    const cleanupDoneRef = React.useRef(false);
+    const cleanupDoneRef = React.useRef(0);
     React.useEffect(() => {
-        if (cleanupDoneRef.current) return;
+        if (cleanupDoneRef.current === clients.length) return;
         if (clients.length === 0) return;
-        cleanupDoneRef.current = true;
+        cleanupDoneRef.current = clients.length;
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -418,9 +418,50 @@ const [toast, setToast] = React.useState(null);
                                 });
                             }
 
-                            // Update keeper's hasDebt if duplicate had debts
+                            // Merge data from duplicate into keeper (additive - never lose data)
+                            const mergeUpdate = {};
+
+                            // Preserve hasDebt if duplicate had debts
                             if (dupDebts.length > 0 && !keeper.hasDebt) {
-                                batch.update(db.collection('clients').doc(keeper.id), { hasDebt: true });
+                                mergeUpdate.hasDebt = true;
+                            }
+
+                            // Concatenate notes if duplicate has notes that differ
+                            if (dup.notes && dup.notes.trim() && dup.notes.trim() !== (keeper.notes || '').trim()) {
+                                mergeUpdate.notes = keeper.notes ? (keeper.notes + '\n' + dup.notes) : dup.notes;
+                            }
+
+                            // For each product, keep the max quantity between keeper and duplicate
+                            if (dup.products && dup.products.length > 0) {
+                                const keeperProducts = (keeper.products || []).slice();
+                                dup.products.forEach(dp => {
+                                    const existing = keeperProducts.find(kp => kp.name === dp.name);
+                                    if (existing) {
+                                        existing.qty = Math.max(existing.qty || 0, dp.qty || 0);
+                                    } else {
+                                        keeperProducts.push(dp);
+                                    }
+                                });
+                                mergeUpdate.products = keeperProducts;
+                            }
+
+                            // OR of both isStarred values
+                            if (dup.isStarred && !keeper.isStarred) {
+                                mergeUpdate.isStarred = true;
+                            }
+
+                            // Keep duplicate's alarm if keeper has none
+                            if (dup.alarm && !keeper.alarm) {
+                                mergeUpdate.alarm = dup.alarm;
+                            }
+
+                            // Keep duplicate's address if keeper has none
+                            if (dup.address && !keeper.address) {
+                                mergeUpdate.address = dup.address;
+                            }
+
+                            if (Object.keys(mergeUpdate).length > 0) {
+                                batch.update(db.collection('clients').doc(keeper.id), mergeUpdate);
                             }
 
                             // Delete the duplicate client
@@ -493,9 +534,9 @@ const [toast, setToast] = React.useState(null);
     const handleDebtPaid = async (debt) => {
         try {
             await firestoreRetry(() => db.collection('debts').doc(debt.id).delete());
-            // Usar estado local (ya sincronizado) para verificar si quedan deudas
-            const remaining = debts.filter(d => d.clientId === debt.clientId && d.id !== debt.id);
-            if (remaining.length === 0) {
+            // Query Firestore directly to avoid race condition with stale closure state
+            const remainingSnap = await db.collection('debts').where('clientId', '==', debt.clientId).get();
+            if (remainingSnap.empty) {
                 await firestoreRetry(() => db.collection('clients').doc(debt.clientId).update({ hasDebt: false }));
             }
         } catch(e) { console.error("Error eliminando deuda:", e); showUndoToast(getErrorMessage(e), null); }
@@ -541,9 +582,9 @@ const [toast, setToast] = React.useState(null);
     const handleTransferReviewed = async (transfer) => {
         try {
             await firestoreRetry(() => db.collection('transfers').doc(transfer.id).delete());
-            // Usar estado local (ya sincronizado) para verificar si quedan transferencias
-            const remaining = transfers.filter(t => t.clientId === transfer.clientId && t.id !== transfer.id);
-            if (remaining.length === 0) {
+            // Query Firestore directly to avoid race condition with stale closure state
+            const remainingSnap = await db.collection('transfers').where('clientId', '==', transfer.clientId).get();
+            if (remainingSnap.empty) {
                 await firestoreRetry(() => db.collection('clients').doc(transfer.clientId).update({ hasPendingTransfer: false }));
             }
         } catch(e) { console.error("Error eliminando transferencia:", e); showUndoToast(getErrorMessage(e), null); }
@@ -923,7 +964,27 @@ const [toast, setToast] = React.useState(null);
     // --- HANDLER: Actualización rápida de cliente (desde modal del directorio) ---
     const handleQuickUpdateClient = async (clientId, data) => {
         try {
-            var updateData = { ...data, updatedAt: new Date() };
+            // Sanitize incoming data before writing to Firestore
+            var sanitized = {};
+            if (data.name !== undefined) sanitized.name = sanitizeString(data.name, 100);
+            if (data.address !== undefined) sanitized.address = sanitizeString(data.address, 200);
+            if (data.phone !== undefined) sanitized.phone = sanitizePhone(data.phone);
+            if (data.notes !== undefined) sanitized.notes = sanitizeString(data.notes, 500);
+            if (data.mapsLink !== undefined) sanitized.mapsLink = (data.mapsLink && isSafeUrl(data.mapsLink)) ? data.mapsLink : '';
+            if (data.freq !== undefined) sanitized.freq = ['weekly','biweekly','triweekly','monthly','once','on_demand'].indexOf(data.freq) !== -1 ? data.freq : 'weekly';
+            if (data.specificDate !== undefined) sanitized.specificDate = sanitizeString(data.specificDate, 10);
+            if (data.products !== undefined) {
+                var validProducts = ['b20','b12','b6','soda','bombita','disp_elec_new','disp_elec_chg','disp_nat'];
+                sanitized.products = {};
+                validProducts.forEach(function(pid) {
+                    var val = data.products[pid];
+                    if (val !== undefined) {
+                        var n = parseInt(val, 10);
+                        sanitized.products[pid] = (!isNaN(n) && n >= 0 && n <= 9999) ? n : 0;
+                    }
+                });
+            }
+            var updateData = { ...sanitized, updatedAt: new Date() };
             // Si es pedido "una vez" y cambió la fecha, recalcular día y orden
             // Solo recalcular posición si la fecha realmente cambió
             const existingClient = clients.find(c => c.id === clientId);
@@ -1316,11 +1377,13 @@ const [toast, setToast] = React.useState(null);
         if (!isAdmin) { showUndoToast("No tenés permisos para eliminar clientes.", null); return; }
         setConfirmModal({ isOpen: true, title: '¿Eliminar Definitivamente?', message: 'Se borrará para siempre.', isDanger: true, action: async () => {
         try {
+            const batch = db.batch();
             const clientDebts = debts.filter(d => d.clientId === id);
-            for (const d of clientDebts) { await firestoreRetry(() => db.collection('debts').doc(d.id).delete()); }
+            for (const d of clientDebts) { batch.delete(db.collection('debts').doc(d.id)); }
             const clientTransfers = transfers.filter(t => t.clientId === id);
-            for (const t of clientTransfers) { await firestoreRetry(() => db.collection('transfers').doc(t.id).delete()); }
-            await firestoreRetry(() => db.collection('clients').doc(id).delete());
+            for (const t of clientTransfers) { batch.delete(db.collection('transfers').doc(t.id)); }
+            batch.delete(db.collection('clients').doc(id));
+            await firestoreRetry(() => batch.commit());
         } catch(e) { console.error("Error eliminando cliente:", e); showUndoToast(getErrorMessage(e), null); }
         setConfirmModal(prev => ({...prev, isOpen: false}));
     } }); };
