@@ -284,7 +284,7 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
                 {client.notes && (
                     <div className="text-sm bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 p-2 rounded border border-yellow-100 dark:border-yellow-900/30 flex gap-1 items-start min-w-0 overflow-hidden">
                         <span className="shrink-0">📝</span>
-                        <span className="break-words min-w-0">{client.notes}</span>
+                        <span className="break-words min-w-0">{renderTextWithLinks(client.notes)}</span>
                     </div>
                 )}
 
