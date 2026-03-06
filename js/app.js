@@ -924,7 +924,10 @@ const [toast, setToast] = React.useState(null);
             if (name === 'specificDate' && value) {
                 const d = new Date(value + 'T12:00:00');
                 const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-                const dayName = days[d.getDay()];
+                let dayName = days[d.getDay()];
+                if (dayName === 'Domingo') {
+                    dayName = 'Lunes';
+                }
                 updates.visitDay = dayName;
                 updates.visitDays = [dayName];
             }
@@ -1351,14 +1354,8 @@ const [toast, setToast] = React.useState(null);
                  newData.listOrder = listOrders[newDays[0]];
             }
             
-            if (clientData.freq === 'on_demand' || clientData.visitDay === 'Sin Asignar') {
-                await firestoreRetry(() => db.collection('clients').doc(clientData.id).update(newData));
-                showUndoToast("Cliente reactivado", null);
-            } else {
-                newData.createdAt = new Date();
-                await firestoreRetry(() => db.collection('clients').add(newData));
-                showUndoToast("Visita adicional creada", null);
-            }
+            await firestoreRetry(() => db.collection('clients').doc(clientData.id).update(newData));
+            showUndoToast("Cliente reactivado", null);
             setScheduleClient(null);
             setSelectedDay(newData.visitDays[0]);
             setView('list');
@@ -1759,6 +1756,11 @@ const [toast, setToast] = React.useState(null);
             sortableInstances.current = [];
         };
     }, [groupedClients, selectedDay, view]);
+
+    const completedClientsForDay = React.useMemo(() =>
+        selectedDay !== '' ? getCompletedClients(selectedDay) : [],
+        [getCompletedClients, selectedDay]
+    );
 
     if (loadingAuth) return <div className="min-h-screen flex items-center justify-center text-blue-600 font-bold">Cargando...</div>;
     if (!user) return <LoginScreen onLogin={handleGoogleLogin} />;
@@ -2180,11 +2182,11 @@ const [toast, setToast] = React.useState(null);
                         )}
                         
                         {/* SECCIÓN COMPLETADOS */}
-                        {selectedDay !== '' && getCompletedClients(selectedDay).length > 0 && (
+                        {selectedDay !== '' && completedClientsForDay.length > 0 && (
                             <div className="mt-8 pt-4 border-t-2 border-dashed border-gray-200 dark:border-gray-700">
                                 <div className="flex justify-between items-center mb-3">
                                     <h3 className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                                        ✅ Completados ({getCompletedClients(selectedDay).length})
+                                        ✅ Completados ({completedClientsForDay.length})
                                     </h3>
                                     <button
                                         onClick={() => handleClearCompleted(selectedDay)}
@@ -2194,7 +2196,7 @@ const [toast, setToast] = React.useState(null);
                                     </button>
                                 </div>
                                 <div className="grid grid-cols-1 gap-2">
-                                    {getCompletedClients(selectedDay).map(client => (
+                                    {completedClientsForDay.map(client => (
                                         <Card key={client.id} className="p-3 opacity-60 hover:opacity-100 transition-opacity bg-gray-50 dark:bg-gray-800/50">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">

@@ -165,6 +165,9 @@ const DebtModal = ({ isOpen, client, onClose, onSave }) => {
                     <input
                         type="number"
                         inputMode="decimal"
+                        min="1"
+                        max="999999"
+                        step="1"
                         className="w-full p-3 pl-8 text-2xl font-bold text-center border rounded-xl dark:bg-gray-700 dark:text-white dark:border-gray-600 focus:ring-2 focus:ring-red-500 outline-none"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
@@ -174,7 +177,7 @@ const DebtModal = ({ isOpen, client, onClose, onSave }) => {
                 </div>
                 <div className="flex gap-3">
                     <Button variant="secondary" onClick={onClose} className="flex-1">Cancelar</Button>
-                    <Button variant="danger" onClick={() => onSave(client, amount)} className="flex-1 !bg-red-600 !text-white hover:!bg-red-700">
+                    <Button variant="danger" onClick={() => { const numAmount = parseFloat(amount); if (isNaN(numAmount) || numAmount <= 0 || numAmount > 999999) return; onSave(client, Math.round(numAmount * 100) / 100); }} className="flex-1 !bg-red-600 !text-white hover:!bg-red-700">
                         <Icons.DollarSign size={16}/> Añadir Deuda
                     </Button>
                 </div>
@@ -212,6 +215,9 @@ const EditDebtModal = ({ isOpen, debt, onClose, onSave }) => {
                     <input
                         type="number"
                         inputMode="decimal"
+                        min="1"
+                        max="999999"
+                        step="1"
                         className="w-full p-3 pl-8 text-2xl font-bold text-center border rounded-xl dark:bg-gray-700 dark:text-white dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
@@ -220,7 +226,7 @@ const EditDebtModal = ({ isOpen, debt, onClose, onSave }) => {
                 </div>
                 <div className="flex gap-3">
                     <Button variant="secondary" onClick={onClose} className="flex-1">Cancelar</Button>
-                    <Button onClick={async () => { await onSave(debt, amount); onClose(); }} className="flex-1">
+                    <Button onClick={async () => { const numAmount = parseFloat(amount); if (isNaN(numAmount) || numAmount <= 0 || numAmount > 999999) return; await onSave(debt, Math.round(numAmount * 100) / 100); onClose(); }} className="flex-1">
                         <Icons.Save size={16}/> Guardar
                     </Button>
                 </div>
@@ -268,7 +274,7 @@ const ViewDebtModal = ({ isOpen, client, debts, onClose, onPaid, onEdit, onAddMo
                         {clientDebts.map(debt => (
                             <div key={debt.id} className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-lg p-3 flex items-center justify-between">
                                 <div>
-                                    <p className="text-xl font-black text-red-600 dark:text-red-400">${debt.amount?.toLocaleString()}</p>
+                                    <p className="text-xl font-black text-red-600 dark:text-red-400">${debt.amount?.toLocaleString('es-UY')}</p>
                                     {debt.createdAt && (
                                         <p className="text-[10px] text-gray-400 dark:text-gray-500">
                                             {new Date(debt.createdAt.seconds ? debt.createdAt.seconds * 1000 : debt.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -300,7 +306,7 @@ const ViewDebtModal = ({ isOpen, client, debts, onClose, onPaid, onEdit, onAddMo
 
                 {clientDebts.length > 1 && (
                     <div className="bg-red-100 dark:bg-red-900/20 rounded-lg p-2 mb-3 text-center">
-                        <span className="text-sm font-bold text-red-700 dark:text-red-400">Total: ${total.toLocaleString()}</span>
+                        <span className="text-sm font-bold text-red-700 dark:text-red-400">Total: ${total.toLocaleString('es-UY')}</span>
                     </div>
                 )}
 
@@ -376,7 +382,9 @@ const ScheduleModal = ({ isOpen, client, onClose, onSave }) => {
             alert('Por favor, selecciona al menos un día.');
             return;
         }
-        onSave(client, localDays, localFreq, localDate, localNotes, localProducts);
+        const safeDays = localDays.map(d => d === 'Domingo' ? 'Lunes' : d);
+        const uniqueDays = [...new Set(safeDays)];
+        onSave(client, uniqueDays, localFreq, localDate, localNotes, localProducts);
     };
 
     return (
@@ -667,7 +675,7 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
             data.name = name.trim();
             data.address = address.trim();
             data.phone = phone.trim();
-            data.mapsLink = mapsLink.trim();
+            data.mapsLink = (mapsLink && isSafeUrl(mapsLink.trim())) ? mapsLink.trim() : '';
         }
         onSave(client.id, data);
         onClose();

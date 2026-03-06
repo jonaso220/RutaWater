@@ -326,6 +326,7 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
            pc.phone === nc.phone && pc.freq === nc.freq && pc.isStarred === nc.isStarred &&
            pc.hasDebt === nc.hasDebt && pc.hasPendingTransfer === nc.hasPendingTransfer &&
            pc.alarm === nc.alarm && pc.notes === nc.notes && pc.specificDate === nc.specificDate &&
+           pc.mapsLink === nc.mapsLink && pc.lat === nc.lat && pc.lng === nc.lng &&
            pc.isNote === nc.isNote && pc.isCompleted === nc.isCompleted &&
            (pc.lastVisited?.seconds || 0) === (nc.lastVisited?.seconds || 0) &&
            JSON.stringify(pc.products) === JSON.stringify(nc.products) &&

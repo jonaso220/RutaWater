@@ -40,7 +40,9 @@ var sanitizeClientData = function(data) {
     clean.lat = sanitizeString(data.lat, 20);
     clean.lng = sanitizeString(data.lng, 20);
     clean.freq = ['weekly','biweekly','triweekly','monthly','once','on_demand'].indexOf(data.freq) !== -1 ? data.freq : 'weekly';
-    clean.visitDay = sanitizeString(data.visitDay, 20);
+    var validDaysList = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo','Sin Asignar'];
+    clean.visitDay = validDaysList.includes(data.visitDay) ? data.visitDay : 'Sin Asignar';
+    if (clean.visitDay === 'Domingo') clean.visitDay = 'Lunes';
     clean.specificDate = sanitizeString(data.specificDate, 10);
     clean.locationInput = sanitizeString(data.locationInput, 300);
     clean.mapsLink = (data.mapsLink && isSafeUrl(data.mapsLink)) ? data.mapsLink : '';
@@ -48,6 +50,8 @@ var sanitizeClientData = function(data) {
     // Sanitizar visitDays
     var validDays = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
     clean.visitDays = Array.isArray(data.visitDays) ? data.visitDays.filter(function(d) { return validDays.indexOf(d) !== -1; }) : [];
+    clean.visitDays = clean.visitDays.map(function(d) { return d === 'Domingo' ? 'Lunes' : d; });
+    clean.visitDays = [...new Set(clean.visitDays)];
 
     // Sanitizar productos
     var validProducts = ['b20','b12','b6','soda','bombita','disp_elec_new','disp_elec_chg','disp_nat'];
@@ -91,7 +95,8 @@ var getErrorMessage = function(error) {
 var parseDate = function(val) {
     if (!val) return null;
     if (val.seconds !== undefined) return new Date(val.seconds * 1000);
-    return new Date(val);
+    var d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
 };
 
 var normalizeText = function(text) {
@@ -230,6 +235,7 @@ var normalizePhone = function(phone) {
     if (clean.length >= 11) return clean;
     // Formato local uruguayo
     if (clean.startsWith('0')) return '598' + clean.slice(1);
+    if (clean.length === 10 && !clean.startsWith('598')) return '598' + clean;
     if (clean.length <= 9) return '598' + clean;
     return clean;
 };
@@ -296,15 +302,16 @@ var parseContactString = function(str) {
 
     // 5. Extraer productos
     var fullText = str.toLowerCase();
+    var productText = fullText.replace(/\d{7,}/g, '').replace(/calle\s+\d+/gi, '');
 
-    var b20Match = fullText.match(/bid[oó]n[:\s]*20\s*(?:lts?|litros?)?\s*(\d+)/i) || fullText.match(/20\s*(?:lts?|litros?)\s*(\d+)/i);
-    if (b20Match) products.b20 = b20Match[1];
+    var b20Match = fullText.match(/bid[oó]n[:\s]*20\s*(?:lts?|litros?)?\s*(\d+)/i) || productText.match(/20\s*(?:lts?|litros?)\s*(\d+)/i);
+    if (b20Match) products.b20 = sanitizeProductQty(b20Match[1]);
 
-    var b12Match = fullText.match(/bid[oó]n[:\s]*12\s*(?:lts?|litros?)?\s*(\d+)/i) || fullText.match(/12\s*(?:lts?|litros?)\s*(\d+)/i);
-    if (b12Match) products.b12 = b12Match[1];
+    var b12Match = fullText.match(/bid[oó]n[:\s]*12\s*(?:lts?|litros?)?\s*(\d+)/i) || productText.match(/12\s*(?:lts?|litros?)\s*(\d+)/i);
+    if (b12Match) products.b12 = sanitizeProductQty(b12Match[1]);
 
-    var b6Match = fullText.match(/bid[oó]n[:\s]*6\s*(?:lts?|litros?)?\s*(\d+)/i) || fullText.match(/6\s*(?:lts?|litros?)\s*(\d+)/i);
-    if (b6Match) products.b6 = b6Match[1];
+    var b6Match = fullText.match(/bid[oó]n[:\s]*6\s*(?:lts?|litros?)?\s*(\d+)/i) || productText.match(/6\s*(?:lts?|litros?)\s*(\d+)/i);
+    if (b6Match) products.b6 = sanitizeProductQty(b6Match[1]);
 
     var sodaMatch = fullText.match(/soda\s*:\s*(\d+)/i);
     if (sodaMatch && parseInt(sodaMatch[1]) > 0) products.soda = sodaMatch[1];
