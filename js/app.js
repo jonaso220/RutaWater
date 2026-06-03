@@ -597,7 +597,9 @@ const [toast, setToast] = React.useState(null);
                 await firestoreRetry(() => db.collection('clients').doc(client.id).update(updateData));
                 showUndoToast("Pedido completado", undoAction);
             } else {
-                // Periódico: escribir a Firestore y dejar que onSnapshot actualice la UI
+                // Periódico: escribir a Firestore y dejar que onSnapshot actualice la UI.
+                // Sincronizado con la app nativa (markAsDone): se guarda lastVisited y se
+                // limpia specificDate; la rotación la calcula getNextVisitDate desde lastVisited.
                 const prevFields = {
                     lastVisited: client.lastVisited || null,
                     alarm: client.alarm || '',
@@ -607,33 +609,10 @@ const [toast, setToast] = React.useState(null);
                     prevFields.specificDate = client.specificDate;
                 }
 
-                // Para clientes sin specificDate, usar la fecha del día que se está viendo
-                // (no new Date()) para que getNextVisitDate lo detecte correctamente
-                // incluso si se marca "listo" desde un día anterior.
-                let visitDate = new Date();
-                if (!client.specificDate && selectedDay) {
-                    const targetDate = getNextVisitDate(client, selectedDay);
-                    if (targetDate) {
-                        visitDate = targetDate;
-                    }
-                }
-                const updates = { lastVisited: visitDate, alarm: '' };
+                const updates = { lastVisited: new Date(), alarm: '' };
 
                 if (client.specificDate) {
-                    let interval = 1;
-                    if (client.freq === 'biweekly') interval = 2;
-                    if (client.freq === 'triweekly') interval = 3;
-                    if (client.freq === 'monthly') interval = 4;
-                    const currentSpecificDate = new Date(client.specificDate + 'T12:00:00');
-                    const nextSpecificDate = new Date(currentSpecificDate);
-                    nextSpecificDate.setDate(nextSpecificDate.getDate() + (interval * 7));
-                    const tomorrow = new Date();
-                    tomorrow.setHours(0,0,0,0);
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    while (nextSpecificDate < tomorrow) {
-                        nextSpecificDate.setDate(nextSpecificDate.getDate() + (interval * 7));
-                    }
-                    updates.specificDate = nextSpecificDate.toISOString().split('T')[0];
+                    updates.specificDate = '';
                 }
                 if (client.isStarred) {
                     updates.isStarred = false;

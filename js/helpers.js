@@ -159,9 +159,13 @@ var getWeekNumber = function(d) {
     return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
 };
 
+// Sincronizado con la app nativa (src/utils/helpers.ts:getNextVisitDate).
+// specificDate sólo es fecha fija para 'once'; para periódicos es una fecha ancla
+// de inicio y la rotación real se calcula desde lastVisited.
 var getNextVisitDate = function(client, forDay) {
-    if (client.specificDate) return new Date(client.specificDate + 'T12:00:00');
-    if (client.freq === 'once') return null;
+    if (client.freq === 'once') {
+        return client.specificDate ? new Date(client.specificDate + 'T12:00:00') : null;
+    }
 
     var today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -188,15 +192,45 @@ var getNextVisitDate = function(client, forDay) {
         var lastVisitedDay = new Date(lastVisited);
         lastVisitedDay.setHours(0, 0, 0, 0);
 
-        if (lastVisitedDay.getTime() >= today.getTime()) {
-            nextDate.setDate(nextDate.getDate() + (intervalWeeks * 7));
+        if (intervalWeeks === 1) {
+            // Semanal: si fue visitado después de la ocurrencia anterior del día,
+            // ya fue atendido este ciclo — pasar a la próxima semana. Maneja el
+            // caso de marcar "Listo" un día antes del día programado.
+            var prevOccurrence = new Date(nextDate);
+            prevOccurrence.setDate(prevOccurrence.getDate() - 7);
+            if (lastVisitedDay.getTime() > prevOccurrence.getTime()) {
+                nextDate.setDate(nextDate.getDate() + 7);
+            }
         } else {
-            if (intervalWeeks > 1) {
-                var daysSince = (nextDate.getTime() - lastVisitedDay.getTime()) / (1000 * 3600 * 24);
-                if (daysSince < (intervalWeeks * 7) - 3) {
-                    if (daysSince < 7) {
-                        nextDate.setDate(nextDate.getDate() + (intervalWeeks * 7) - 7);
-                    }
+            // Quincenal/cada 21/mensual: garantizar al menos intervalWeeks*7 días
+            // desde la última visita.
+            var minNextDate = new Date(lastVisitedDay);
+            minNextDate.setDate(minNextDate.getDate() + intervalWeeks * 7);
+            while (nextDate < minNextDate) {
+                nextDate.setDate(nextDate.getDate() + 7);
+            }
+        }
+    }
+
+    // Para periódicos, respetar specificDate como fecha ancla de inicio.
+    if (client.specificDate) {
+        var startDate = new Date(client.specificDate + 'T00:00:00');
+        if (startDate > today && nextDate < startDate) {
+            // Fecha de inicio futura: empujar nextDate al primer día que coincida
+            // en o después de startDate.
+            while (nextDate < startDate) {
+                nextDate.setDate(nextDate.getDate() + 7);
+            }
+        } else if (!lastVisited && startDate <= today && nextDate > today) {
+            // Fecha pasada/hoy sin lastVisited (recién editado): traer nextDate a la
+            // ocurrencia de la misma semana que specificDate para que reaparezca ya.
+            // Sólo si specificDate es reciente (últimos 7 días) para no traer datos viejos.
+            var daysSinceStart = Math.round((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (daysSinceStart < 7) {
+                var candidate = new Date(nextDate);
+                candidate.setDate(candidate.getDate() - 7);
+                if (candidate >= startDate) {
+                    nextDate.setTime(candidate.getTime());
                 }
             }
         }
