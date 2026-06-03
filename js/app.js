@@ -283,6 +283,37 @@ const [toast, setToast] = React.useState(null);
         catch (e) { showUndoToast(getErrorMessage(e), null); throw e; }
     };
 
+    // --- CATÁLOGO DE PRODUCTOS (editor; escribe en settings como la app nativa) ---
+    const [catalogOpen, setCatalogOpen] = React.useState(false);
+    const saveCatalogPatch = async (patch) => {
+        try { await firestoreRetry(() => db.collection('settings').doc(groupData?.groupId || user.uid).set(patch, { merge: true })); }
+        catch (e) { showUndoToast(getErrorMessage(e), null); }
+    };
+    const catalogRename = (id, label) => saveCatalogPatch({ productNames: { ...(appSettings?.productNames || {}), [id]: label } });
+    const catalogSetEmoji = (id, emoji) => saveCatalogPatch({ productEmojis: { ...(appSettings?.productEmojis || {}), [id]: emoji } });
+    const catalogToggleHidden = (id) => {
+        const cur = Array.isArray(appSettings?.productHidden) ? appSettings.productHidden : [];
+        const next = cur.indexOf(id) > -1 ? cur.filter(x => x !== id) : cur.concat([id]);
+        saveCatalogPatch({ productHidden: next });
+    };
+    const catalogAddProduct = (label, emoji, short) => {
+        const cur = Array.isArray(appSettings?.customProducts) ? appSettings.customProducts : [];
+        const newProd = { id: 'custom_' + Date.now(), label: label, emoji: emoji || '📦', short: short || label.slice(0, 12) };
+        saveCatalogPatch({ customProducts: cur.concat([newProd]) });
+    };
+    const catalogRemoveCustom = (id) => {
+        const cur = Array.isArray(appSettings?.customProducts) ? appSettings.customProducts : [];
+        saveCatalogPatch({ customProducts: cur.filter(p => p.id !== id) });
+    };
+    const catalogMove = (id, dir) => {
+        const ids = PRODUCTS.map(p => p.id);
+        const idx = ids.indexOf(id);
+        const swap = idx + dir;
+        if (idx < 0 || swap < 0 || swap >= ids.length) return;
+        const t = ids[idx]; ids[idx] = ids[swap]; ids[swap] = t;
+        saveCatalogPatch({ productOrder: ids });
+    };
+
     // --- ESTADO NOTAS ---
     const [noteModal, setNoteModal] = React.useState(false);
     const [editNoteData, setEditNoteData] = React.useState(null);
@@ -1992,6 +2023,7 @@ const [toast, setToast] = React.useState(null);
             {relationshipClient && <RelationshipsModal isOpen={true} client={clients.find(c => c.id === relationshipClient.id) || relationshipClient} allClients={clients} onClose={() => setRelationshipClient(null)} onAdd={handleAddRelationship} onRemove={handleRemoveRelationship} />}
             {smartOrderOpen && <SmartOrderModal isOpen={true} onClose={() => setSmartOrderOpen(false)} onInterpret={aiParseOrder} onConfirm={handleAiConfirm} />}
             {dailyLoadOpen && <DailyLoadModal isOpen={true} day={dailyLoadDay} initial={dailyLoadInitial} suggested={dailyLoadSuggested} onClose={() => setDailyLoadOpen(false)} onSave={saveDailyLoad} />}
+            {catalogOpen && <ProductCatalogModal isOpen={true} products={PRODUCTS} hidden={appSettings?.productHidden || []} onClose={() => setCatalogOpen(false)} onRename={catalogRename} onSetEmoji={catalogSetEmoji} onToggleHidden={catalogToggleHidden} onAdd={catalogAddProduct} onRemove={catalogRemoveCustom} onMove={catalogMove} />}
             {showSettingsModal && <SettingsModal
                 isOpen={true}
                 settings={appSettings}
@@ -2548,6 +2580,7 @@ const [toast, setToast] = React.useState(null);
                                 <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">📊 Registro de clientes</h2>
                                 <div className="flex gap-1.5">
                                     {!isWide && <button onClick={() => { setView('directory'); setTableSelectedClient(null); }} className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1" title="Volver a tarjetas">👥 Tarjetas</button>}                                    <button onClick={() => setSmartOrderOpen(true)} className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-purple-200 dark:hover:bg-purple-800 flex items-center gap-1" title="Crear/agendar desde texto con IA">✨ Pedido IA</button>
+                                    <button onClick={() => setCatalogOpen(true)} className="text-xs bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-teal-200 dark:hover:bg-teal-800 flex items-center gap-1" title="Editar catálogo de productos">📦 Productos</button>
                                     <button onClick={() => setColWidths({ ...DEFAULT_COL_WIDTHS })} className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1" title="Restablecer anchos de columnas">↔ Anchos</button>
                                     <button onClick={handleExportClients} className="text-xs bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-green-200 dark:hover:bg-green-800 flex items-center gap-1">📤 CSV</button>
                                     <button onClick={handleExportBackup} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center gap-1">💾 Backup</button>

@@ -1006,6 +1006,88 @@ const DailyLoadModal = ({ isOpen, day, initial, suggested, onClose, onSave }) =>
 };
 
 
+// --- COMPONENTE MODAL CATÁLOGO DE PRODUCTOS ---
+const ProductCatalogModal = ({ isOpen, products, hidden, onClose, onRename, onSetEmoji, onToggleHidden, onAdd, onRemove, onMove }) => {
+    const [iconPickerFor, setIconPickerFor] = React.useState(null);
+    const [adding, setAdding] = React.useState(false);
+    const [newName, setNewName] = React.useState('');
+    const [newShort, setNewShort] = React.useState('');
+    const [newEmoji, setNewEmoji] = React.useState('');
+
+    React.useEffect(() => { if (isOpen) { setIconPickerFor(null); setAdding(false); setNewName(''); setNewShort(''); setNewEmoji(''); } }, [isOpen]);
+    if (!isOpen) return null;
+
+    const hiddenSet = hidden || [];
+    const submitAdd = () => {
+        if (!newName.trim()) return;
+        onAdd(newName.trim(), newEmoji.trim() || '📦', newShort.trim());
+        setAdding(false); setNewName(''); setNewShort(''); setNewEmoji('');
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm" style={{ zIndex: 110 }}>
+            <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl shadow-2xl w-full sm:max-w-lg max-h-[88vh] flex flex-col">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                    <h3 className="text-lg font-bold dark:text-white flex items-center gap-2">📦 Catálogo de productos</h3>
+                    <button onClick={onClose}><Icons.X size={20} className="text-gray-400 dark:text-gray-500" /></button>
+                </div>
+                <div className="overflow-y-auto flex-1 p-4 space-y-2">
+                    {products.map((p, idx) => {
+                        const isCustom = String(p.id).indexOf('custom_') === 0;
+                        const isHidden = hiddenSet.indexOf(p.id) > -1;
+                        return (
+                            <div key={p.id} className={`border rounded-lg p-2 ${isHidden ? 'border-gray-100 dark:border-gray-700 opacity-50' : 'border-gray-200 dark:border-gray-700'}`}>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => setIconPickerFor(iconPickerFor === p.id ? null : p.id)} title="Cambiar ícono" className="w-9 h-9 flex-shrink-0 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900/30"><ProductGlyph product={p} size={22} /></button>
+                                    <input defaultValue={p.label} key={p.label} onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== p.label) onRename(p.id, v); }} className="flex-1 min-w-0 p-1.5 border rounded bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
+                                    <span className="text-[10px] text-gray-400 dark:text-gray-500 w-12 text-center flex-shrink-0">{p.short}</span>
+                                    <button onClick={() => onMove(p.id, -1)} disabled={idx === 0} className="w-6 h-7 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 disabled:opacity-30 text-xs">▲</button>
+                                    <button onClick={() => onMove(p.id, 1)} disabled={idx === products.length - 1} className="w-6 h-7 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 disabled:opacity-30 text-xs">▼</button>
+                                    <button onClick={() => onToggleHidden(p.id)} title={isHidden ? 'Mostrar' : 'Ocultar'} className="w-7 h-7 rounded bg-gray-100 dark:bg-gray-700 text-sm">{isHidden ? '🚫' : '👁'}</button>
+                                    {isCustom && <button onClick={() => onRemove(p.id)} title="Eliminar" className="w-7 h-7 rounded bg-red-50 dark:bg-red-900/20 text-sm">🗑️</button>}
+                                </div>
+                                {iconPickerFor === p.id && (
+                                    <div className="mt-2 bg-gray-50 dark:bg-gray-700/40 rounded-lg p-2">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <input defaultValue={p.sticker ? '' : p.icon} maxLength={6} placeholder="Emoji" className="w-16 p-1.5 text-center text-lg border rounded bg-white dark:bg-gray-800 dark:border-gray-600" onKeyDown={(e) => { if (e.key === 'Enter') { const v = e.target.value.trim(); if (v) { onSetEmoji(p.id, v); setIconPickerFor(null); } } }} />
+                                            <span className="text-[10px] text-gray-400 dark:text-gray-500">Escribí un emoji y Enter, o elegí un sticker:</span>
+                                        </div>
+                                        <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto">
+                                            {STICKER_IDS.map(sid => (
+                                                <button key={sid} onClick={() => { onSetEmoji(p.id, 'sticker:' + sid); setIconPickerFor(null); }} className="p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 flex items-center justify-center" title={sid}>
+                                                    <img src={'stickers/' + sid + '.png'} alt="" className="w-7 h-7 object-contain" />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+                <div className="p-4 border-t border-gray-100 dark:border-gray-700">
+                    {adding ? (
+                        <div className="space-y-2">
+                            <div className="flex gap-2">
+                                <input value={newEmoji} onChange={(e) => setNewEmoji(e.target.value)} maxLength={6} placeholder="📦" className="w-14 p-2 text-center text-lg border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600" />
+                                <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Nombre del producto" className="flex-1 p-2 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
+                                <input value={newShort} onChange={(e) => setNewShort(e.target.value)} placeholder="Corto" maxLength={12} className="w-20 p-2 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => setAdding(false)} className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-sm font-bold">Cancelar</button>
+                                <button onClick={submitAdd} disabled={!newName.trim()} className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold disabled:opacity-50">Agregar producto</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <button onClick={() => setAdding(true)} className="w-full py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-bold hover:bg-gray-200 dark:hover:bg-gray-600">+ Agregar producto</button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 // --- COMPONENTE MODAL CONFIGURACIÓN ---
 const SettingsModal = ({ isOpen, settings, onClose, onSave }) => {
     const DEFAULT_EN_CAMINO = "Buenas \u{1F69A}. Ya estamos en camino, sos el/la siguiente en la lista de entrega. \u{00A1}Nos vemos en unos minutos!\n\nAquapura";
