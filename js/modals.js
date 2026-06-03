@@ -855,6 +855,104 @@ const RelationshipsModal = ({ isOpen, client, allClients, onClose, onAdd, onRemo
 };
 
 
+// --- COMPONENTE MODAL PEDIDO CON IA ---
+const SmartOrderModal = ({ isOpen, onClose, onInterpret, onConfirm }) => {
+    const [text, setText] = React.useState('');
+    const [result, setResult] = React.useState(null);
+    const [loading, setLoading] = React.useState(false);
+    const [saving, setSaving] = React.useState(false);
+    const [error, setError] = React.useState('');
+
+    React.useEffect(() => { if (isOpen) { setText(''); setResult(null); setError(''); setLoading(false); setSaving(false); } }, [isOpen]);
+    if (!isOpen) return null;
+
+    const prodStr = (obj) => {
+        if (!obj) return '';
+        return Object.keys(obj).filter(k => obj[k] > 0).map(k => { const p = PRODUCTS.find(x => x.id === k); return obj[k] + 'x ' + (p ? p.short : k); }).join(', ');
+    };
+
+    const interpret = async () => {
+        if (!text.trim() || loading) return;
+        setLoading(true); setError(''); setResult(null);
+        try { const r = await onInterpret(text.trim()); if (r && r.tool) setResult(r); else setError('No se pudo interpretar el texto.'); }
+        catch (e) { setError((e && e.message) || 'Error al interpretar.'); }
+        finally { setLoading(false); }
+    };
+    const confirm = async () => {
+        if (!result || saving) return;
+        setSaving(true); setError('');
+        try { await onConfirm(result); onClose(); }
+        catch (e) { setError((e && e.message) || 'Error al guardar.'); setSaving(false); }
+    };
+
+    const i = result ? (result.input || {}) : {};
+    const canConfirm = result && result.tool !== 'report_not_found';
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm" style={{ zIndex: 110 }}>
+            <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl shadow-2xl w-full sm:max-w-lg max-h-[88vh] flex flex-col">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                    <h3 className="text-lg font-bold dark:text-white flex items-center gap-2">✨ Pedido con IA</h3>
+                    <button onClick={onClose}><Icons.X size={20} className="text-gray-400 dark:text-gray-500" /></button>
+                </div>
+                <div className="overflow-y-auto flex-1 p-4 space-y-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Escribí o pegá el pedido en lenguaje natural. Ej: <span className="italic">"Juan García, Belgrano 432, los lunes 2 bidones de 20L y un sifón"</span>.</p>
+                    <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Pegá el pedido acá..." className="w-full h-28 p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                    <button onClick={interpret} disabled={loading || !text.trim()} className={`w-full py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 ${loading || !text.trim() ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500' : 'bg-blue-600 text-white hover:bg-blue-500'}`}>{loading ? 'Interpretando…' : '✨ Interpretar'}</button>
+
+                    {error && <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg p-2.5">{error}</div>}
+
+                    {result && (
+                        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/30 text-sm space-y-1">
+                            {result.tool === 'report_not_found' && <p className="text-amber-700 dark:text-amber-300">No encontré el cliente <b>{i.mentioned_name}</b>.{i.reason ? ' ' + i.reason : ''}</p>}
+                            {result.tool === 'create_new_client' && (<>
+                                <p className="font-bold text-green-700 dark:text-green-400">Crear cliente nuevo</p>
+                                <p className="dark:text-gray-200"><b>{(i.name || '').toUpperCase()}</b>{i.phone ? ' · ' + i.phone : ''}</p>
+                                {i.address && <p className="text-gray-500 dark:text-gray-400">📍 {i.address}</p>}
+                                <p className="text-gray-600 dark:text-gray-300">{[i.freq, i.visitDay, i.specificDate].filter(Boolean).join(' · ')}</p>
+                                {prodStr(i.products) && <p className="text-gray-600 dark:text-gray-300">📦 {prodStr(i.products)}</p>}
+                            </>)}
+                            {result.tool === 'schedule_existing_client' && (<>
+                                <p className="font-bold text-blue-700 dark:text-blue-400">Agendar pedido</p>
+                                <p className="dark:text-gray-200"><b>{(i.matched_client_name || '').toUpperCase()}</b></p>
+                                <p className="text-gray-600 dark:text-gray-300">{[i.freq, i.visitDay, i.specificDate].filter(Boolean).join(' · ')}</p>
+                                {prodStr(i.products) && <p className="text-gray-600 dark:text-gray-300">📦 {prodStr(i.products)}</p>}
+                                {prodStr(i.add_products) && <p className="text-green-600 dark:text-green-400">+ {prodStr(i.add_products)}</p>}
+                                {prodStr(i.remove_products) && <p className="text-red-600 dark:text-red-400">− {prodStr(i.remove_products)}</p>}
+                            </>)}
+                            {result.tool === 'merge_products_into_order' && (<>
+                                <p className="font-bold text-blue-700 dark:text-blue-400">Modificar pedido</p>
+                                <p className="dark:text-gray-200"><b>{(i.matched_client_name || '').toUpperCase()}</b></p>
+                                {prodStr(i.add_products) && <p className="text-green-600 dark:text-green-400">+ {prodStr(i.add_products)}</p>}
+                                {prodStr(i.remove_products) && <p className="text-red-600 dark:text-red-400">− {prodStr(i.remove_products)}</p>}
+                            </>)}
+                            {result.tool === 'update_client_data' && (<>
+                                <p className="font-bold text-blue-700 dark:text-blue-400">Actualizar datos</p>
+                                <p className="dark:text-gray-200"><b>{(i.matched_client_name || '').toUpperCase()}</b></p>
+                                {i.address && <p className="text-gray-500 dark:text-gray-400">📍 {i.address}</p>}
+                                {i.phone && <p className="text-gray-500 dark:text-gray-400">📞 {i.phone}</p>}
+                                {i.mapsLink && <p className="text-gray-500 dark:text-gray-400 truncate">🗺️ {i.mapsLink}</p>}
+                            </>)}
+                            {result.tool === 'add_standalone_note' && (<>
+                                <p className="font-bold text-amber-700 dark:text-amber-400">Nota suelta</p>
+                                <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">📝 {i.notes}</p>
+                                {i.specificDate && <p className="text-gray-500 dark:text-gray-400">📆 {i.specificDate}</p>}
+                            </>)}
+                        </div>
+                    )}
+                </div>
+                {canConfirm && (
+                    <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex gap-2">
+                        <button onClick={onClose} className="px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-sm font-bold">Cancelar</button>
+                        <button onClick={confirm} disabled={saving} className="flex-1 py-2.5 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-bold disabled:opacity-50">{saving ? 'Guardando…' : '✓ Confirmar'}</button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+
 // --- COMPONENTE MODAL CONFIGURACIÓN ---
 const SettingsModal = ({ isOpen, settings, onClose, onSave }) => {
     const DEFAULT_EN_CAMINO = "Buenas \u{1F69A}. Ya estamos en camino, sos el/la siguiente en la lista de entrega. \u{00A1}Nos vemos en unos minutos!\n\nAquapura";

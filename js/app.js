@@ -147,6 +147,123 @@ const [toast, setToast] = React.useState(null);
         } catch (e) { showUndoToast(getErrorMessage(e), null); }
     };
 
+    // --- PEDIDO CON IA (mismo endpoint que la app nativa) ---
+    const [smartOrderOpen, setSmartOrderOpen] = React.useState(false);
+    const AI_ENDPOINT = 'https://rutawater-api.netlify.app/api/parse-order';
+
+    const aiResolveNotes = (current, newNotes, mode) => {
+        current = current || '';
+        if (mode === 'clear') return '';
+        if (mode === 'replace') return (newNotes || '').trim();
+        if (mode === 'append') {
+            const add = (newNotes || '').trim();
+            if (!add) return undefined;
+            return current ? (current + '\n' + add) : add;
+        }
+        return undefined; // 'keep' o sin modo → no tocar
+    };
+
+    const aiParseOrder = async (text) => {
+        // Lista de clientes deduplicada (igual que la nativa): agrupa por nombre|teléfono
+        // y descarta el on_demand si hay una versión activa.
+        const baseList = clients.filter(c => c.name && !c.isNote);
+        const groups = {};
+        baseList.forEach(c => {
+            const key = (c.name || '').toLowerCase().trim() + '|' + (c.phone || '').replace(/\D/g, '');
+            (groups[key] = groups[key] || []).push(c);
+        });
+        const visible = [];
+        Object.keys(groups).forEach(k => {
+            const g = groups[k];
+            const hasActive = g.some(c => c.freq && c.freq !== 'on_demand');
+            g.forEach(c => { if (hasActive && c.freq === 'on_demand') return; visible.push(c); });
+        });
+        const payloadClients = visible.map(c => {
+            const products = {};
+            if (c.products) Object.keys(c.products).forEach(k => { const n = parseInt(c.products[k] || 0, 10); if (n > 0) products[k] = n; });
+            return { id: c.id, name: c.name, address: c.address || '', freq: c.freq || 'on_demand', visitDay: c.visitDay || '', specificDate: c.specificDate || '', products: products, notes: c.notes || '' };
+        });
+        const todayIso = new Date().toISOString().slice(0, 10);
+        const headers = { 'Content-Type': 'application/json' };
+        try { const cu = firebase.auth().currentUser; if (cu) { const tk = await cu.getIdToken(); if (tk) headers.Authorization = 'Bearer ' + tk; } } catch (e) {}
+        const res = await fetch(AI_ENDPOINT, { method: 'POST', headers: headers, body: JSON.stringify({ text: text, clients: payloadClients, todayIso: todayIso }) });
+        if (!res.ok) { let b = {}; try { b = await res.json(); } catch (e) {} throw new Error(b.error || ('HTTP ' + res.status)); }
+        return await res.json();
+    };
+
+    const handleAiConfirm = async (result) => {
+        if (!result || !result.tool) return;
+        const i = result.input || {};
+        if (result.tool === 'create_new_client') {
+            const products = {};
+            Object.keys(i.products || {}).forEach(k => { const n = parseInt(i.products[k] || 0, 10); if (n > 0) products[k] = n; });
+            const newData = {
+                name: sanitizeString(i.name || '', 100), phone: sanitizePhone(i.phone || ''), address: sanitizeString(i.address || '', 200),
+                lat: '', lng: '', mapsLink: (i.mapsLink || ''), ...getDataScope(), userId: user.uid,
+                freq: i.freq || 'on_demand', visitDay: i.visitDay || (i.freq && i.freq !== 'on_demand' ? '' : 'Sin Asignar'),
+                visitDays: i.visitDay ? [i.visitDay] : [], specificDate: i.specificDate || '',
+                notes: sanitizeString(i.notes || '', 500), updatedAt: new Date(), startWeek: getWeekNumber(new Date()), listOrder: Date.now(), isPinned: false, products: products
+            };
+            await firestoreRetry(() => db.collection('clients').add(newData));
+            showUndoToast('Cliente "' + (i.name || '') + '" creado.', null);
+            return;
+        }
+        if (result.tool === 'add_standalone_note') {
+            if (!i.notes || !i.notes.trim() || !i.specificDate) throw new Error('Falta texto o fecha de la nota.');
+            await handleSaveNote(i.notes.trim(), i.specificDate);
+            return;
+        }
+        // Tools que requieren un cliente existente
+        const client = clients.find(c => c.id === i.matched_client_id);
+        if (!client) throw new Error('No se encontró el cliente en la lista actual.');
+        if (result.tool === 'merge_products_into_order') {
+            const merged = {};
+            if (client.products) Object.keys(client.products).forEach(k => { const n = parseInt(client.products[k] || 0, 10); if (n > 0) merged[k] = n; });
+            Object.keys(i.add_products || {}).forEach(k => { if (i.add_products[k] > 0) merged[k] = (merged[k] || 0) + i.add_products[k]; });
+            Object.keys(i.remove_products || {}).forEach(k => { if (i.remove_products[k] > 0 && merged[k]) { const nx = merged[k] - i.remove_products[k]; if (nx > 0) merged[k] = nx; else delete merged[k]; } });
+            const updates = { products: merged, updatedAt: new Date() };
+            const nn = aiResolveNotes(client.notes, i.notes, i.notes_mode);
+            if (nn !== undefined) updates.notes = nn;
+            await firestoreRetry(() => db.collection('clients').doc(client.id).update(updates));
+            showUndoToast('Pedido de ' + (i.matched_client_name || client.name) + ' actualizado.', null);
+            return;
+        }
+        if (result.tool === 'update_client_data') {
+            const updates = {};
+            if (i.mapsLink) updates.mapsLink = i.mapsLink;
+            if (i.address) updates.address = sanitizeString(i.address, 200);
+            if (i.phone) updates.phone = sanitizePhone(i.phone);
+            const nn = aiResolveNotes(client.notes, i.notes, i.notes_mode);
+            if (nn !== undefined) updates.notes = nn;
+            if (Object.keys(updates).length === 0) throw new Error('No detecté datos para actualizar.');
+            updates.updatedAt = new Date();
+            await firestoreRetry(() => db.collection('clients').doc(client.id).update(updates));
+            showUndoToast('Datos de ' + (i.matched_client_name || client.name) + ' actualizados.', null);
+            return;
+        }
+        if (result.tool === 'schedule_existing_client') {
+            const isCancellation = i.freq === 'on_demand' || (!i.visitDay && !i.specificDate && i.freq !== 'keep');
+            if (isCancellation) throw new Error('La IA no puede cancelar pedidos. Usá los botones de la app (Eliminar / Quitar del día).');
+            const days = i.visitDay ? [i.visitDay] : ((client.visitDays && client.visitDays.length) ? client.visitDays : (client.visitDay ? [client.visitDay] : []));
+            const freq = i.freq === 'keep' ? client.freq : i.freq;
+            const resolvedNotes = aiResolveNotes(client.notes, i.notes, i.notes_mode);
+            const notesToPass = resolvedNotes !== undefined ? resolvedNotes : (client.notes || '');
+            const hasAbsoluteSet = i.products && typeof i.products === 'object' && Object.keys(i.products).length > 0;
+            const hasDelta = (i.add_products && Object.keys(i.add_products).length > 0) || (i.remove_products && Object.keys(i.remove_products).length > 0);
+            let productsToPass;
+            if (hasAbsoluteSet) productsToPass = i.products;
+            else if (hasDelta) {
+                productsToPass = {};
+                if (client.products) Object.keys(client.products).forEach(k => { const n = parseInt(client.products[k] || 0, 10); if (n > 0) productsToPass[k] = n; });
+                Object.keys(i.add_products || {}).forEach(k => { if (i.add_products[k] > 0) productsToPass[k] = (productsToPass[k] || 0) + i.add_products[k]; });
+                Object.keys(i.remove_products || {}).forEach(k => { if (i.remove_products[k] > 0 && productsToPass[k]) { const nx = productsToPass[k] - i.remove_products[k]; if (nx > 0) productsToPass[k] = nx; else delete productsToPass[k]; } });
+            } else productsToPass = client.products || {};
+            await handleScheduleFromDirectory(client, days, freq, i.specificDate || '', notesToPass, productsToPass);
+            showUndoToast('Pedido de ' + (i.matched_client_name || client.name) + ' actualizado.', null);
+            return;
+        }
+    };
+
     // --- ESTADO NOTAS ---
     const [noteModal, setNoteModal] = React.useState(false);
     const [editNoteData, setEditNoteData] = React.useState(null);
@@ -1854,6 +1971,7 @@ const [toast, setToast] = React.useState(null);
             />}
             {quickEditClient && <EditClientQuickModal isOpen={true} client={quickEditClient} onClose={() => setQuickEditClient(null)} onSave={handleQuickUpdateClient} showClientInfo={quickEditShowInfo} />}
             {relationshipClient && <RelationshipsModal isOpen={true} client={clients.find(c => c.id === relationshipClient.id) || relationshipClient} allClients={clients} onClose={() => setRelationshipClient(null)} onAdd={handleAddRelationship} onRemove={handleRemoveRelationship} />}
+            {smartOrderOpen && <SmartOrderModal isOpen={true} onClose={() => setSmartOrderOpen(false)} onInterpret={aiParseOrder} onConfirm={handleAiConfirm} />}
             {showSettingsModal && <SettingsModal
                 isOpen={true}
                 settings={appSettings}
@@ -2409,7 +2527,8 @@ const [toast, setToast] = React.useState(null);
                             <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
                                 <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">📊 Registro de clientes</h2>
                                 <div className="flex gap-1.5">
-                                    {!isWide && <button onClick={() => { setView('directory'); setTableSelectedClient(null); }} className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1" title="Volver a tarjetas">👥 Tarjetas</button>}                                    <button onClick={() => setColWidths({ ...DEFAULT_COL_WIDTHS })} className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1" title="Restablecer anchos de columnas">↔ Anchos</button>
+                                    {!isWide && <button onClick={() => { setView('directory'); setTableSelectedClient(null); }} className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1" title="Volver a tarjetas">👥 Tarjetas</button>}                                    <button onClick={() => setSmartOrderOpen(true)} className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-purple-200 dark:hover:bg-purple-800 flex items-center gap-1" title="Crear/agendar desde texto con IA">✨ Pedido IA</button>
+                                    <button onClick={() => setColWidths({ ...DEFAULT_COL_WIDTHS })} className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1" title="Restablecer anchos de columnas">↔ Anchos</button>
                                     <button onClick={handleExportClients} className="text-xs bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-green-200 dark:hover:bg-green-800 flex items-center gap-1">📤 CSV</button>
                                     <button onClick={handleExportBackup} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center gap-1">💾 Backup</button>
                                 </div>
@@ -2577,7 +2696,8 @@ const [toast, setToast] = React.useState(null);
                                         </button>
                                     );
                                 })}
-                                <button onClick={() => setView('directory')} className="w-full mt-2 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800" title="Registro de clientes (tabla)">📊 Directorio</button>
+                                <button onClick={() => setSmartOrderOpen(true)} className="w-full mt-2 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800" title="Crear/agendar desde texto con IA">✨ Pedido IA</button>
+                                <button onClick={() => setView('directory')} className="w-full mt-1.5 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800" title="Registro de clientes (tabla)">📊 Directorio</button>
                                 <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center pt-1">Arrastrá una tarjeta a un día para moverla</p>
                             </div>
 
