@@ -110,6 +110,7 @@ const [toast, setToast] = React.useState(null);
     // --- VISTA SEMANA (tablero por día con arrastrar para cambiar de día) ---
     const dragInfoRef = React.useRef(null);
     const [dragOverDay, setDragOverDay] = React.useState(null);
+    const [weekFilter, setWeekFilter] = React.useState('all');
     const handleMoveClientDay = async (client, fromDay, toDay) => {
         if (!client || fromDay === toDay) return;
         const order = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -2510,83 +2511,125 @@ const [toast, setToast] = React.useState(null);
                         </div>
                     </div>
                 )}
-                {view === 'list' && isWide && (
-                    <div className="space-y-3">
-                        <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3 flex-wrap">
-                            <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">📅 Semana</h2>
-                            <div className="flex gap-1.5">
-                                <button onClick={() => setView('directory')} className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-indigo-200 dark:hover:bg-indigo-800 flex items-center gap-1" title="Registro de clientes (tabla)">📊 Directorio</button>
+                {view === 'list' && isWide && (() => {
+                    // Día seleccionado: ordenado por fecha de próxima visita, con búsqueda y filtro aplicados.
+                    let dayClients = getVisibleClients(selectedDay).slice().sort((a, b) => {
+                        const da = getNextVisitDate(a, selectedDay);
+                        const db = getNextVisitDate(b, selectedDay);
+                        return (da ? da.getTime() : Infinity) - (db ? db.getTime() : Infinity);
+                    });
+                    if (debouncedListSearch.trim()) {
+                        const match = fuzzyMatch(debouncedListSearch);
+                        dayClients = dayClients.filter(c => c.isNote ? match(c.notes || '') : match(c.name || '', c.address || '', c.phone || ''));
+                    }
+                    if (weekFilter !== 'all') {
+                        dayClients = dayClients.filter(c => {
+                            if (weekFilter === 'with_debt') { const ids = c._mergedIds || [c.id]; return debts.some(d => ids.indexOf(d.clientId) > -1 && d.amount > 0); }
+                            return c.freq === weekFilter;
+                        });
+                    }
+                    const totals = {};
+                    dayClients.forEach(c => { if (c.products) Object.keys(c.products).forEach(k => { const q = parseInt(c.products[k] || 0); if (q > 0) totals[k] = (totals[k] || 0) + q; }); });
+                    const totalChips = PRODUCTS.filter(p => totals[p.id] > 0).map(p => p.short + ': ' + totals[p.id]);
+                    return (
+                        <div className="flex gap-3 items-start pb-24">
+                            {/* MENÚ VERTICAL DE DÍAS */}
+                            <div className="w-44 flex-shrink-0 sticky top-4 space-y-1.5">
+                                {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].map(day => {
+                                    const count = getVisibleClients(day).length;
+                                    const isSel = selectedDay === day;
+                                    const isOver = dragOverDay === day;
+                                    return (
+                                        <button key={day}
+                                            onClick={() => setSelectedDay(day)}
+                                            onDragOver={(e) => { e.preventDefault(); if (dragOverDay !== day) setDragOverDay(day); }}
+                                            onDragLeave={() => setDragOverDay(d => d === day ? null : d)}
+                                            onDrop={(e) => { e.preventDefault(); const info = dragInfoRef.current; setDragOverDay(null); if (info && info.fromDay !== day) handleMoveClientDay(info.client, info.fromDay, day); dragInfoRef.current = null; }}
+                                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-bold transition-colors ${isSel ? 'bg-blue-600 text-white shadow-sm' : isOver ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 ring-2 ring-blue-400' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                                            <span>{day}</span>
+                                            <span className={`text-[11px] font-black px-1.5 py-0.5 rounded-full ${isSel ? 'bg-white/25 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>{getVisibleClients(day).length}</span>
+                                        </button>
+                                    );
+                                })}
+                                <button onClick={() => setView('directory')} className="w-full mt-2 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800" title="Registro de clientes (tabla)">📊 Directorio</button>
+                                <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center pt-1">Arrastrá una tarjeta a un día para moverla</p>
                             </div>
-                        </div>
-                        <div className="flex gap-3 overflow-x-auto pb-2 items-start">
-                            {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].map(day => {
-                                // Ordenado por la fecha en que toca cada cliente/nota (los más próximos primero);
-                                // ante empate, conserva el orden manual del día.
-                                const dayClients = getVisibleClients(day).slice().sort((a, b) => {
-                                    const da = getNextVisitDate(a, day);
-                                    const db = getNextVisitDate(b, day);
-                                    return (da ? da.getTime() : Infinity) - (db ? db.getTime() : Infinity);
-                                });
-                                const totals = {};
-                                dayClients.forEach(c => { if (c.products) Object.keys(c.products).forEach(k => { const q = parseInt(c.products[k] || 0); if (q > 0) totals[k] = (totals[k] || 0) + q; }); });
-                                const totalChips = PRODUCTS.filter(p => totals[p.id] > 0).map(p => p.short + ': ' + totals[p.id]);
-                                const isOver = dragOverDay === day;
-                                return (
-                                    <div key={day}
-                                        onDragOver={(e) => { e.preventDefault(); if (dragOverDay !== day) setDragOverDay(day); }}
-                                        onDragLeave={() => setDragOverDay(d => d === day ? null : d)}
-                                        onDrop={(e) => { e.preventDefault(); const info = dragInfoRef.current; setDragOverDay(null); if (info && info.fromDay !== day) handleMoveClientDay(info.client, info.fromDay, day); dragInfoRef.current = null; }}
-                                        className={`flex-1 min-w-[220px] bg-white dark:bg-gray-800 rounded-xl border flex flex-col transition-colors ${isOver ? 'border-blue-500 ring-2 ring-blue-400/40' : 'border-gray-100 dark:border-gray-700'}`}>
-                                        <div className="p-3 border-b border-gray-100 dark:border-gray-700">
-                                            <div className="flex items-center justify-between">
-                                                <h3 className="font-bold text-gray-900 dark:text-white text-sm">{day}</h3>
-                                                <span className="text-[11px] font-black bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded-full">{dayClients.length}</span>
-                                            </div>
-                                            {totalChips.length > 0 && <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 truncate" title={totalChips.join(' · ')}>{totalChips.join(' · ')}</p>}
+
+                            {/* DÍA SELECCIONADO */}
+                            <div className="flex-1 min-w-0 space-y-3">
+                                <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
+                                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                                        <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">📅 {selectedDay} <span className="text-sm font-medium text-gray-400 dark:text-gray-500">· {dayClients.length} cliente{dayClients.length !== 1 ? 's' : ''}</span></h2>
+                                        {totalChips.length > 0 && <p className="text-[11px] font-bold text-blue-700 dark:text-blue-300">📦 {totalChips.join(' · ')}</p>}
+                                    </div>
+                                    <div className="flex gap-2 items-center flex-wrap">
+                                        <div className="relative flex-1 min-w-[220px]">
+                                            <input type="text" placeholder="Buscar (nombre, dirección, teléfono, nota)..." value={listSearchTerm} onChange={(e) => setListSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm" />
+                                            <div className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500">🔍</div>
+                                            {listSearchTerm && <button onClick={() => setListSearchTerm('')} className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>}
                                         </div>
-                                        <div className="p-2 space-y-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 240px)' }}>
-                                            {dayClients.length === 0 && <p className="text-xs text-gray-300 dark:text-gray-600 text-center py-6">—</p>}
-                                            {dayClients.map(c => {
-                                                if (c.isNote) {
-                                                    const noteDate = getNextVisitDate(c, day);
-                                                    return (
-                                                        <div key={c.id} draggable
-                                                            onDragStart={(e) => { dragInfoRef.current = { client: c, fromDay: day }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', c.id); } catch (err) {} }}
-                                                            onClick={() => setEditNoteData(c)}
-                                                            className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2.5 border border-amber-200 dark:border-amber-800/50 cursor-grab active:cursor-grabbing hover:border-amber-400 dark:hover:border-amber-600 transition-colors">
-                                                            <p className="text-[11px] text-amber-800 dark:text-amber-200 whitespace-pre-wrap break-words">📝 {c.notes || '(nota vacía)'}</p>
-                                                            {noteDate && <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-1">📆 {formatDate(noteDate)}</p>}
-                                                        </div>
-                                                    );
-                                                }
-                                                let prodStr = '';
-                                                if (c.products) { const parts = Object.keys(c.products).filter(k => parseInt(c.products[k] || 0) > 0).map(k => { const p = PRODUCTS.find(pr => pr.id === k); return c.products[k] + 'x ' + (p ? p.short : k); }); prodStr = parts.join(' · '); }
-                                                const cids = c._mergedIds || [c.id];
-                                                const debtT = debts.filter(d => cids.indexOf(d.clientId) > -1).reduce((s, d) => s + (d.amount || 0), 0);
-                                                const visitDate = getNextVisitDate(c, day);
-                                                return (
-                                                    <div key={c.id} draggable
-                                                        onDragStart={(e) => { dragInfoRef.current = { client: c, fromDay: day }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', c.id); } catch (err) {} }}
-                                                        onClick={() => { setQuickEditClient(c); setQuickEditShowInfo(true); }}
-                                                        className="bg-gray-50 dark:bg-gray-700/40 rounded-lg p-2.5 border border-gray-100 dark:border-gray-700 cursor-grab active:cursor-grabbing hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
-                                                        <div className="flex items-center justify-between gap-2">
-                                                            <span className="font-bold text-gray-900 dark:text-white text-xs truncate">{(c.name || '').toUpperCase()}</span>
-                                                            {debtT > 0 && <span className="text-[9px] font-bold text-red-600 dark:text-red-400 flex-shrink-0">${debtT.toLocaleString()}</span>}
-                                                        </div>
-                                                        {visitDate && <p className="text-[9px] font-bold text-blue-600 dark:text-blue-400 mt-0.5">📆 {formatDate(visitDate)}</p>}
-                                                        {c.address && <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate mt-0.5">📍 {c.address}</p>}
-                                                        {prodStr && <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{prodStr}</p>}
-                                                    </div>
-                                                );
-                                            })}
+                                        <div className="flex gap-1.5 flex-wrap">
+                                            {[
+                                                { key: 'all', label: 'Todos' },
+                                                { key: 'weekly', label: 'Sem' },
+                                                { key: 'biweekly', label: 'Quin' },
+                                                { key: 'triweekly', label: 'C/3' },
+                                                { key: 'monthly', label: 'Mens' },
+                                                { key: 'once', label: '1 vez' },
+                                                { key: 'with_debt', label: 'Deuda' },
+                                            ].map(f => (
+                                                <button key={f.key} onClick={() => setWeekFilter(weekFilter === f.key ? 'all' : f.key)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${weekFilter === f.key ? (f.key === 'with_debt' ? 'bg-red-500 text-white' : 'bg-blue-600 text-white') : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{f.label}</button>
+                                            ))}
                                         </div>
                                     </div>
-                                );
-                            })}
+                                </div>
+
+                                {dayClients.length === 0 && <div className="bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-10 text-center text-gray-400 dark:text-gray-500 text-sm">No hay clientes para mostrar en {selectedDay}.</div>}
+                                <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
+                                    {dayClients.map(c => {
+                                        if (c.isNote) {
+                                            const noteDate = getNextVisitDate(c, selectedDay);
+                                            return (
+                                                <div key={c.id} draggable
+                                                    onDragStart={(e) => { dragInfoRef.current = { client: c, fromDay: selectedDay }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', c.id); } catch (err) {} }}
+                                                    onClick={() => setEditNoteData(c)}
+                                                    className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 border border-amber-200 dark:border-amber-800/50 cursor-grab active:cursor-grabbing hover:border-amber-400 dark:hover:border-amber-600 transition-colors">
+                                                    <p className="text-xs text-amber-800 dark:text-amber-200 whitespace-pre-wrap break-words">📝 {c.notes || '(nota vacía)'}</p>
+                                                    {noteDate && <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-1.5">📆 {formatDate(noteDate)}</p>}
+                                                </div>
+                                            );
+                                        }
+                                        let prodStr = '';
+                                        if (c.products) { const parts = Object.keys(c.products).filter(k => parseInt(c.products[k] || 0) > 0).map(k => { const p = PRODUCTS.find(pr => pr.id === k); return c.products[k] + 'x ' + (p ? p.short : k); }); prodStr = parts.join(' · '); }
+                                        const cids = c._mergedIds || [c.id];
+                                        const debtT = debts.filter(d => cids.indexOf(d.clientId) > -1).reduce((s, d) => s + (d.amount || 0), 0);
+                                        const visitDate = getNextVisitDate(c, selectedDay);
+                                        const hasLocation = !!(c.lat && c.lng) || !!c.mapsLink;
+                                        return (
+                                            <div key={c.id} draggable
+                                                onDragStart={(e) => { dragInfoRef.current = { client: c, fromDay: selectedDay }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', c.id); } catch (err) {} }}
+                                                onClick={() => { setQuickEditClient(c); setQuickEditShowInfo(true); }}
+                                                className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700 cursor-grab active:cursor-grabbing hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <h3 className="font-bold text-gray-900 dark:text-white text-sm truncate">{(c.name || '').toUpperCase()}</h3>
+                                                    {debtT > 0 && <span className="text-[11px] font-bold text-red-600 dark:text-red-400 flex-shrink-0">${debtT.toLocaleString()}</span>}
+                                                </div>
+                                                {visitDate && <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 mt-0.5">📆 {formatDate(visitDate)}</p>}
+                                                {c.address && <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">📍 {c.address}</p>}
+                                                {prodStr && <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{prodStr}</p>}
+                                                <div className="flex items-center gap-1.5 mt-2" onClick={(e) => e.stopPropagation()}>
+                                                    {c.phone && <button onClick={() => sendWhatsAppDirect(c.phone)} className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/30" title="WhatsApp">💬</button>}
+                                                    <button onClick={() => hasLocation ? openGoogleMaps(c.lat, c.lng, c.mapsLink) : null} className={`w-7 h-7 rounded-full flex items-center justify-center ${hasLocation ? 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'bg-gray-50 dark:bg-gray-800 opacity-30 cursor-default'}`} title={hasLocation ? 'Maps' : 'Sin ubicación'}>📍</button>
+                                                    <button onClick={() => setScheduleClient(c)} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold" title="Agendar">📅</button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
-                        <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center">Arrastrá una tarjeta a otro día para cambiarle el día de visita · Tocá una tarjeta para editarla</p>
-                    </div>
-                )}
+                    );
+                })()}
                  {view === 'add' && (
                     <form onSubmit={handleSaveClient} className="space-y-5">
                         {/* HEADER */}
