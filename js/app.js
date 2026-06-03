@@ -15,6 +15,13 @@ const DEFAULT_COL_WIDTHS = { name: 200, phone: 150, address: 380, freq: 120, day
 
 function App() {
     const [view, setView] = React.useState('list');
+    // Detecta pantalla ancha (escritorio): Inicio se muestra como tablero semanal de ancho completo.
+    const [isWide, setIsWide] = React.useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
+    React.useEffect(() => {
+        const onResize = () => setIsWide(window.innerWidth >= 1024);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
     const [clients, setClients] = React.useState([]);
     // Ref sincrónico: siempre tiene los datos más recientes de clients
     // (incluyendo updates optimistas), evita race conditions en reorder
@@ -98,6 +105,24 @@ const [toast, setToast] = React.useState(null);
         };
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp);
+    };
+
+    // --- VISTA SEMANA (tablero por día con arrastrar para cambiar de día) ---
+    const dragInfoRef = React.useRef(null);
+    const [dragOverDay, setDragOverDay] = React.useState(null);
+    const handleMoveClientDay = async (client, fromDay, toDay) => {
+        if (!client || fromDay === toDay) return;
+        const order = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+        const current = (Array.isArray(client.visitDays) && client.visitDays.length > 0) ? client.visitDays.slice() : (client.visitDay ? [client.visitDay] : []);
+        let next = current.filter(d => d !== fromDay);
+        if (next.indexOf(toDay) === -1) next.push(toDay);
+        next.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+        try {
+            await firestoreRetry(() => db.collection('clients').doc(client.id).update({ visitDays: next, visitDay: next[0] || '', updatedAt: new Date() }));
+            showUndoToast(`${client.name || 'Cliente'} → ${toDay}`, async () => {
+                try { await db.collection('clients').doc(client.id).update({ visitDays: current, visitDay: current[0] || '', updatedAt: new Date() }); } catch (e) {}
+            });
+        } catch (e) { showUndoToast(getErrorMessage(e), null); }
     };
 
     // --- ESTADO NOTAS ---
@@ -1932,11 +1957,11 @@ const [toast, setToast] = React.useState(null);
                 </div>
             </header>
 
-            <main className={(view === 'tabla' ? 'max-w-none' : 'max-w-2xl') + ' mx-auto p-4 overflow-x-hidden'}>
+            <main className={((view === 'tabla' || ((view === 'list' || view === 'directory') && isWide)) ? 'max-w-none' : 'max-w-2xl') + ' mx-auto p-4 overflow-x-hidden'}>
                 {/* ==================== SECCIÓN: CARTERA DE CLIENTES ==================== */}
                 {activeSection === 'cartera' && (
                 <>
-                {view === 'list' && (
+                {view === 'list' && !isWide && (
                     <div className="space-y-4">
                         <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar items-center">
                             {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].map(day => (
@@ -2231,13 +2256,12 @@ const [toast, setToast] = React.useState(null);
                 )}
                 
                 {/* VISTAS DIRECTORIO Y ADD IGUALES CON MODIFICACION DE FORMULARIO */}
-                {view === 'directory' && (
+                {view === 'directory' && !isWide && (
                     <div className="space-y-4">
                         <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 sticky top-0 z-10">
                             <div className="flex justify-between items-center mb-3">
                                 <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">👥 Directorio</h2>
-                                <div className="flex gap-1.5">
-                                    <button onClick={() => setView('tabla')} className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-indigo-200 dark:hover:bg-indigo-800 flex items-center gap-1" title="Vista de tabla (escritorio)">📊 Tabla</button>
+                                <div className="flex gap-1.5">                                    <button onClick={() => setView('tabla')} className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-indigo-200 dark:hover:bg-indigo-800 flex items-center gap-1" title="Vista de tabla (escritorio)">📊 Tabla</button>
                                     <button onClick={handleExportClients} className="text-xs bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-green-200 dark:hover:bg-green-800 flex items-center gap-1">📤 CSV</button>
                                     <button onClick={handleExportBackup} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center gap-1">💾 Backup</button>
                                 </div>
@@ -2352,15 +2376,14 @@ const [toast, setToast] = React.useState(null);
                         </div>
                     </div>
                 )}
-                {view === 'tabla' && (
+                {(view === 'tabla' || (view === 'directory' && isWide)) && (
                     <div className="space-y-3">
                         {/* CABECERA: título + buscador + filtros + acciones */}
                         <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
                             <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
                                 <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">📊 Registro de clientes</h2>
                                 <div className="flex gap-1.5">
-                                    <button onClick={() => { setView('directory'); setTableSelectedClient(null); }} className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1" title="Volver a tarjetas">👥 Tarjetas</button>
-                                    <button onClick={() => setColWidths({ ...DEFAULT_COL_WIDTHS })} className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1" title="Restablecer anchos de columnas">↔ Anchos</button>
+                                    {!isWide && <button onClick={() => { setView('directory'); setTableSelectedClient(null); }} className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1" title="Volver a tarjetas">👥 Tarjetas</button>}                                    <button onClick={() => setColWidths({ ...DEFAULT_COL_WIDTHS })} className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1" title="Restablecer anchos de columnas">↔ Anchos</button>
                                     <button onClick={handleExportClients} className="text-xs bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-green-200 dark:hover:bg-green-800 flex items-center gap-1">📤 CSV</button>
                                     <button onClick={handleExportBackup} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center gap-1">💾 Backup</button>
                                 </div>
@@ -2485,6 +2508,83 @@ const [toast, setToast] = React.useState(null);
                                 </div>
                             </div>
                         </div>
+                    </div>
+                )}
+                {view === 'list' && isWide && (
+                    <div className="space-y-3">
+                        <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3 flex-wrap">
+                            <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">📅 Semana</h2>
+                            <div className="flex gap-1.5">
+                                <button onClick={() => setView('directory')} className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-indigo-200 dark:hover:bg-indigo-800 flex items-center gap-1" title="Registro de clientes (tabla)">📊 Directorio</button>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 overflow-x-auto pb-2 items-start">
+                            {['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].map(day => {
+                                // Ordenado por la fecha en que toca cada cliente/nota (los más próximos primero);
+                                // ante empate, conserva el orden manual del día.
+                                const dayClients = getVisibleClients(day).slice().sort((a, b) => {
+                                    const da = getNextVisitDate(a, day);
+                                    const db = getNextVisitDate(b, day);
+                                    return (da ? da.getTime() : Infinity) - (db ? db.getTime() : Infinity);
+                                });
+                                const totals = {};
+                                dayClients.forEach(c => { if (c.products) Object.keys(c.products).forEach(k => { const q = parseInt(c.products[k] || 0); if (q > 0) totals[k] = (totals[k] || 0) + q; }); });
+                                const totalChips = PRODUCTS.filter(p => totals[p.id] > 0).map(p => p.short + ': ' + totals[p.id]);
+                                const isOver = dragOverDay === day;
+                                return (
+                                    <div key={day}
+                                        onDragOver={(e) => { e.preventDefault(); if (dragOverDay !== day) setDragOverDay(day); }}
+                                        onDragLeave={() => setDragOverDay(d => d === day ? null : d)}
+                                        onDrop={(e) => { e.preventDefault(); const info = dragInfoRef.current; setDragOverDay(null); if (info && info.fromDay !== day) handleMoveClientDay(info.client, info.fromDay, day); dragInfoRef.current = null; }}
+                                        className={`flex-1 min-w-[220px] bg-white dark:bg-gray-800 rounded-xl border flex flex-col transition-colors ${isOver ? 'border-blue-500 ring-2 ring-blue-400/40' : 'border-gray-100 dark:border-gray-700'}`}>
+                                        <div className="p-3 border-b border-gray-100 dark:border-gray-700">
+                                            <div className="flex items-center justify-between">
+                                                <h3 className="font-bold text-gray-900 dark:text-white text-sm">{day}</h3>
+                                                <span className="text-[11px] font-black bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded-full">{dayClients.length}</span>
+                                            </div>
+                                            {totalChips.length > 0 && <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 truncate" title={totalChips.join(' · ')}>{totalChips.join(' · ')}</p>}
+                                        </div>
+                                        <div className="p-2 space-y-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 240px)' }}>
+                                            {dayClients.length === 0 && <p className="text-xs text-gray-300 dark:text-gray-600 text-center py-6">—</p>}
+                                            {dayClients.map(c => {
+                                                if (c.isNote) {
+                                                    const noteDate = getNextVisitDate(c, day);
+                                                    return (
+                                                        <div key={c.id} draggable
+                                                            onDragStart={(e) => { dragInfoRef.current = { client: c, fromDay: day }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', c.id); } catch (err) {} }}
+                                                            onClick={() => setEditNoteData(c)}
+                                                            className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-2.5 border border-amber-200 dark:border-amber-800/50 cursor-grab active:cursor-grabbing hover:border-amber-400 dark:hover:border-amber-600 transition-colors">
+                                                            <p className="text-[11px] text-amber-800 dark:text-amber-200 whitespace-pre-wrap break-words">📝 {c.notes || '(nota vacía)'}</p>
+                                                            {noteDate && <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-1">📆 {formatDate(noteDate)}</p>}
+                                                        </div>
+                                                    );
+                                                }
+                                                let prodStr = '';
+                                                if (c.products) { const parts = Object.keys(c.products).filter(k => parseInt(c.products[k] || 0) > 0).map(k => { const p = PRODUCTS.find(pr => pr.id === k); return c.products[k] + 'x ' + (p ? p.short : k); }); prodStr = parts.join(' · '); }
+                                                const cids = c._mergedIds || [c.id];
+                                                const debtT = debts.filter(d => cids.indexOf(d.clientId) > -1).reduce((s, d) => s + (d.amount || 0), 0);
+                                                const visitDate = getNextVisitDate(c, day);
+                                                return (
+                                                    <div key={c.id} draggable
+                                                        onDragStart={(e) => { dragInfoRef.current = { client: c, fromDay: day }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', c.id); } catch (err) {} }}
+                                                        onClick={() => { setQuickEditClient(c); setQuickEditShowInfo(true); }}
+                                                        className="bg-gray-50 dark:bg-gray-700/40 rounded-lg p-2.5 border border-gray-100 dark:border-gray-700 cursor-grab active:cursor-grabbing hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <span className="font-bold text-gray-900 dark:text-white text-xs truncate">{(c.name || '').toUpperCase()}</span>
+                                                            {debtT > 0 && <span className="text-[9px] font-bold text-red-600 dark:text-red-400 flex-shrink-0">${debtT.toLocaleString()}</span>}
+                                                        </div>
+                                                        {visitDate && <p className="text-[9px] font-bold text-blue-600 dark:text-blue-400 mt-0.5">📆 {formatDate(visitDate)}</p>}
+                                                        {c.address && <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate mt-0.5">📍 {c.address}</p>}
+                                                        {prodStr && <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{prodStr}</p>}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center">Arrastrá una tarjeta a otro día para cambiarle el día de visita · Tocá una tarjeta para editarla</p>
                     </div>
                 )}
                  {view === 'add' && (
