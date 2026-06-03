@@ -332,6 +332,15 @@ const [toast, setToast] = React.useState(null);
         } catch (e) { showUndoToast(getErrorMessage(e), null); }
     };
 
+    // --- TEMA CLARO / OSCURO (toggle manual, persistido) ---
+    const [darkOn, setDarkOn] = React.useState(() => { try { return document.documentElement.classList.contains('dark'); } catch (e) { return true; } });
+    const toggleTheme = () => {
+        const next = !document.documentElement.classList.contains('dark');
+        document.documentElement.classList.toggle('dark', next);
+        try { localStorage.setItem('rw_theme', next ? 'dark' : 'light'); } catch (e) {}
+        setDarkOn(next);
+    };
+
     // --- ESTADO NOTAS ---
     const [noteModal, setNoteModal] = React.useState(false);
     const [editNoteData, setEditNoteData] = React.useState(null);
@@ -2158,6 +2167,9 @@ const [toast, setToast] = React.useState(null);
                             title={groupData?.groupId ? (groupData.role === 'admin' ? 'Grupo (Admin)' : 'Grupo (Miembro)') : 'Grupo Familiar'}
                         >
                             👥
+                        </button>
+                        <button onClick={toggleTheme} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" title="Tema claro / oscuro">
+                            {darkOn ? '☀️' : '🌙'}
                         </button>
                         <button
                             onClick={() => setShowSettingsModal(true)}
