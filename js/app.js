@@ -126,6 +126,27 @@ const [toast, setToast] = React.useState(null);
         } catch (e) { showUndoToast(getErrorMessage(e), null); }
     };
 
+    // --- RELACIONES FAMILIARES (bidireccional en batch, como la app nativa) ---
+    const [relationshipClient, setRelationshipClient] = React.useState(null);
+    const handleAddRelationship = async (clientId, targetId, type) => {
+        try {
+            const inverse = RELATIONSHIP_INVERSE[type] || 'otro';
+            const batch = db.batch();
+            batch.update(db.collection('clients').doc(clientId), { ['relationships.' + targetId]: type, updatedAt: new Date() });
+            batch.update(db.collection('clients').doc(targetId), { ['relationships.' + clientId]: inverse, updatedAt: new Date() });
+            await firestoreRetry(() => batch.commit());
+        } catch (e) { showUndoToast(getErrorMessage(e), null); }
+    };
+    const handleRemoveRelationship = async (clientId, targetId) => {
+        try {
+            const del = firebase.firestore.FieldValue.delete();
+            const batch = db.batch();
+            batch.update(db.collection('clients').doc(clientId), { ['relationships.' + targetId]: del });
+            batch.update(db.collection('clients').doc(targetId), { ['relationships.' + clientId]: del });
+            await firestoreRetry(() => batch.commit());
+        } catch (e) { showUndoToast(getErrorMessage(e), null); }
+    };
+
     // --- ESTADO NOTAS ---
     const [noteModal, setNoteModal] = React.useState(false);
     const [editNoteData, setEditNoteData] = React.useState(null);
@@ -1832,6 +1853,7 @@ const [toast, setToast] = React.useState(null);
                 onSendDebtTotal={sendDebtTotal}
             />}
             {quickEditClient && <EditClientQuickModal isOpen={true} client={quickEditClient} onClose={() => setQuickEditClient(null)} onSave={handleQuickUpdateClient} showClientInfo={quickEditShowInfo} />}
+            {relationshipClient && <RelationshipsModal isOpen={true} client={clients.find(c => c.id === relationshipClient.id) || relationshipClient} allClients={clients} onClose={() => setRelationshipClient(null)} onAdd={handleAddRelationship} onRemove={handleRemoveRelationship} />}
             {showSettingsModal && <SettingsModal
                 isOpen={true}
                 settings={appSettings}
@@ -2502,6 +2524,7 @@ const [toast, setToast] = React.useState(null);
                                                 <button onClick={() => setScheduleClient(tableSelectedClient)} className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5">📅 Agendar días de visita</button>
                                                 <button onClick={() => setTableSelectedClient(null)} className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 rounded-lg text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-600">Cerrar</button>
                                             </div>
+                                            <button onClick={() => setRelationshipClient(tableSelectedClient)} className="w-full px-3 py-2 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 rounded-lg text-xs font-bold hover:bg-amber-200 dark:hover:bg-amber-800 flex items-center justify-center gap-1.5">👨‍👩‍👧 Familia</button>
                                             <EditClientQuickModal inline={true} isOpen={true} client={tableSelectedClient} showClientInfo={true} onClose={() => setTableSelectedClient(null)} onSave={handleQuickUpdateClient} />
                                         </>
                                     ) : (
@@ -2623,6 +2646,7 @@ const [toast, setToast] = React.useState(null);
                                                 <div className="flex items-center gap-1.5 mt-2" onClick={(e) => e.stopPropagation()}>
                                                     {c.phone && <button onClick={() => sendWhatsAppDirect(c.phone)} className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/30" title="WhatsApp">💬</button>}
                                                     <button onClick={() => hasLocation ? openGoogleMaps(c.lat, c.lng, c.mapsLink) : null} className={`w-7 h-7 rounded-full flex items-center justify-center ${hasLocation ? 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'bg-gray-50 dark:bg-gray-800 opacity-30 cursor-default'}`} title={hasLocation ? 'Maps' : 'Sin ubicación'}>📍</button>
+                                                    <button onClick={() => setRelationshipClient(c)} className={`w-7 h-7 rounded-full flex items-center justify-center ${c.relationships && Object.keys(c.relationships).length > 0 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-gray-100 dark:bg-gray-700'} hover:bg-amber-200 dark:hover:bg-amber-800`} title="Familia">👨‍👩‍👧</button>
                                                     <button onClick={() => setScheduleClient(c)} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold" title="Agendar">📅</button>
                                                 </div>
                                             </div>

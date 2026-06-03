@@ -43,6 +43,12 @@ var PRODUCTS = DEFAULT_PRODUCTS.slice();
 // Stickers disponibles (mismos ids que la app nativa; imágenes en stickers/<id>.png).
 var STICKER_IDS = ['bidon_foto', 'bidon_6l', 'disp_electrico', 'bombita', 'disp', 'sifon', 'guarana', 'lima', 'naranja', 'pomelo', 'uva', 'bidon', 'bidon_mini', 'dispenser', 'bottle', 'droplet', 'drop_plus', 'ice', 'soda', 'juice', 'truck', 'box', 'cart', 'leaf', 'home', 'star'];
 
+// Relaciones familiares entre clientes (mismo formato/inversos que la app nativa).
+// Se guardan en client.relationships = { [otroClienteId]: tipo }, bidireccional.
+var RELATIONSHIP_TYPES = ['conyuge', 'padre_madre', 'hijo_a', 'hermano_a', 'suegro_a', 'yerno_nuera', 'abuelo_a', 'nieto_a', 'tio_a', 'sobrino_a', 'primo_a', 'cunado_a', 'otro'];
+var RELATIONSHIP_LABELS = { conyuge: 'Cónyuge', padre_madre: 'Padre/Madre', hijo_a: 'Hijo/a', hermano_a: 'Hermano/a', suegro_a: 'Suegro/a', yerno_nuera: 'Yerno/Nuera', abuelo_a: 'Abuelo/a', nieto_a: 'Nieto/a', tio_a: 'Tío/a', sobrino_a: 'Sobrino/a', primo_a: 'Primo/a', cunado_a: 'Cuñado/a', otro: 'Otro' };
+var RELATIONSHIP_INVERSE = { conyuge: 'conyuge', padre_madre: 'hijo_a', hijo_a: 'padre_madre', hermano_a: 'hermano_a', suegro_a: 'yerno_nuera', yerno_nuera: 'suegro_a', abuelo_a: 'nieto_a', nieto_a: 'abuelo_a', tio_a: 'sobrino_a', sobrino_a: 'tio_a', primo_a: 'primo_a', cunado_a: 'cunado_a', otro: 'otro' };
+
 // Reconstruye PRODUCTS desde el doc `settings` (mismos campos que la nativa:
 // productNames, productEmojis, customProducts, productOrder).
 function buildProductsFromSettings(data) {

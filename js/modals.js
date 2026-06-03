@@ -770,6 +770,91 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo,
 };
 
 
+// --- COMPONENTE MODAL RELACIONES FAMILIARES ---
+const RelationshipsModal = ({ isOpen, client, allClients, onClose, onAdd, onRemove }) => {
+    const [search, setSearch] = React.useState('');
+    const [picking, setPicking] = React.useState(null);
+
+    React.useEffect(() => { if (isOpen) { setSearch(''); setPicking(null); } }, [isOpen, client]);
+
+    if (!isOpen || !client) return null;
+
+    const rels = client.relationships || {};
+    const relIds = Object.keys(rels);
+    const related = relIds
+        .map(id => ({ id: id, type: rels[id], c: (allClients || []).find(x => x.id === id) }))
+        .filter(r => r.c);
+
+    let candidates = [];
+    if (search.trim()) {
+        const m = fuzzyMatch(search);
+        candidates = (allClients || [])
+            .filter(c => !c.isNote && c.id !== client.id && relIds.indexOf(c.id) === -1 && m(c.name || '', c.address || '', c.phone || ''))
+            .slice(0, 8);
+    }
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm" style={{ zIndex: 110 }}>
+            <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl shadow-2xl w-full sm:max-w-md max-h-[85vh] flex flex-col">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                    <h3 className="text-lg font-bold dark:text-white flex items-center gap-2">👨‍👩‍👧 Familia · {(client.name || '').toUpperCase()}</h3>
+                    <button onClick={onClose}><Icons.X size={20} className="text-gray-400 dark:text-gray-500" /></button>
+                </div>
+                <div className="overflow-y-auto flex-1 p-4 space-y-4">
+                    {/* Relaciones actuales */}
+                    <div>
+                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Vínculos ({related.length})</p>
+                        {related.length === 0 && <p className="text-sm text-gray-400 dark:text-gray-500">Sin familiares vinculados todavía.</p>}
+                        <div className="space-y-1.5">
+                            {related.map(r => (
+                                <div key={r.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 rounded-lg px-3 py-2">
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{(r.c.name || '').toUpperCase()}</p>
+                                        <p className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">{RELATIONSHIP_LABELS[r.type] || r.type}</p>
+                                    </div>
+                                    <button onClick={() => onRemove(client.id, r.id)} className="text-xs font-bold text-red-500 hover:text-red-600 flex-shrink-0 ml-2">Quitar</button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Agregar vínculo */}
+                    <div className="border-t border-gray-100 dark:border-gray-700 pt-3">
+                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Agregar familiar</p>
+                        {!picking ? (
+                            <div>
+                                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar cliente por nombre, dirección o teléfono..." className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                                <div className="mt-2 space-y-1">
+                                    {candidates.map(c => (
+                                        <button key={c.id} onClick={() => setPicking(c)} className="w-full text-left bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-lg px-3 py-2 hover:border-blue-300 dark:hover:border-blue-600">
+                                            <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{(c.name || '').toUpperCase()}</p>
+                                            {c.address && <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate">{c.address}</p>}
+                                        </button>
+                                    ))}
+                                    {search.trim() && candidates.length === 0 && <p className="text-xs text-gray-400 dark:text-gray-500 px-1">Sin resultados.</p>}
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">Vincular a <span className="font-bold">{(picking.name || '').toUpperCase()}</span> como:</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {RELATIONSHIP_TYPES.map(t => (
+                                        <button key={t} onClick={() => { onAdd(client.id, picking.id, t); setPicking(null); setSearch(''); }} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600">
+                                            {RELATIONSHIP_LABELS[t]}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button onClick={() => setPicking(null)} className="mt-3 text-xs font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">← Elegir otro cliente</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 // --- COMPONENTE MODAL CONFIGURACIÓN ---
 const SettingsModal = ({ isOpen, settings, onClose, onSave }) => {
     const DEFAULT_EN_CAMINO = "Buenas \u{1F69A}. Ya estamos en camino, sos el/la siguiente en la lista de entrega. \u{00A1}Nos vemos en unos minutos!\n\nAquapura";
