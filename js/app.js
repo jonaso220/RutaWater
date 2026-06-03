@@ -314,6 +314,24 @@ const [toast, setToast] = React.useState(null);
         saveCatalogPatch({ productOrder: ids });
     };
 
+    // --- CLONAR CLIENTE (duplica datos básicos al directorio, como la app nativa) ---
+    const handleCloneClient = async (client) => {
+        if (!client) return;
+        try {
+            const newData = {
+                ...getDataScope(), userId: user.uid,
+                name: client.name || '', phone: client.phone || '', address: client.address || '',
+                lat: client.lat || '', lng: client.lng || '', mapsLink: client.mapsLink || '', notes: client.notes || '',
+                freq: 'on_demand', visitDay: 'Sin Asignar', visitDays: [], specificDate: '',
+                products: client.products || {}, listOrder: Date.now(), listOrders: {},
+                isCompleted: false, isStarred: false, isPinned: false, isNote: false, alarm: '',
+                startWeek: getWeekNumber(new Date()), updatedAt: new Date()
+            };
+            await firestoreRetry(() => db.collection('clients').add(newData));
+            showUndoToast('Cliente "' + (client.name || '') + '" clonado al directorio.', null);
+        } catch (e) { showUndoToast(getErrorMessage(e), null); }
+    };
+
     // --- ESTADO NOTAS ---
     const [noteModal, setNoteModal] = React.useState(false);
     const [editNoteData, setEditNoteData] = React.useState(null);
@@ -2696,7 +2714,10 @@ const [toast, setToast] = React.useState(null);
                                                 <button onClick={() => setScheduleClient(tableSelectedClient)} className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5">📅 Agendar días de visita</button>
                                                 <button onClick={() => setTableSelectedClient(null)} className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 rounded-lg text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-600">Cerrar</button>
                                             </div>
-                                            <button onClick={() => setRelationshipClient(tableSelectedClient)} className="w-full px-3 py-2 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 rounded-lg text-xs font-bold hover:bg-amber-200 dark:hover:bg-amber-800 flex items-center justify-center gap-1.5">👨‍👩‍👧 Familia</button>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => setRelationshipClient(tableSelectedClient)} className="flex-1 px-3 py-2 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 rounded-lg text-xs font-bold hover:bg-amber-200 dark:hover:bg-amber-800 flex items-center justify-center gap-1.5">👨‍👩‍👧 Familia</button>
+                                                <button onClick={() => handleCloneClient(tableSelectedClient)} className="flex-1 px-3 py-2 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center gap-1.5" title="Duplicar al directorio">⧉ Clonar</button>
+                                            </div>
                                             <EditClientQuickModal inline={true} isOpen={true} client={tableSelectedClient} showClientInfo={true} onClose={() => setTableSelectedClient(null)} onSave={handleQuickUpdateClient} />
                                         </>
                                     ) : (
