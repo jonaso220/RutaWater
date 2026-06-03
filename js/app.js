@@ -264,25 +264,6 @@ const [toast, setToast] = React.useState(null);
         }
     };
 
-    // --- CARGA DEL DÍA (daily_loads, mismo formato/scope que la app nativa) ---
-    const [dailyLoadOpen, setDailyLoadOpen] = React.useState(false);
-    const [dailyLoadDay, setDailyLoadDay] = React.useState('');
-    const [dailyLoadInitial, setDailyLoadInitial] = React.useState(null);
-    const [dailyLoadSuggested, setDailyLoadSuggested] = React.useState({});
-    const openDailyLoad = async (day) => {
-        const sug = {};
-        getVisibleClients(day).forEach(c => { if (c.products) Object.keys(c.products).forEach(k => { const n = parseInt(c.products[k] || 0, 10); if (n > 0) sug[k] = (sug[k] || 0) + n; }); });
-        setDailyLoadDay(day);
-        setDailyLoadSuggested(sug);
-        try { const doc = await db.collection('daily_loads').doc(user.uid + '_' + day).get(); setDailyLoadInitial(doc.exists ? doc.data() : {}); }
-        catch (e) { setDailyLoadInitial({}); }
-        setDailyLoadOpen(true);
-    };
-    const saveDailyLoad = async (day, data) => {
-        try { await firestoreRetry(() => db.collection('daily_loads').doc(user.uid + '_' + day).set(data)); showUndoToast('Carga del día guardada.', null); }
-        catch (e) { showUndoToast(getErrorMessage(e), null); throw e; }
-    };
-
     // --- CATÁLOGO DE PRODUCTOS (editor; escribe en settings como la app nativa) ---
     const [catalogOpen, setCatalogOpen] = React.useState(false);
     const saveCatalogPatch = async (patch) => {
@@ -340,6 +321,24 @@ const [toast, setToast] = React.useState(null);
         try { localStorage.setItem('rw_theme', next ? 'dark' : 'light'); } catch (e) {}
         setDarkOn(next);
     };
+
+    // --- Helpers de deudas (compartidos por tarjetas móviles y tabla de escritorio) ---
+    const confirmPayOneDebt = (debt) => setConfirmModal({
+        isOpen: true, title: '¿Deuda pagada?', message: `Confirmar que ${debt.clientName} pagó $${debt.amount?.toLocaleString()}`, confirmText: 'Pagada', isDanger: false,
+        action: async () => { await handleDebtPaid(debt); setConfirmModal(prev => ({ ...prev, isOpen: false })); }
+    });
+    const confirmPayAllDebts = (groupDebts, first, clientTotal) => setConfirmModal({
+        isOpen: true, title: '¿Todas pagadas?', message: `Confirmar que ${first.clientName} pagó todas sus deudas (${groupDebts.length}) por un total de $${clientTotal.toLocaleString()}`, confirmText: 'Todas pagadas', isDanger: false,
+        action: async () => {
+            try { const batch = db.batch(); groupDebts.forEach(d => batch.delete(db.collection('debts').doc(d.id))); if (first.clientId) batch.update(db.collection('clients').doc(first.clientId), { hasDebt: false }); await batch.commit(); }
+            catch (e) { showUndoToast(getErrorMessage(e), null); }
+            setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
+    });
+    const confirmReviewTransfers = (clientTransfers, first) => setConfirmModal({
+        isOpen: true, title: 'Revisar transferencia', message: `¿Confirmar que revisaste la transferencia de ${first.clientName}?`, confirmText: 'Revisada', isDanger: false,
+        action: async () => { for (const t of clientTransfers) { await handleTransferReviewed(t); } setConfirmModal(prev => ({ ...prev, isOpen: false })); }
+    });
 
     // --- ESTADO NOTAS ---
     const [noteModal, setNoteModal] = React.useState(false);
@@ -2049,7 +2048,6 @@ const [toast, setToast] = React.useState(null);
             {quickEditClient && <EditClientQuickModal isOpen={true} client={quickEditClient} onClose={() => setQuickEditClient(null)} onSave={handleQuickUpdateClient} showClientInfo={quickEditShowInfo} />}
             {relationshipClient && <RelationshipsModal isOpen={true} client={clients.find(c => c.id === relationshipClient.id) || relationshipClient} allClients={clients} onClose={() => setRelationshipClient(null)} onAdd={handleAddRelationship} onRemove={handleRemoveRelationship} />}
             {smartOrderOpen && <SmartOrderModal isOpen={true} onClose={() => setSmartOrderOpen(false)} onInterpret={aiParseOrder} onConfirm={handleAiConfirm} />}
-            {dailyLoadOpen && <DailyLoadModal isOpen={true} day={dailyLoadDay} initial={dailyLoadInitial} suggested={dailyLoadSuggested} onClose={() => setDailyLoadOpen(false)} onSave={saveDailyLoad} />}
             {catalogOpen && <ProductCatalogModal isOpen={true} products={PRODUCTS} hidden={appSettings?.productHidden || []} onClose={() => setCatalogOpen(false)} onRename={catalogRename} onSetEmoji={catalogSetEmoji} onToggleHidden={catalogToggleHidden} onAdd={catalogAddProduct} onRemove={catalogRemoveCustom} onMove={catalogMove} />}
             {showSettingsModal && <SettingsModal
                 isOpen={true}
@@ -2100,15 +2098,40 @@ const [toast, setToast] = React.useState(null);
             )}
 
             <header className={`bg-blue-600/90 dark:bg-gray-900/80 backdrop-blur-lg text-white p-4 shadow-lg shadow-blue-900/10 dark:shadow-black/20 sticky top-0 z-30 transition-all duration-200`} style={{marginTop: ((!isOnline ? 36 : 0) + (swUpdate ? 36 : 0) + (installPrompt ? 36 : 0)) || undefined}}>
-                <div className="flex justify-between items-center max-w-2xl mx-auto">
-                    <div 
-                        className="flex items-center gap-2 cursor-pointer active:opacity-80 transition-opacity" 
-                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                    >
-                        <span className="text-xl">🚚</span>
-                        <h1 className="text-xl font-bold">RutaWater</h1>
+                <div className={`flex justify-between items-center ${isWide ? '' : 'max-w-2xl mx-auto'}`}>
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="flex items-center gap-2 cursor-pointer active:opacity-80 transition-opacity"
+                            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                        >
+                            <span className="text-xl">🚚</span>
+                            <h1 className="text-xl font-bold">RutaWater</h1>
+                        </div>
+                        {isWide && (
+                            <div className="flex items-center gap-1 ml-1">
+                                <button onClick={() => { setActiveSection('cartera'); setView('list'); }} className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${activeSection === 'cartera' && view === 'list' ? 'bg-white/20' : 'hover:bg-white/10'}`}>🏠 Inicio</button>
+                                <button onClick={() => { setActiveSection('cartera'); setView('directory'); }} className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${activeSection === 'cartera' && (view === 'directory' || view === 'tabla') ? 'bg-white/20' : 'hover:bg-white/10'}`}>👥 Directorio</button>
+                            </div>
+                        )}
                     </div>
                     <div className="flex items-center gap-2">
+                        {isWide && (
+                            <div className="relative">
+                                <button onClick={() => setShowFabMenu(!showFabMenu)} className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 active:bg-white/30 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors">
+                                    ＋ Nuevo <span className={`inline-block transition-transform ${showFabMenu ? 'rotate-180' : ''}`}>▾</span>
+                                </button>
+                                {showFabMenu && (
+                                    <>
+                                        <div className="fixed inset-0 z-20" onClick={() => setShowFabMenu(false)} />
+                                        <div className="absolute right-0 top-10 z-30 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 w-48 overflow-hidden" style={{ animation: 'slideUpFade 0.2s ease-out forwards' }}>
+                                            <button onClick={() => { resetForm(); setView('add'); setShowFabMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"><span>➕</span><span className="flex-1 text-left">Nuevo cliente</span></button>
+                                            <div className="border-t border-gray-100 dark:border-gray-700" />
+                                            <button onClick={() => { setNoteModal(true); setShowFabMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"><span>📝</span><span className="flex-1 text-left">Nueva nota</span></button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
                         {/* SELECTOR DE SECCIÓN */}
                         <div className="relative">
                             <button 
@@ -2792,10 +2815,7 @@ const [toast, setToast] = React.useState(null);
                                 <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
                                     <div className="flex items-center justify-between gap-3 flex-wrap">
                                         <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">📅 {selectedDay} <span className="text-sm font-medium text-gray-400 dark:text-gray-500">· {dayClients.length} cliente{dayClients.length !== 1 ? 's' : ''}</span></h2>
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            {totalChips.length > 0 && <p className="text-[11px] font-bold text-blue-700 dark:text-blue-300">📦 {totalChips.join(' · ')}</p>}
-                                            <button onClick={() => openDailyLoad(selectedDay)} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-blue-200 dark:hover:bg-blue-800" title="Registrar la carga del día">📦 Carga del día</button>
-                                        </div>
+                                        {totalChips.length > 0 && <p className="text-xs font-bold text-blue-700 dark:text-blue-300" title="Lo que hay que llevar para este día (se actualiza solo)">📦 Cargar: {totalChips.join(' · ')}</p>}
                                     </div>
                                     <div className="flex gap-2 items-center flex-wrap">
                                         <div className="relative flex-1 min-w-[220px]">
@@ -2828,9 +2848,9 @@ const [toast, setToast] = React.useState(null);
                                                 <div key={c.id} draggable
                                                     onDragStart={(e) => { dragInfoRef.current = { client: c, fromDay: selectedDay }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', c.id); } catch (err) {} }}
                                                     onClick={() => setEditNoteData(c)}
-                                                    className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 border border-amber-200 dark:border-amber-800/50 cursor-grab active:cursor-grabbing hover:border-amber-400 dark:hover:border-amber-600 transition-colors">
-                                                    <p className="text-xs text-amber-800 dark:text-amber-200 whitespace-pre-wrap break-words">📝 {c.notes || '(nota vacía)'}</p>
-                                                    {noteDate && <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-1.5">📆 {formatDate(noteDate)}</p>}
+                                                    className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 border border-amber-200 dark:border-amber-800/50 cursor-grab active:cursor-grabbing hover:border-amber-400 dark:hover:border-amber-600 transition-colors">
+                                                    <p className="text-sm text-amber-800 dark:text-amber-200 whitespace-pre-wrap break-words leading-snug">📝 {c.notes || '(nota vacía)'}</p>
+                                                    {noteDate && <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mt-1.5">📆 {formatDate(noteDate)}</p>}
                                                 </div>
                                             );
                                         }
@@ -2844,19 +2864,25 @@ const [toast, setToast] = React.useState(null);
                                             <div key={c.id} draggable
                                                 onDragStart={(e) => { dragInfoRef.current = { client: c, fromDay: selectedDay }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', c.id); } catch (err) {} }}
                                                 onClick={() => { setQuickEditClient(c); setQuickEditShowInfo(true); }}
-                                                className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700 cursor-grab active:cursor-grabbing hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <h3 className="font-bold text-gray-900 dark:text-white text-sm truncate">{(c.name || '').toUpperCase()}</h3>
-                                                    {debtT > 0 && <span className="text-[11px] font-bold text-red-600 dark:text-red-400 flex-shrink-0">${debtT.toLocaleString()}</span>}
+                                                className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700 cursor-grab active:cursor-grabbing hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
+                                                <div className="flex items-baseline justify-between gap-2">
+                                                    <h3 className="font-bold text-gray-900 dark:text-white text-base truncate">{(c.name || '').toUpperCase()}</h3>
+                                                    <div className="flex items-baseline gap-2 flex-shrink-0">
+                                                        {visitDate && <span className="text-xs font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">📆 {formatDate(visitDate)}</span>}
+                                                        {debtT > 0 && <span className="text-xs font-bold text-red-600 dark:text-red-400">${debtT.toLocaleString()}</span>}
+                                                    </div>
                                                 </div>
-                                                {visitDate && <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 mt-0.5">📆 {formatDate(visitDate)}</p>}
-                                                {c.address && <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">📍 {c.address}</p>}
-                                                {prodStr && <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{prodStr}</p>}
-                                                <div className="flex items-center gap-1.5 mt-2" onClick={(e) => e.stopPropagation()}>
-                                                    {c.phone && <button onClick={() => sendWhatsAppDirect(c.phone)} className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/30" title="WhatsApp">💬</button>}
-                                                    <button onClick={() => hasLocation ? openGoogleMaps(c.lat, c.lng, c.mapsLink) : null} className={`w-7 h-7 rounded-full flex items-center justify-center ${hasLocation ? 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'bg-gray-50 dark:bg-gray-800 opacity-30 cursor-default'}`} title={hasLocation ? 'Maps' : 'Sin ubicación'}>📍</button>
-                                                    <button onClick={() => setRelationshipClient(c)} className={`w-7 h-7 rounded-full flex items-center justify-center ${c.relationships && Object.keys(c.relationships).length > 0 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-gray-100 dark:bg-gray-700'} hover:bg-amber-200 dark:hover:bg-amber-800`} title="Familia">👨‍👩‍👧</button>
-                                                    <button onClick={() => setScheduleClient(c)} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold" title="Agendar">📅</button>
+                                                <div className="flex items-center justify-between gap-2 mt-1.5">
+                                                    <div className="min-w-0 flex-1 leading-snug">
+                                                        {c.address && <p className="text-sm text-gray-500 dark:text-gray-400 truncate">📍 {c.address}</p>}
+                                                        {prodStr && <p className="text-sm text-gray-600 dark:text-gray-300 truncate">📦 {prodStr}</p>}
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                        {c.phone && <button onClick={() => sendWhatsAppDirect(c.phone)} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-base hover:bg-green-100 dark:hover:bg-green-900/30" title="WhatsApp">💬</button>}
+                                                        <button onClick={() => hasLocation ? openGoogleMaps(c.lat, c.lng, c.mapsLink) : null} className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${hasLocation ? 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'bg-gray-50 dark:bg-gray-800 opacity-30 cursor-default'}`} title={hasLocation ? 'Maps' : 'Sin ubicación'}>📍</button>
+                                                        <button onClick={() => setRelationshipClient(c)} className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${c.relationships && Object.keys(c.relationships).length > 0 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-gray-100 dark:bg-gray-700'} hover:bg-amber-200 dark:hover:bg-amber-800`} title="Familia">👨‍👩‍👧</button>
+                                                        <button onClick={() => setScheduleClient(c)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold" title="Agendar">📅</button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
@@ -3118,6 +3144,58 @@ const [toast, setToast] = React.useState(null);
                                 {debouncedDebtSearch.trim() && (
                                     <p className="text-xs text-gray-400 dark:text-gray-500 text-center font-medium">{filteredDebts.length} deuda{filteredDebts.length !== 1 ? 's' : ''} en {debtGroups.length} cliente{debtGroups.length !== 1 ? 's' : ''} — Total: ${filteredTotal.toLocaleString()}</p>
                                 )}
+                                {isWide ? (
+                                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="text-left text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/30">
+                                                <th className="px-4 py-3">Cliente</th>
+                                                <th className="px-4 py-3">Dirección</th>
+                                                <th className="px-4 py-3">Deudas</th>
+                                                <th className="px-4 py-3 text-right">Total</th>
+                                                <th className="px-4 py-3 text-right">Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {debtGroups.map(groupDebts => {
+                                                const first = groupDebts[0];
+                                                const clientTotal = groupDebts.reduce((sum, d) => sum + (d.amount || 0), 0);
+                                                const client = clients.find(c => c.id === first.clientId);
+                                                const phone = client?.phone;
+                                                const clientTransfers = transfers.filter(t => t.clientId === first.clientId);
+                                                const maxAge = getGroupMaxAge(groupDebts);
+                                                const borderColor = maxAge > 30 ? 'border-l-red-600' : maxAge > 15 ? 'border-l-amber-500' : 'border-l-red-400';
+                                                return (
+                                                    <tr key={first.clientId || first.id} className={`border-b border-gray-50 dark:border-gray-700/50 border-l-4 ${borderColor} hover:bg-gray-50 dark:hover:bg-gray-700/20 align-top`}>
+                                                        <td className="px-4 py-3 font-bold text-gray-900 dark:text-white whitespace-nowrap">{(first.clientName || '').toUpperCase()}</td>
+                                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-[280px]"><span onClick={() => openGoogleMaps(first.clientLat, first.clientLng, first.clientMapsLink)} className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline">📍 {first.clientAddress}</span></td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="space-y-1">
+                                                                {groupDebts.map(debt => (
+                                                                    <div key={debt.id} className="flex items-center gap-2">
+                                                                        <span className="text-[11px] text-gray-400 dark:text-gray-500 w-16 flex-shrink-0">{debt.createdAt ? new Date(debt.createdAt.seconds ? debt.createdAt.seconds * 1000 : debt.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : ''}</span>
+                                                                        <span className="font-bold text-gray-800 dark:text-gray-200 w-16 flex-shrink-0">${debt.amount?.toLocaleString()}</span>
+                                                                        <button onClick={() => setEditDebtModal({ isOpen: true, debt })} className="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-xs flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600" title="Editar">✏️</button>
+                                                                        <button onClick={() => confirmPayOneDebt(debt)} className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded text-[11px] font-bold hover:bg-green-200 dark:hover:bg-green-800" title="Marcar pagada">✅</button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-black text-red-600 dark:text-red-400 text-lg whitespace-nowrap align-middle">${clientTotal.toLocaleString()}</td>
+                                                        <td className="px-4 py-3 align-middle">
+                                                            <div className="flex gap-1.5 justify-end flex-wrap">
+                                                                {groupDebts.length > 1 && <button onClick={() => confirmPayAllDebts(groupDebts, first, clientTotal)} className="px-2.5 py-1.5 bg-green-500 text-white rounded-lg text-[11px] font-bold hover:bg-green-600 whitespace-nowrap">✅ Todas</button>}
+                                                                {phone && <button onClick={() => sendWhatsAppDirect(phone)} className="px-2.5 py-1.5 bg-green-500 text-white rounded-lg text-[11px] font-bold hover:bg-green-600" title="WhatsApp">💬</button>}
+                                                                {clientTransfers.length > 0 ? <button onClick={() => confirmReviewTransfers(clientTransfers, first)} className="px-2.5 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-[11px] font-bold whitespace-nowrap">✅ Revisada{clientTransfers.length > 1 ? ` (${clientTransfers.length})` : ''}</button> : client ? <button onClick={() => { handleAddTransfer(client); showUndoToast('Transferencia marcada para revisar', null); }} className="px-2.5 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-[11px] font-bold">💳 Transf.</button> : null}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                ) : (
                                 <div className="grid grid-cols-1 gap-3">
                                 {debtGroups.map(groupDebts => {
                                     const first = groupDebts[0];
@@ -3265,6 +3343,7 @@ const [toast, setToast] = React.useState(null);
                                     );
                                 })}
                                 </div>
+                                )}
                             </div>
                             );
                         })()}
@@ -3338,8 +3417,8 @@ const [toast, setToast] = React.useState(null);
                 )}
             </main>
 
-            {/* NAV - Solo visible en sección Cartera */}
-            {activeSection === 'cartera' && (
+            {/* NAV inferior - solo en móvil (en escritorio la navegación está en el header) */}
+            {activeSection === 'cartera' && !isWide && (
             <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-gray-200/50 dark:border-gray-700/50 flex justify-around p-2 z-20 pb-safe shadow-lg shadow-black/5 transition-all duration-200">
                 <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setView('list'); }} className={`p-2 rounded-lg flex flex-col items-center ${view === 'list' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}><span className="text-xl">🏠</span><span className="text-xs font-medium">Inicio</span></button>
                 {isAdmin ? (
