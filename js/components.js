@@ -6,6 +6,15 @@ const Card = ({ children, className = "" }) => (
     </div>
 );
 
+// Ícono de un producto: imagen de sticker si el producto tiene .sticker, si no el emoji.
+const ProductGlyph = ({ product, size }) => {
+    const s = size || 18;
+    if (product && product.sticker) {
+        return <img src={'stickers/' + product.sticker + '.png'} alt="" draggable={false} style={{ width: s, height: s, objectFit: 'contain', display: 'inline-block', verticalAlign: 'middle' }} />;
+    }
+    return <span>{product ? product.icon : '📦'}</span>;
+};
+
 const Button = ({ children, onClick, variant = "primary", className = "", type = "button", disabled = false }) => {
     const variants = {
         primary: "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 dark:bg-blue-700",

@@ -24,13 +24,55 @@ db.enablePersistence({ synchronizeTabs: true }).catch(function(err) {
 });
 
 // --- CONSTANTES ---
-var PRODUCTS = [
-    { id: 'b20', label: '20L', icon: '💧', short: '20L' },
-    { id: 'b12', label: '12L', icon: '💧', short: '12L' },
-    { id: 'b6', label: '6L', icon: '💧', short: '6L' },
-    { id: 'soda', label: 'Soda', icon: '🍾', short: 'Soda' },
-    { id: 'bombita', label: 'Bombita', icon: '🖐️', short: 'Bomb' },
-    { id: 'disp_elec_new', label: 'Disp. Elec Nuevo', icon: '⚡', short: 'ElecN' },
-    { id: 'disp_elec_chg', label: 'Disp. Elec Cambio', icon: '⚡', short: 'ElecC' },
-    { id: 'disp_nat', label: 'Disp. Natural', icon: '🍃', short: 'Nat' },
+// Productos por defecto (mismos ids/orden que la app nativa). El catálogo real
+// se reconstruye desde el documento `settings` con buildProductsFromSettings().
+var DEFAULT_PRODUCTS = [
+    { id: 'b20', label: 'Bidón 20L', icon: '💧', short: '20L' },
+    { id: 'b12', label: 'Bidón 12L', icon: '💧', short: '12L' },
+    { id: 'b6', label: 'Bidón 6L', icon: '💧', short: '6L' },
+    { id: 'soda', label: 'Sifón Soda', icon: '🥤', short: 'Soda' },
+    { id: 'bombita', label: 'Bombita', icon: '🧴', short: 'Bomb' },
+    { id: 'disp_elec_new', label: 'Disp. Elec Nuevo', icon: '🔌', short: 'ElecN' },
+    { id: 'disp_elec_chg', label: 'Disp. Elec Cambio', icon: '🔌', short: 'ElecC' },
+    { id: 'disp_nat', label: 'Disp. Natural', icon: '🌿', short: 'Nat' },
 ];
+// PRODUCTS es la lista viva (built-in + custom, con renombres/emojis aplicados).
+// Arranca con los defaults y se reemplaza al cargar el catálogo de Firestore.
+var PRODUCTS = DEFAULT_PRODUCTS.slice();
+
+// Stickers disponibles (mismos ids que la app nativa; imágenes en stickers/<id>.png).
+var STICKER_IDS = ['bidon_foto', 'bidon_6l', 'disp_electrico', 'bombita', 'disp', 'sifon', 'guarana', 'lima', 'naranja', 'pomelo', 'uva', 'bidon', 'bidon_mini', 'dispenser', 'bottle', 'droplet', 'drop_plus', 'ice', 'soda', 'juice', 'truck', 'box', 'cart', 'leaf', 'home', 'star'];
+
+// Reconstruye PRODUCTS desde el doc `settings` (mismos campos que la nativa:
+// productNames, productEmojis, customProducts, productOrder).
+function buildProductsFromSettings(data) {
+    data = data || {};
+    var names = (data.productNames && typeof data.productNames === 'object') ? data.productNames : {};
+    var emojis = (data.productEmojis && typeof data.productEmojis === 'object') ? data.productEmojis : {};
+    var custom = Array.isArray(data.customProducts) ? data.customProducts : [];
+    var order = Array.isArray(data.productOrder) ? data.productOrder : [];
+
+    // El ícono puede ser un emoji directo o "sticker:<id>" (placeholder 📦 hasta implementar stickers).
+    var resolveGlyph = function(val) {
+        if (typeof val === 'string' && val.indexOf('sticker:') === 0) {
+            return { icon: '📦', sticker: val.slice('sticker:'.length) };
+        }
+        return { icon: val, sticker: null };
+    };
+
+    var base = DEFAULT_PRODUCTS.map(function(p) { return { id: p.id, label: p.label, baseEmoji: p.icon, short: p.short }; })
+        .concat(custom.filter(function(cp) { return cp && cp.id; }).map(function(cp) {
+            return { id: cp.id, label: cp.label || '', baseEmoji: (cp.emoji || cp.icon || '📦'), short: cp.short || (cp.label || '').slice(0, 12) };
+        }));
+
+    var withOverrides = base.map(function(p) {
+        var label = (names[p.id] != null) ? names[p.id] : p.label;
+        var rawEmoji = (emojis[p.id] != null) ? emojis[p.id] : p.baseEmoji;
+        var g = resolveGlyph(rawEmoji);
+        return { id: p.id, label: label, icon: g.icon, sticker: g.sticker, short: p.short };
+    });
+
+    var ranked = order.map(function(id) { return withOverrides.filter(function(p) { return p.id === id; })[0]; }).filter(Boolean);
+    var rest = withOverrides.filter(function(p) { return order.indexOf(p.id) === -1; });
+    PRODUCTS = ranked.concat(rest);
+}

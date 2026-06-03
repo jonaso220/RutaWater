@@ -407,13 +407,16 @@ const [toast, setToast] = React.useState(null);
     }, [clients, activeAlert]);
 
 
-    // --- CARGAR CONFIGURACIÓN DEL USUARIO ---
+    // --- CARGAR CONFIGURACIÓN DEL USUARIO (en vivo) ---
     React.useEffect(() => {
         if (!user) return;
         const settingsDocId = groupData?.groupId || user.uid;
-        db.collection('settings').doc(settingsDocId).get().then(doc => {
-            if (doc.exists) setAppSettings(doc.data());
-        }).catch(e => console.error("Error loading settings:", e));
+        const unsub = db.collection('settings').doc(settingsDocId).onSnapshot(doc => {
+            const data = doc.exists ? doc.data() : {};
+            buildProductsFromSettings(data); // reconstruye el catálogo de productos
+            setAppSettings(data);
+        }, e => console.error("Error loading settings:", e));
+        return () => unsub();
     }, [user, groupData]);
 
     // --- ONLINE/OFFLINE DETECTOR ---
@@ -2109,7 +2112,7 @@ const [toast, setToast] = React.useState(null);
                                                                                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border border-transparent'
                                                                         }`}
                                                                     >
-                                                                        <span>{prod.icon}</span>
+                                                                        <ProductGlyph product={prod} size={16} />
                                                                         <span className="truncate">{prod.short}</span>
                                                                         {isActive && (
                                                                             <span className="ml-auto shrink-0">✅</span>
@@ -2304,7 +2307,7 @@ const [toast, setToast] = React.useState(null);
                                 if (client.products) {
                                     prodList = Object.keys(client.products)
                                         .filter(function(k) { return parseInt(client.products[k] || 0) > 0; })
-                                        .map(function(k) { var p = PRODUCTS.find(function(prod) { return prod.id === k; }); return { qty: client.products[k], icon: p ? p.icon : '📦', label: p ? p.short : k }; });
+                                        .map(function(k) { var p = PRODUCTS.find(function(prod) { return prod.id === k; }); return { qty: client.products[k], prod: p, label: p ? p.short : k }; });
                                 }
                                 var clientIds = client._mergedIds || [client.id];
                                 var debtTotal = debts.filter(function(d) { return clientIds.indexOf(d.clientId) > -1; }).reduce(function(sum, d) { return sum + (d.amount || 0); }, 0);
@@ -2354,7 +2357,7 @@ const [toast, setToast] = React.useState(null);
                                     {prodList.length > 0 && (
                                         <div className="flex flex-wrap gap-1.5 mt-2.5">
                                             {prodList.map(function(p, i) { return (
-                                                <span key={i} className="text-[11px] font-medium bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full border border-gray-100 dark:border-gray-600">{p.icon} {p.qty}x {p.label}</span>
+                                                <span key={i} className="text-[11px] font-medium bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full border border-gray-100 dark:border-gray-600 inline-flex items-center gap-1"><ProductGlyph product={p.prod} size={13} /> {p.qty}x {p.label}</span>
                                             ); })}
                                         </div>
                                     )}
@@ -2745,7 +2748,7 @@ const [toast, setToast] = React.useState(null);
                             <div className="grid grid-cols-2 gap-2">
                                 {PRODUCTS.map(prod => (
                                     <div key={prod.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700">
-                                        <span className="text-sm font-medium flex items-center gap-1.5 dark:text-gray-300">{prod.icon} {prod.label}</span>
+                                        <span className="text-sm font-medium flex items-center gap-1.5 dark:text-gray-300"><ProductGlyph product={prod} size={18} /> {prod.label}</span>
                                         <input
                                             type="number"
                                             placeholder="0"

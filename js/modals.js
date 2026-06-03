@@ -458,7 +458,7 @@ const ScheduleModal = ({ isOpen, client, onClose, onSave }) => {
                         <div className="grid grid-cols-2 gap-2">
                             {PRODUCTS.map(prod => (
                                 <div key={prod.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-1.5 rounded border border-gray-200 dark:border-gray-600">
-                                    <span className="text-[10px] font-medium flex items-center gap-1 dark:text-gray-300">{prod.icon} {prod.short}</span>
+                                    <span className="text-[10px] font-medium flex items-center gap-1 dark:text-gray-300"><ProductGlyph product={prod} size={14} /> {prod.short}</span>
                                     <input
                                         type="number"
                                         placeholder="0"
@@ -700,7 +700,7 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo,
                         <div className="space-y-1">
                             {PRODUCTS.map(p => (
                                 <div key={p.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{p.icon} {p.label}</span>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1.5"><ProductGlyph product={p} size={20} /> {p.label}</span>
                                     <div className="flex items-center gap-3">
                                         <button type="button" onClick={() => adjustQty(p.id, -1)} className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-lg font-bold text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600">−</button>
                                         <span className="text-base font-bold text-gray-900 dark:text-white w-6 text-center">{products[p.id] || 0}</span>
