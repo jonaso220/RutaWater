@@ -264,6 +264,25 @@ const [toast, setToast] = React.useState(null);
         }
     };
 
+    // --- CARGA DEL DÍA (daily_loads, mismo formato/scope que la app nativa) ---
+    const [dailyLoadOpen, setDailyLoadOpen] = React.useState(false);
+    const [dailyLoadDay, setDailyLoadDay] = React.useState('');
+    const [dailyLoadInitial, setDailyLoadInitial] = React.useState(null);
+    const [dailyLoadSuggested, setDailyLoadSuggested] = React.useState({});
+    const openDailyLoad = async (day) => {
+        const sug = {};
+        getVisibleClients(day).forEach(c => { if (c.products) Object.keys(c.products).forEach(k => { const n = parseInt(c.products[k] || 0, 10); if (n > 0) sug[k] = (sug[k] || 0) + n; }); });
+        setDailyLoadDay(day);
+        setDailyLoadSuggested(sug);
+        try { const doc = await db.collection('daily_loads').doc(user.uid + '_' + day).get(); setDailyLoadInitial(doc.exists ? doc.data() : {}); }
+        catch (e) { setDailyLoadInitial({}); }
+        setDailyLoadOpen(true);
+    };
+    const saveDailyLoad = async (day, data) => {
+        try { await firestoreRetry(() => db.collection('daily_loads').doc(user.uid + '_' + day).set(data)); showUndoToast('Carga del día guardada.', null); }
+        catch (e) { showUndoToast(getErrorMessage(e), null); throw e; }
+    };
+
     // --- ESTADO NOTAS ---
     const [noteModal, setNoteModal] = React.useState(false);
     const [editNoteData, setEditNoteData] = React.useState(null);
@@ -1972,6 +1991,7 @@ const [toast, setToast] = React.useState(null);
             {quickEditClient && <EditClientQuickModal isOpen={true} client={quickEditClient} onClose={() => setQuickEditClient(null)} onSave={handleQuickUpdateClient} showClientInfo={quickEditShowInfo} />}
             {relationshipClient && <RelationshipsModal isOpen={true} client={clients.find(c => c.id === relationshipClient.id) || relationshipClient} allClients={clients} onClose={() => setRelationshipClient(null)} onAdd={handleAddRelationship} onRemove={handleRemoveRelationship} />}
             {smartOrderOpen && <SmartOrderModal isOpen={true} onClose={() => setSmartOrderOpen(false)} onInterpret={aiParseOrder} onConfirm={handleAiConfirm} />}
+            {dailyLoadOpen && <DailyLoadModal isOpen={true} day={dailyLoadDay} initial={dailyLoadInitial} suggested={dailyLoadSuggested} onClose={() => setDailyLoadOpen(false)} onSave={saveDailyLoad} />}
             {showSettingsModal && <SettingsModal
                 isOpen={true}
                 settings={appSettings}
@@ -2706,7 +2726,10 @@ const [toast, setToast] = React.useState(null);
                                 <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
                                     <div className="flex items-center justify-between gap-3 flex-wrap">
                                         <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">📅 {selectedDay} <span className="text-sm font-medium text-gray-400 dark:text-gray-500">· {dayClients.length} cliente{dayClients.length !== 1 ? 's' : ''}</span></h2>
-                                        {totalChips.length > 0 && <p className="text-[11px] font-bold text-blue-700 dark:text-blue-300">📦 {totalChips.join(' · ')}</p>}
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            {totalChips.length > 0 && <p className="text-[11px] font-bold text-blue-700 dark:text-blue-300">📦 {totalChips.join(' · ')}</p>}
+                                            <button onClick={() => openDailyLoad(selectedDay)} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-blue-200 dark:hover:bg-blue-800" title="Registrar la carga del día">📦 Carga del día</button>
+                                        </div>
                                     </div>
                                     <div className="flex gap-2 items-center flex-wrap">
                                         <div className="relative flex-1 min-w-[220px]">

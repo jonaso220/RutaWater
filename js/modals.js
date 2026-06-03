@@ -953,6 +953,59 @@ const SmartOrderModal = ({ isOpen, onClose, onInterpret, onConfirm }) => {
 };
 
 
+// --- COMPONENTE MODAL CARGA DEL DÍA ---
+const DAILY_LOAD_PRODUCTS = [{ key: 'b20', label: '20L' }, { key: 'b12', label: '12L' }, { key: 'b6', label: '6L' }, { key: 'soda', label: 'Soda' }];
+const DailyLoadModal = ({ isOpen, day, initial, suggested, onClose, onSave }) => {
+    const [data, setData] = React.useState({});
+    const [saving, setSaving] = React.useState(false);
+    React.useEffect(() => { if (isOpen) { setData(initial || {}); setSaving(false); } }, [isOpen, initial]);
+    if (!isOpen) return null;
+    const set = (k, v) => setData(prev => ({ ...prev, [k]: v }));
+    const sug = suggested || {};
+    const save = async () => {
+        if (saving) return;
+        setSaving(true);
+        const full = { b20: '', b12: '', b6: '', soda: '', b20_extra: '', b12_extra: '', b6_extra: '', soda_extra: '', pedidos_note: '', ...data };
+        try { await onSave(day, full); onClose(); } catch (e) { setSaving(false); }
+    };
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm" style={{ zIndex: 110 }}>
+            <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl shadow-2xl w-full sm:max-w-md max-h-[88vh] flex flex-col">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                    <h3 className="text-lg font-bold dark:text-white flex items-center gap-2">📦 Carga · {day}</h3>
+                    <button onClick={onClose}><Icons.X size={20} className="text-gray-400 dark:text-gray-500" /></button>
+                </div>
+                <div className="overflow-y-auto flex-1 p-4 space-y-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Anotá lo que cargás para el día. La <span className="font-semibold">sugerencia</span> es el total de pedidos de la jornada.</p>
+                    <div className="grid grid-cols-[3rem_1fr_1fr] gap-2 items-end">
+                        <span></span>
+                        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Carga</span>
+                        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Extra</span>
+                        {DAILY_LOAD_PRODUCTS.map(p => (
+                            <React.Fragment key={p.key}>
+                                <span className="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center">{p.label}</span>
+                                <div>
+                                    <input type="number" inputMode="numeric" value={data[p.key] || ''} onChange={(e) => set(p.key, e.target.value)} placeholder={sug[p.key] ? String(sug[p.key]) : '0'} className="w-full p-2 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm text-center outline-none focus:ring-2 focus:ring-blue-500" />
+                                    {sug[p.key] > 0 && <p className="text-[9px] text-gray-400 dark:text-gray-500 text-center mt-0.5">pedidos: {sug[p.key]}</p>}
+                                </div>
+                                <input type="number" inputMode="numeric" value={data[p.key + '_extra'] || ''} onChange={(e) => set(p.key + '_extra', e.target.value)} placeholder="0" className="w-full p-2 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm text-center outline-none focus:ring-2 focus:ring-blue-500 self-start" />
+                            </React.Fragment>
+                        ))}
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Notas del día</p>
+                        <textarea value={data.pedidos_note || ''} onChange={(e) => set('pedidos_note', e.target.value)} placeholder="Pedidos extra, recordatorios..." className="w-full h-20 p-3 border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+                    </div>
+                </div>
+                <div className="p-4 border-t border-gray-100 dark:border-gray-700">
+                    <Button onClick={save} className="w-full"><Icons.Save size={16} /> Guardar carga</Button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 // --- COMPONENTE MODAL CONFIGURACIÓN ---
 const SettingsModal = ({ isOpen, settings, onClose, onSave }) => {
     const DEFAULT_EN_CAMINO = "Buenas \u{1F69A}. Ya estamos en camino, sos el/la siguiente en la lista de entrega. \u{00A1}Nos vemos en unos minutos!\n\nAquapura";
