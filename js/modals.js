@@ -588,7 +588,7 @@ const PasteContactModal = ({ isOpen, onClose, onPaste }) => {
 };
 
 // --- COMPONENTE MODAL EDITAR CLIENTE RÁPIDO (Directorio) ---
-const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo }) => {
+const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo, inline }) => {
     const [name, setName] = React.useState('');
     const [address, setAddress] = React.useState('');
     const [phone, setPhone] = React.useState('');
@@ -673,9 +673,10 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
         onClose();
     };
 
-    return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm" style={{zIndex: 110}}>
-            <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl shadow-2xl w-full sm:max-w-md max-h-[85vh] flex flex-col">
+    const panelInner = (
+        <div className={inline
+            ? "bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 w-full flex flex-col max-h-[calc(100vh-7rem)]"
+            : "bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl shadow-2xl w-full sm:max-w-md max-h-[85vh] flex flex-col"}>
                 <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                     <h3 className="text-lg font-bold dark:text-white">
                         {showClientInfo ? 'Editar Cliente' : (client.name || '').toUpperCase()}
@@ -757,7 +758,13 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo 
                         <Icons.Save size={16} /> Guardar
                     </Button>
                 </div>
-            </div>
+        </div>
+    );
+
+    if (inline) return panelInner;
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm" style={{zIndex: 110}}>
+            {panelInner}
         </div>
     );
 };

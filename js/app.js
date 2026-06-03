@@ -1,4 +1,18 @@
 // --- APP: Componente principal ---
+
+// Columnas de la vista tabla (registro). Anchos ajustables arrastrando el borde derecho.
+const TABLE_COLUMNS = [
+    { key: 'name', label: 'Nombre', sortable: true },
+    { key: 'phone', label: 'Teléfono', sortable: true },
+    { key: 'address', label: 'Dirección', sortable: true },
+    { key: 'freq', label: 'Frecuencia', sortable: true },
+    { key: 'days', label: 'Días', sortable: false },
+    { key: 'debt', label: 'Deuda', sortable: true },
+    { key: 'products', label: 'Productos', sortable: false },
+    { key: 'actions', label: 'Acciones', sortable: false },
+];
+const DEFAULT_COL_WIDTHS = { name: 200, phone: 150, address: 380, freq: 120, days: 130, debt: 100, products: 320, actions: 150 };
+
 function App() {
     const [view, setView] = React.useState('list');
     const [clients, setClients] = React.useState([]);
@@ -41,6 +55,50 @@ const [toast, setToast] = React.useState(null);
     // --- ESTADO EDICIÓN RÁPIDA CLIENTE ---
     const [quickEditClient, setQuickEditClient] = React.useState(null);
     const [quickEditShowInfo, setQuickEditShowInfo] = React.useState(false);
+
+    // --- ESTADO VISTA TABLA (registro de escritorio) ---
+    const [tableSelectedClient, setTableSelectedClient] = React.useState(null);
+    const [tableSort, setTableSort] = React.useState({ key: 'name', dir: 'asc' });
+    const toggleTableSort = (key) => setTableSort(s => s.key === key ? { key: key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key: key, dir: 'asc' });
+    const [colWidths, setColWidths] = React.useState(() => {
+        try { const s = localStorage.getItem('rw_tableColWidths_v2'); if (s) return { ...DEFAULT_COL_WIDTHS, ...JSON.parse(s) }; } catch (e) {}
+        return DEFAULT_COL_WIDTHS;
+    });
+    React.useEffect(() => {
+        try { localStorage.setItem('rw_tableColWidths_v2', JSON.stringify(colWidths)); } catch (e) {}
+    }, [colWidths]);
+    const tableRef = React.useRef(null);
+    const startColResize = (key, e) => {
+        e.preventDefault();
+        const idx = TABLE_COLUMNS.findIndex(c => c.key === key);
+        const nextCol = TABLE_COLUMNS[idx + 1];
+        if (!nextCol) return; // última columna: queda fija contra el borde del cuadro
+        const nextKey = nextCol.key;
+        const totalWeight = TABLE_COLUMNS.reduce((s, c) => s + (colWidths[c.key] || 100), 0);
+        const tableW = (tableRef.current && tableRef.current.offsetWidth) || 1200;
+        const pxToWeight = totalWeight / tableW; // cuánto "peso" equivale a 1px en pantalla
+        const MINW = 45;
+        const startX = e.clientX;
+        const startW = colWidths[key] || 100;
+        const startNextW = colWidths[nextKey] || 100;
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'col-resize';
+        const onMove = (ev) => {
+            let dW = (ev.clientX - startX) * pxToWeight;
+            // El total se mantiene: lo que crece una columna lo cede su vecina; la tabla siempre llena el cuadro.
+            if (startW + dW < MINW) dW = MINW - startW;
+            if (startNextW - dW < MINW) dW = startNextW - MINW;
+            setColWidths(prev => ({ ...prev, [key]: startW + dW, [nextKey]: startNextW - dW }));
+        };
+        const onUp = () => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            document.body.style.userSelect = '';
+            document.body.style.cursor = '';
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+    };
 
     // --- ESTADO NOTAS ---
     const [noteModal, setNoteModal] = React.useState(false);
@@ -1386,6 +1444,29 @@ const [toast, setToast] = React.useState(null);
             .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }, [clients, debouncedSearch, directoryFilter, debts]);
 
+    // Lista del registro ordenada por la columna elegida en la vista tabla
+    const sortedTableClients = React.useMemo(() => {
+        const arr = filteredDirectory.slice();
+        const key = tableSort.key, dir = tableSort.dir;
+        const debtOf = (c) => {
+            const ids = c._mergedIds || [c.id];
+            return debts.filter(d => ids.indexOf(d.clientId) > -1).reduce((s, d) => s + (d.amount || 0), 0);
+        };
+        const freqRank = { weekly: 1, biweekly: 2, triweekly: 3, monthly: 4, once: 5, on_demand: 6 };
+        arr.sort((a, b) => {
+            let va, vb;
+            if (key === 'phone') { va = a.phone || ''; vb = b.phone || ''; }
+            else if (key === 'address') { va = (a.address || '').toLowerCase(); vb = (b.address || '').toLowerCase(); }
+            else if (key === 'freq') { va = freqRank[a.freq] || 9; vb = freqRank[b.freq] || 9; }
+            else if (key === 'debt') { va = debtOf(a); vb = debtOf(b); }
+            else { va = (a.name || '').toLowerCase(); vb = (b.name || '').toLowerCase(); }
+            if (va < vb) return dir === 'asc' ? -1 : 1;
+            if (va > vb) return dir === 'asc' ? 1 : -1;
+            return 0;
+        });
+        return arr;
+    }, [filteredDirectory, tableSort, debts]);
+
     const directoryCounts = React.useMemo(() => {
         const all = clients.filter(c => !c.isNote);
         const counts = { total: all.length, weekly: 0, biweekly: 0, triweekly: 0, monthly: 0, once: 0, on_demand: 0, no_location: 0, with_debt: 0 };
@@ -1851,7 +1932,7 @@ const [toast, setToast] = React.useState(null);
                 </div>
             </header>
 
-            <main className="max-w-2xl mx-auto p-4 overflow-x-hidden">
+            <main className={(view === 'tabla' ? 'max-w-none' : 'max-w-2xl') + ' mx-auto p-4 overflow-x-hidden'}>
                 {/* ==================== SECCIÓN: CARTERA DE CLIENTES ==================== */}
                 {activeSection === 'cartera' && (
                 <>
@@ -2156,6 +2237,7 @@ const [toast, setToast] = React.useState(null);
                             <div className="flex justify-between items-center mb-3">
                                 <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">👥 Directorio</h2>
                                 <div className="flex gap-1.5">
+                                    <button onClick={() => setView('tabla')} className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-indigo-200 dark:hover:bg-indigo-800 flex items-center gap-1" title="Vista de tabla (escritorio)">📊 Tabla</button>
                                     <button onClick={handleExportClients} className="text-xs bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-green-200 dark:hover:bg-green-800 flex items-center gap-1">📤 CSV</button>
                                     <button onClick={handleExportBackup} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center gap-1">💾 Backup</button>
                                 </div>
@@ -2267,6 +2349,141 @@ const [toast, setToast] = React.useState(null);
                                 </Card>
                                 );
                             })}
+                        </div>
+                    </div>
+                )}
+                {view === 'tabla' && (
+                    <div className="space-y-3">
+                        {/* CABECERA: título + buscador + filtros + acciones */}
+                        <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                            <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+                                <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">📊 Registro de clientes</h2>
+                                <div className="flex gap-1.5">
+                                    <button onClick={() => { setView('directory'); setTableSelectedClient(null); }} className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1" title="Volver a tarjetas">👥 Tarjetas</button>
+                                    <button onClick={() => setColWidths({ ...DEFAULT_COL_WIDTHS })} className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1" title="Restablecer anchos de columnas">↔ Anchos</button>
+                                    <button onClick={handleExportClients} className="text-xs bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-green-200 dark:hover:bg-green-800 flex items-center gap-1">📤 CSV</button>
+                                    <button onClick={handleExportBackup} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center gap-1">💾 Backup</button>
+                                </div>
+                            </div>
+                            <div className="relative">
+                                <input type="text" placeholder="Buscar por nombre, dirección o teléfono..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
+                                <div className="absolute left-3 top-3 text-gray-400 dark:text-gray-500">🔍</div>
+                                {searchTerm && (
+                                    <button onClick={() => setSearchTerm('')} className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
+                                )}
+                            </div>
+                            <div className="flex gap-1.5 mt-3 flex-wrap">
+                                {[
+                                    { key: 'all', label: 'Todos', count: directoryCounts.total },
+                                    { key: 'weekly', label: 'Sem', count: directoryCounts.weekly },
+                                    { key: 'biweekly', label: 'Quin', count: directoryCounts.biweekly },
+                                    { key: 'triweekly', label: 'C/3', count: directoryCounts.triweekly },
+                                    { key: 'monthly', label: 'Mens', count: directoryCounts.monthly },
+                                    { key: 'once', label: '1 vez', count: directoryCounts.once },
+                                    { key: 'on_demand', label: 'Dir', count: directoryCounts.on_demand },
+                                    { key: 'no_location', label: 'Sin ubic.', count: directoryCounts.no_location },
+                                    { key: 'with_debt', label: 'Deuda', count: directoryCounts.with_debt },
+                                ].filter(f => f.key === 'all' || f.count > 0).map(f => (
+                                    <button key={f.key} onClick={() => setDirectoryFilter(directoryFilter === f.key ? 'all' : f.key)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${directoryFilter === f.key ? (f.key === 'no_location' ? 'bg-yellow-500 text-white' : f.key === 'with_debt' ? 'bg-red-500 text-white' : 'bg-blue-600 text-white') : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+                                        {f.label} {f.count > 0 && <span className={`ml-0.5 ${directoryFilter === f.key ? 'opacity-80' : 'opacity-50'}`}>{f.count}</span>}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 font-medium">{sortedTableClients.length} cliente{sortedTableClients.length !== 1 ? 's' : ''}</p>
+                        </div>
+
+                        {/* DOS PANELES: tabla + edición */}
+                        <div className="flex flex-col lg:flex-row gap-4 items-start">
+                            {/* TABLA */}
+                            <div className="flex-1 min-w-0 w-full bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table ref={tableRef} className="text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
+                                        <colgroup>
+                                            {TABLE_COLUMNS.map(col => <col key={col.key} style={{ width: ((colWidths[col.key] || 100) / TABLE_COLUMNS.reduce((s, c) => s + (colWidths[c.key] || 100), 0) * 100) + '%' }} />)}
+                                        </colgroup>
+                                        <thead>
+                                            <tr className="text-left text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/30">
+                                                {TABLE_COLUMNS.map((col, ci) => (
+                                                    <th key={col.key} className="p-0 select-none">
+                                                        <div onClick={col.sortable ? () => toggleTableSort(col.key) : undefined} className={`relative px-3 py-2.5 ${col.sortable ? 'cursor-pointer hover:text-gray-700 dark:hover:text-gray-200' : ''} ${col.key === 'actions' ? 'text-right' : ''}`}>
+                                                            <span className="block truncate pr-2">{col.label}{col.sortable && tableSort.key === col.key ? (tableSort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
+                                                            {ci < TABLE_COLUMNS.length - 1 && (
+                                                                <span onMouseDown={(e) => startColResize(col.key, e)} onClick={(e) => e.stopPropagation()} className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-blue-400/50 z-10" title="Arrastrá para ajustar el ancho"></span>
+                                                            )}
+                                                        </div>
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {sortedTableClients.length === 0 && (
+                                                <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-400 dark:text-gray-500">Sin clientes que coincidan.</td></tr>
+                                            )}
+                                            {sortedTableClients.map(client => {
+                                                const clientIds = client._mergedIds || [client.id];
+                                                const debtTotal = debts.filter(d => clientIds.indexOf(d.clientId) > -1).reduce((s, d) => s + (d.amount || 0), 0);
+                                                let freqLabel = '', freqColor = '';
+                                                switch (client.freq) {
+                                                    case 'weekly': freqLabel = 'Semanal'; freqColor = 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'; break;
+                                                    case 'biweekly': freqLabel = 'Quincenal'; freqColor = 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'; break;
+                                                    case 'triweekly': freqLabel = 'Cada 3 sem'; freqColor = 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'; break;
+                                                    case 'monthly': freqLabel = 'Mensual'; freqColor = 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'; break;
+                                                    case 'once': freqLabel = 'Una vez'; freqColor = 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'; break;
+                                                    case 'on_demand': freqLabel = 'Directorio'; freqColor = 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'; break;
+                                                    default: freqLabel = client.freq || ''; freqColor = 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400';
+                                                }
+                                                const days = (client.visitDays && client.visitDays.length > 0) ? client.visitDays.map(d => d.slice(0, 3)).join(', ') : '—';
+                                                let prodStr = '—';
+                                                if (client.products) {
+                                                    const parts = Object.keys(client.products)
+                                                        .filter(k => parseInt(client.products[k] || 0) > 0)
+                                                        .map(k => { const p = PRODUCTS.find(pr => pr.id === k); return client.products[k] + 'x ' + (p ? p.short : k); });
+                                                    if (parts.length > 0) prodStr = parts.join(' · ');
+                                                }
+                                                const hasLocation = !!(client.lat && client.lng) || !!client.mapsLink;
+                                                const isSelected = tableSelectedClient && tableSelectedClient.id === client.id;
+                                                return (
+                                                    <tr key={client.id} onClick={() => setTableSelectedClient(client)} className={`border-b border-gray-50 dark:border-gray-700/50 cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}>
+                                                        <td className="px-3 py-2.5 font-bold text-gray-900 dark:text-white truncate">{(client.name || '').toUpperCase()}</td>
+                                                        <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 truncate">{client.phone || '—'}</td>
+                                                        <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 truncate" title={client.address || ''}>{client.address || '—'}</td>
+                                                        <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${freqColor}`}>{freqLabel}</span></td>
+                                                        <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 truncate">{days}</td>
+                                                        <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap">{debtTotal > 0 ? <span className="text-red-600 dark:text-red-400 font-bold">${debtTotal.toLocaleString()}</span> : <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
+                                                        <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 truncate" title={prodStr}>{prodStr}</td>
+                                                        <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap text-right">
+                                                            <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
+                                                                {client.phone && <button onClick={() => sendWhatsAppDirect(client.phone)} className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/30" title="WhatsApp">💬</button>}
+                                                                <button onClick={() => hasLocation ? openGoogleMaps(client.lat, client.lng, client.mapsLink) : null} className={`w-7 h-7 rounded-full flex items-center justify-center ${hasLocation ? 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'bg-gray-50 dark:bg-gray-800 opacity-30 cursor-default'}`} title={hasLocation ? 'Maps' : 'Sin ubicación'}>📍</button>
+                                                                <button onClick={() => setScheduleClient(client)} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold" title="Agendar visita">📅</button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* PANEL DE EDICIÓN */}
+                            <div className="w-full lg:w-[380px] flex-shrink-0">
+                                <div className="lg:sticky lg:top-4 space-y-2">
+                                    {tableSelectedClient ? (
+                                        <>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => setScheduleClient(tableSelectedClient)} className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5">📅 Agendar días de visita</button>
+                                                <button onClick={() => setTableSelectedClient(null)} className="px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300 rounded-lg text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-600">Cerrar</button>
+                                            </div>
+                                            <EditClientQuickModal inline={true} isOpen={true} client={tableSelectedClient} showClientInfo={true} onClose={() => setTableSelectedClient(null)} onSave={handleQuickUpdateClient} />
+                                        </>
+                                    ) : (
+                                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-8 text-center text-gray-400 dark:text-gray-500 text-sm">
+                                            👈 Seleccioná un cliente de la tabla para editarlo acá.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
