@@ -3382,6 +3382,32 @@ const [toast, setToast] = React.useState(null);
                                 <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">Las transferencias se marcan desde la tarjeta del cliente</p>
                             </div>
                         ) : (
+                            isWide ? (
+                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="text-left text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/30">
+                                            <th className="px-4 py-3">Cliente</th>
+                                            <th className="px-4 py-3">Dirección</th>
+                                            <th className="px-4 py-3">Fecha</th>
+                                            <th className="px-4 py-3 text-right">Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {transfers
+                                            .filter((() => { const m = fuzzyMatch(debouncedTransferSearch); return t => m(t.clientName || '', t.clientAddress || ''); })())
+                                            .map(transfer => (
+                                            <tr key={transfer.id} className="border-b border-gray-50 dark:border-gray-700/50 border-l-4 border-l-emerald-500 hover:bg-gray-50 dark:hover:bg-gray-700/20">
+                                                <td className="px-4 py-3 font-bold text-gray-900 dark:text-white whitespace-nowrap">{(transfer.clientName || '').toUpperCase()}</td>
+                                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-[340px]"><span onClick={() => openGoogleMaps(transfer.clientLat, transfer.clientLng, transfer.clientMapsLink)} className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline">📍 {transfer.clientAddress}</span></td>
+                                                <td className="px-4 py-3 text-gray-400 dark:text-gray-500 whitespace-nowrap">{transfer.createdAt ? new Date(transfer.createdAt.seconds ? transfer.createdAt.seconds * 1000 : transfer.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</td>
+                                                <td className="px-4 py-3 text-right"><button onClick={() => handleTransferReviewed(transfer)} className="px-3 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-bold hover:bg-emerald-200 dark:hover:bg-emerald-800">✅ Revisada</button></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            ) : (
                             <div className="grid grid-cols-1 gap-3">
                                 {transfers
                                     .filter((() => { const m = fuzzyMatch(debouncedTransferSearch); return t => m(t.clientName || '', t.clientAddress || ''); })())
@@ -3412,6 +3438,7 @@ const [toast, setToast] = React.useState(null);
                                     </Card>
                                 ))}
                             </div>
+                            )
                         )}
                     </div>
                 )}
