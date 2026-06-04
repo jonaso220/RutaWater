@@ -2,6 +2,16 @@
 // Son presentacionales: reciben datos y handlers por props, no tienen estado propio
 // (salvo lo estrictamente local). La lógica/estado sigue viviendo en App.
 
+// Color de avatar estable por nombre (mismo nombre → mismo color).
+const AVATAR_COLORS = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#0ea5e9'];
+const avatarColor = (name) => {
+    let h = 0;
+    const s = name || '';
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return AVATAR_COLORS[h % AVATAR_COLORS.length];
+};
+const avatarInitial = (name) => ((name || '?').trim().charAt(0) || '?').toUpperCase();
+
 // === ESTADÍSTICAS / REPORTES ===
 // Sólo depende de `stats` (memo calculado en App desde clients/debts/transfers).
 const StatsScreen = ({ stats }) => (
@@ -233,19 +243,30 @@ const DebtsScreen = ({ debts, clients, transfers, isWide, debtSearchTerm, setDeb
                             {debts.length > 0 && (() => {
                                 const totalAmount = debts.reduce((sum, d) => sum + (d.amount || 0), 0);
                                 const uniqueClients = new Set(debts.map(d => d.clientId || d.id)).size;
+                                // Deudas vencidas (+15 días): monto acumulado, para priorizar cobros.
+                                const nowMs = Date.now();
+                                const overdue = debts.filter(d => {
+                                    const ts = d.createdAt ? (d.createdAt.seconds ? d.createdAt.seconds * 1000 : d.createdAt) : 0;
+                                    return ts && (nowMs - ts) > 15 * 86400000;
+                                });
+                                const overdueAmount = overdue.reduce((sum, d) => sum + (d.amount || 0), 0);
                                 return (
                                 <div className="flex gap-2 mb-3">
                                     <div className="flex-1 bg-red-50 dark:bg-red-900/20 rounded-lg p-2.5 text-center">
                                         <p className="text-lg font-black text-red-600 dark:text-red-400">${totalAmount.toLocaleString()}</p>
-                                        <p className="text-[11px] text-red-500/70 dark:text-red-400/60 font-medium">Total pendiente</p>
+                                        <p className="text-[11px] text-red-500/70 dark:text-red-400/60 font-medium">💰 Total pendiente</p>
                                     </div>
                                     <div className="flex-1 bg-gray-50 dark:bg-gray-700 rounded-lg p-2.5 text-center">
                                         <p className="text-lg font-black text-gray-700 dark:text-gray-200">{uniqueClients}</p>
-                                        <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">Cliente{uniqueClients !== 1 ? 's' : ''}</p>
+                                        <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">👥 Cliente{uniqueClients !== 1 ? 's' : ''}</p>
                                     </div>
                                     <div className="flex-1 bg-gray-50 dark:bg-gray-700 rounded-lg p-2.5 text-center">
                                         <p className="text-lg font-black text-gray-700 dark:text-gray-200">{debts.length}</p>
-                                        <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">Deuda{debts.length !== 1 ? 's' : ''}</p>
+                                        <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">🧾 Deuda{debts.length !== 1 ? 's' : ''}</p>
+                                    </div>
+                                    <div className={`flex-1 rounded-lg p-2.5 text-center ${overdueAmount > 0 ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-gray-50 dark:bg-gray-700'}`}>
+                                        <p className={`text-lg font-black ${overdueAmount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>${overdueAmount.toLocaleString()}</p>
+                                        <p className={`text-[11px] font-medium ${overdueAmount > 0 ? 'text-amber-500/80 dark:text-amber-400/60' : 'text-gray-400 dark:text-gray-500'}`}>⏳ Vencidas +15d</p>
                                     </div>
                                 </div>
                                 );
@@ -257,15 +278,20 @@ const DebtsScreen = ({ debts, clients, transfers, isWide, debtSearchTerm, setDeb
                                     <button onClick={() => setDebtSearchTerm('')} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
                                 )}
                             </div>
-                            {/* Botones de ordenamiento */}
+                            {/* Botones de ordenamiento (chips) */}
                             {debts.length > 0 && (
-                                <div className="flex gap-2 mt-3">
-                                    <button onClick={() => setDebtSortMode('date')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${debtSortMode === 'date' ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
-                                        Más reciente
-                                    </button>
-                                    <button onClick={() => setDebtSortMode('amount')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${debtSortMode === 'amount' ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
-                                        Mayor monto
-                                    </button>
+                                <div className="flex flex-wrap gap-2 mt-3 items-center">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mr-0.5">Ordenar:</span>
+                                    {[
+                                        { key: 'date', label: '🕐 Más reciente' },
+                                        { key: 'oldest', label: '⌛ Más vieja' },
+                                        { key: 'amount', label: '💲 Mayor monto' },
+                                        { key: 'name', label: '🔤 A–Z' },
+                                    ].map(s => (
+                                        <button key={s.key} onClick={() => setDebtSortMode(s.key)} className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${debtSortMode === s.key ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+                                            {s.label}
+                                        </button>
+                                    ))}
                                 </div>
                             )}
                         </div>
@@ -297,6 +323,15 @@ const DebtsScreen = ({ debts, clients, transfers, isWide, debtSearchTerm, setDeb
                                     const totalA = a.reduce((sum, d) => sum + (d.amount || 0), 0);
                                     const totalB = b.reduce((sum, d) => sum + (d.amount || 0), 0);
                                     return totalB - totalA;
+                                }
+                                if (debtSortMode === 'name') {
+                                    return (a[0].clientName || '').localeCompare(b[0].clientName || '', 'es', { sensitivity: 'base' });
+                                }
+                                if (debtSortMode === 'oldest') {
+                                    // La deuda más vieja del grupo primero (menor timestamp = más antigua).
+                                    const oldestA = Math.min(...a.map(d => d.createdAt?.seconds || Infinity));
+                                    const oldestB = Math.min(...b.map(d => d.createdAt?.seconds || Infinity));
+                                    return oldestA - oldestB;
                                 }
                                 const latestA = Math.max(...a.map(d => d.createdAt?.seconds || 0));
                                 const latestB = Math.max(...b.map(d => d.createdAt?.seconds || 0));
@@ -331,7 +366,7 @@ const DebtsScreen = ({ debts, clients, transfers, isWide, debtSearchTerm, setDeb
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {debtGroups.map(groupDebts => {
+                                            {debtGroups.map((groupDebts, rowIdx) => {
                                                 const first = groupDebts[0];
                                                 const clientTotal = groupDebts.reduce((sum, d) => sum + (d.amount || 0), 0);
                                                 const client = clients.find(c => c.id === first.clientId);
@@ -339,27 +374,39 @@ const DebtsScreen = ({ debts, clients, transfers, isWide, debtSearchTerm, setDeb
                                                 const clientTransfers = transfers.filter(t => t.clientId === first.clientId);
                                                 const maxAge = getGroupMaxAge(groupDebts);
                                                 const borderColor = maxAge > 30 ? 'border-l-red-600' : maxAge > 15 ? 'border-l-amber-500' : 'border-l-red-400';
+                                                // Fondo: deudas viejas con tinte; el resto, zebra (filas alternas).
+                                                const rowBg = maxAge > 30 ? 'bg-red-50/60 dark:bg-red-900/10' : maxAge > 15 ? 'bg-amber-50/50 dark:bg-amber-900/10' : (rowIdx % 2 === 1 ? 'bg-gray-50/60 dark:bg-gray-900/20' : '');
                                                 return (
-                                                    <tr key={first.clientId || first.id} className={`border-b border-gray-50 dark:border-gray-700/50 border-l-4 ${borderColor} hover:bg-gray-50 dark:hover:bg-gray-700/20 align-top`}>
-                                                        <td className="px-4 py-3 font-bold text-gray-900 dark:text-white whitespace-nowrap">{(first.clientName || '').toUpperCase()}</td>
+                                                    <tr key={first.clientId || first.id} className={`border-b border-gray-50 dark:border-gray-700/50 border-l-4 ${borderColor} ${rowBg} hover:bg-blue-50/60 dark:hover:bg-gray-700/40 align-top transition-colors`}>
+                                                        <td className="px-4 py-3 whitespace-nowrap">
+                                                            <div className="flex items-center gap-2.5">
+                                                                <span className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black text-white flex-shrink-0 shadow-sm" style={{ background: avatarColor(first.clientName) }}>{avatarInitial(first.clientName)}</span>
+                                                                <span className="font-bold text-gray-900 dark:text-white">{(first.clientName || '').toUpperCase()}</span>
+                                                            </div>
+                                                        </td>
                                                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400 max-w-[280px]"><span onClick={() => openGoogleMaps(first.clientLat, first.clientLng, first.clientMapsLink)} className="cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 hover:underline">📍 {first.clientAddress}</span></td>
                                                         <td className="px-4 py-3">
                                                             <div className="space-y-1">
-                                                                {groupDebts.map(debt => (
+                                                                {groupDebts.map(debt => {
+                                                                    const ageDays = getDebtAgeDays(debt);
+                                                                    const ageChip = ageDays > 30 ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300' : ageDays > 15 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' : null;
+                                                                    return (
                                                                     <div key={debt.id} className="flex items-center gap-2">
                                                                         <span className="text-[11px] text-gray-400 dark:text-gray-500 w-16 flex-shrink-0">{debt.createdAt ? new Date(debt.createdAt.seconds ? debt.createdAt.seconds * 1000 : debt.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : ''}</span>
+                                                                        <span className="w-10 flex-shrink-0 flex">{ageChip && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${ageChip}`} title={`Hace ${ageDays} días`}>{ageDays}d</span>}</span>
                                                                         <span className="font-bold text-gray-800 dark:text-gray-200 w-16 flex-shrink-0">${debt.amount?.toLocaleString()}</span>
-                                                                        <button onClick={() => setEditDebtModal({ isOpen: true, debt })} className="w-7 h-7 rounded bg-gray-100 dark:bg-gray-700 text-xs flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600" aria-label="Editar deuda" title="Editar">✏️</button>
-                                                                        <button onClick={() => confirmPayOneDebt(debt)} className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded text-[11px] font-bold hover:bg-green-200 dark:hover:bg-green-800" title="Marcar pagada">✅</button>
+                                                                        <button onClick={() => setEditDebtModal({ isOpen: true, debt })} className="px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-bold inline-flex items-center gap-1 hover:bg-gray-200 dark:hover:bg-gray-600 whitespace-nowrap" aria-label="Editar deuda" title="Editar">✏️ Editar</button>
+                                                                        <button onClick={() => confirmPayOneDebt(debt)} className="px-3 py-1 bg-green-500 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1 hover:bg-green-600 whitespace-nowrap" title="Marcar como pagada">✅ Pagado</button>
                                                                     </div>
-                                                                ))}
+                                                                    );
+                                                                })}
                                                             </div>
                                                         </td>
-                                                        <td className="px-4 py-3 text-right font-black text-red-600 dark:text-red-400 text-lg whitespace-nowrap align-middle">${clientTotal.toLocaleString()}</td>
+                                                        <td className="px-4 py-3 text-right whitespace-nowrap align-middle"><span className="inline-block bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-black text-base px-3 py-1 rounded-lg">${clientTotal.toLocaleString()}</span></td>
                                                         <td className="px-4 py-3 align-middle">
                                                             <div className="flex gap-1.5 justify-end flex-wrap">
                                                                 {groupDebts.length > 1 && <button onClick={() => confirmPayAllDebts(groupDebts, first, clientTotal)} className="px-2.5 py-1.5 bg-green-500 text-white rounded-lg text-[11px] font-bold hover:bg-green-600 whitespace-nowrap">✅ Todas</button>}
-                                                                {phone && <button onClick={() => sendWhatsAppDirect(phone)} className="px-2.5 py-1.5 bg-green-500 text-white rounded-lg text-[11px] font-bold hover:bg-green-600" title="WhatsApp">💬</button>}
+                                                                {phone && <button onClick={() => sendWhatsAppDirect(phone)} className="px-2.5 py-1.5 bg-green-500 text-white rounded-lg text-[11px] font-bold hover:bg-green-600 inline-flex items-center gap-1 whitespace-nowrap" title="Enviar recordatorio por WhatsApp">💬 Recordar</button>}
                                                                 {clientTransfers.length > 0 ? <button onClick={() => confirmReviewTransfers(clientTransfers, first)} className="px-2.5 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-[11px] font-bold whitespace-nowrap">✅ Revisada{clientTransfers.length > 1 ? ` (${clientTransfers.length})` : ''}</button> : client ? <button onClick={() => { handleAddTransfer(client); showUndoToast('Transferencia marcada para revisar', null); }} className="px-2.5 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-lg text-[11px] font-bold">💳 Transf.</button> : null}
                                                             </div>
                                                         </td>
