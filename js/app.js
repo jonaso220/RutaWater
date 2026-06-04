@@ -2847,13 +2847,6 @@ const [toast, setToast] = React.useState(null);
                                                 const freqBadge = getFreqBadge(client.freq);
                                                 const freqLabel = freqBadge.label, freqColor = freqBadge.color;
                                                 const days = (client.visitDays && client.visitDays.length > 0) ? client.visitDays.map(d => d.slice(0, 3)).join(', ') : '—';
-                                                let prodStr = '—';
-                                                if (client.products) {
-                                                    const parts = Object.keys(client.products)
-                                                        .filter(k => parseInt(client.products[k] || 0) > 0)
-                                                        .map(k => { const p = PRODUCTS.find(pr => pr.id === k); return client.products[k] + 'x ' + (p ? p.short : k); });
-                                                    if (parts.length > 0) prodStr = parts.join(' · ');
-                                                }
                                                 const hasLocation = !!(client.lat && client.lng) || !!client.mapsLink;
                                                 const isSelected = tableSelectedClient && tableSelectedClient.id === client.id;
                                                 return (
@@ -2864,7 +2857,7 @@ const [toast, setToast] = React.useState(null);
                                                         <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap"><span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${freqColor}`}>{freqLabel}</span></td>
                                                         <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 truncate">{days}</td>
                                                         <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap">{debtTotal > 0 ? <span className="text-red-600 dark:text-red-400 font-bold">${debtTotal.toLocaleString()}</span> : <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
-                                                        <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 break-words">{prodStr}</td>
+                                                        <td className="px-3 py-2.5 align-top"><ProductChips products={client.products} /></td>
                                                         <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap text-right">
                                                             <div className="flex items-center gap-2 justify-end" onClick={(e) => e.stopPropagation()}>
                                                                 <button onClick={() => handleToggleStar(client)} aria-label={client.isStarred ? 'Quitar de favoritos' : 'Marcar como favorito'} title={client.isStarred ? 'Favorito' : 'Marcar favorito'} className={`w-8 h-8 text-base rounded-full flex items-center justify-center ${client.isStarred ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-700 opacity-40 hover:opacity-100 hover:bg-orange-100 dark:hover:bg-orange-900/30'}`}>⭐</button>
@@ -3089,8 +3082,6 @@ const [toast, setToast] = React.useState(null);
                                                 </tr>
                                             );
                                         }
-                                        let prodStr = '—';
-                                        if (c.products) { const parts = Object.keys(c.products).filter(k => parseInt(c.products[k] || 0) > 0).map(k => { const p = PRODUCTS.find(pr => pr.id === k); return c.products[k] + 'x ' + (p ? p.short : k); }); if (parts.length) prodStr = parts.join(' · '); }
                                         const debtT = getDebtTotal(c);
                                         const hasLocation = !!(c.lat && c.lng) || !!c.mapsLink;
                                         return (
@@ -3103,7 +3094,7 @@ const [toast, setToast] = React.useState(null);
                                                 </td>
                                                 <td className="px-3 py-2.5 font-bold text-gray-900 dark:text-white break-words" title={c.name || ''}>{(c.name || '').toUpperCase()}</td>
                                                 <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 break-words">{c.address || '—'}</td>
-                                                <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 break-words">{prodStr}</td>
+                                                <td className="px-3 py-2.5 align-top"><ProductChips products={c.products} /></td>
                                                 <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap">{debtT > 0 ? <span className="text-red-600 dark:text-red-400 font-bold">${debtT.toLocaleString()}</span> : <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
                                                 <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap text-right">
                                                     <div className="flex items-center gap-2 justify-end" onClick={(e) => e.stopPropagation()}>

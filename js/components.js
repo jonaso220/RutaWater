@@ -15,6 +15,31 @@ const ProductGlyph = ({ product, size }) => {
     return <span>{product ? product.icon : '📦'}</span>;
 };
 
+// Productos de un cliente como chips con ícono/sticker + cantidad + nombre corto.
+// Reemplaza el texto plano "1x 12L · 1x 20L" en las tablas de Inicio y Directorio.
+// Ordena por el catálogo (PRODUCTS) para que el orden sea consistente entre filas.
+const ProductChips = ({ products }) => {
+    const empty = <span className="text-gray-300 dark:text-gray-600">—</span>;
+    if (!products) return empty;
+    const catIdx = (id) => { const i = PRODUCTS.findIndex(pr => pr.id === id); return i < 0 ? 999 : i; };
+    const items = Object.keys(products)
+        .filter(k => parseInt(products[k] || 0) > 0)
+        .map(k => ({ id: k, qty: parseInt(products[k]), p: PRODUCTS.find(pr => pr.id === k) }))
+        .sort((a, b) => catIdx(a.id) - catIdx(b.id));
+    if (!items.length) return empty;
+    return (
+        <div className="flex flex-wrap gap-1">
+            {items.map(it => (
+                <span key={it.id} className="inline-flex items-center gap-1 bg-gray-100 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600 rounded-full pl-1 pr-2 py-0.5">
+                    <ProductGlyph product={it.p} size={16} />
+                    <span className="text-xs font-black text-gray-800 dark:text-gray-100 leading-none">{it.qty}</span>
+                    <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 leading-none uppercase tracking-tight">{it.p ? it.p.short : it.id}</span>
+                </span>
+            ))}
+        </div>
+    );
+};
+
 const Button = ({ children, onClick, variant = "primary", className = "", type = "button", disabled = false }) => {
     const variants = {
         primary: "bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 dark:bg-blue-700",
