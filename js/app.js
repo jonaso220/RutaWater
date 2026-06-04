@@ -14,16 +14,17 @@ const TABLE_COLUMNS = [
 const DEFAULT_COL_WIDTHS = { name: 200, phone: 150, address: 380, freq: 120, days: 130, debt: 100, products: 320, actions: 190 };
 
 // Columnas de la tabla de Inicio (día seleccionado). Anchos ajustables igual que el Directorio.
+// Nota: la fecha de visita no es una columna — los encabezados de fecha que separan
+// la tabla por grupo ya la muestran (cada grupo tiene una sola fecha), así que sería redundante.
 const HOME_TABLE_COLUMNS = [
     { key: 'pos', label: '#' },
     { key: 'name', label: 'Cliente' },
     { key: 'address', label: 'Dirección' },
     { key: 'products', label: 'Productos' },
-    { key: 'visit', label: 'Visita' },
     { key: 'debt', label: 'Deuda' },
     { key: 'actions', label: 'Acciones' },
 ];
-const DEFAULT_HOME_COL_WIDTHS = { pos: 48, name: 210, address: 300, products: 220, visit: 120, debt: 100, actions: 250 };
+const DEFAULT_HOME_COL_WIDTHS = { pos: 48, name: 230, address: 340, products: 250, debt: 100, actions: 250 };
 
 // Etiqueta + color del badge de frecuencia (unifica los switch repetidos del Directorio).
 const FREQ_BADGES = {
@@ -2044,6 +2045,35 @@ const [toast, setToast] = React.useState(null);
         await reorderClientForDay(clientId, selectedDay, { targetPosition: newPos });
     };
 
+    // Mover un cliente a una posición (1-based) DENTRO de la lista visual de SOLO clientes del día,
+    // que está agrupada por fecha de próxima visita. Replica la lógica de la nativa: el movimiento se
+    // restringe a la misma sección de fecha (la fecha la fija specificDate/frecuencia, no el orden), y
+    // se persiste re-secuenciando listOrders[día] vía reorderClientForDay con anclas por vecino —
+    // exactamente igual que el drag — así el nuevo orden se refleja en la app nativa.
+    const moveClientToPosition = (movedClient, toPos, orderedClients) => {
+        const newPos = parseInt(toPos, 10);
+        if (!movedClient || isNaN(newPos)) return;
+        const fromIdx = orderedClients.findIndex(c => c.id === movedClient.id);
+        if (fromIdx === -1) return;
+        const dayKeyOf = (c) => {
+            const d = getNextVisitDate(c, selectedDay);
+            return d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : Infinity;
+        };
+        const myKey = dayKeyOf(movedClient);
+        // Limitar el destino a la sección de fecha del cliente (rango contiguo en la lista visual).
+        let secStart = fromIdx, secEnd = fromIdx;
+        while (secStart > 0 && dayKeyOf(orderedClients[secStart - 1]) === myKey) secStart--;
+        while (secEnd < orderedClients.length - 1 && dayKeyOf(orderedClients[secEnd + 1]) === myKey) secEnd++;
+        const toIdx = Math.max(secStart, Math.min(newPos - 1, secEnd));
+        if (toIdx === fromIdx) return;
+        const rest = orderedClients.filter(c => c.id !== movedClient.id);
+        if (toIdx <= 0) {
+            reorderClientForDay(movedClient.id, selectedDay, { beforeClientId: rest[0] && rest[0].id });
+        } else {
+            reorderClientForDay(movedClient.id, selectedDay, { afterClientId: rest[toIdx - 1].id });
+        }
+    };
+
     // --- SORTABLEJS: DRAG-TO-REORDER TARJETAS ---
     const sortableInstances = React.useRef([]);
     React.useEffect(() => {
@@ -2877,12 +2907,16 @@ const [toast, setToast] = React.useState(null);
                     </div>
                 )}
                 {view === 'list' && isWide && (() => {
-                    // Día seleccionado: ordenado por fecha de próxima visita, con búsqueda y filtro aplicados.
-                    let dayClients = getVisibleClients(selectedDay).slice().sort((a, b) => {
-                        const da = getNextVisitDate(a, selectedDay);
-                        const db = getNextVisitDate(b, selectedDay);
-                        return (da ? da.getTime() : Infinity) - (db ? db.getTime() : Infinity);
-                    });
+                    // Día seleccionado: ordenado por fecha de próxima visita y, dentro de cada fecha,
+                    // por listOrders[día] (igual que la app nativa y la vista móvil). Se normaliza al DÍA
+                    // calendario (medianoche local) — sin esto, los "once" (hora 12:00 en getNextVisitDate)
+                    // quedaban después de los periódicos del mismo día (hora 00:00), ignorando su listOrder.
+                    // El sort es estable, así que entre clientes de la misma fecha respeta getVisibleClients.
+                    const _visitDayKey = (c) => {
+                        const d = getNextVisitDate(c, selectedDay);
+                        return d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : Infinity;
+                    };
+                    let dayClients = getVisibleClients(selectedDay).slice().sort((a, b) => _visitDayKey(a) - _visitDayKey(b));
                     if (debouncedListSearch.trim()) {
                         const match = fuzzyMatch(debouncedListSearch);
                         dayClients = dayClients.filter(c => c.isNote ? match(c.notes || '') : match(c.name || '', c.address || '', c.phone || ''));
@@ -2916,6 +2950,8 @@ const [toast, setToast] = React.useState(null);
                     const posById = {};
                     let _posCounter = 0;
                     dayClients.forEach(c => { if (!c.isNote) { _posCounter++; posById[c.id] = _posCounter; } });
+                    // Lista de SOLO clientes en el orden visual (para reordenar tocando el #).
+                    const orderedClientsOnly = dayClients.filter(c => !c.isNote);
                     // Agrupar por fecha de próxima visita para separar la tabla con encabezados.
                     const renderRows = [];
                     let _lastDateKey = '__init__';
@@ -3056,18 +3092,18 @@ const [toast, setToast] = React.useState(null);
                                         let prodStr = '—';
                                         if (c.products) { const parts = Object.keys(c.products).filter(k => parseInt(c.products[k] || 0) > 0).map(k => { const p = PRODUCTS.find(pr => pr.id === k); return c.products[k] + 'x ' + (p ? p.short : k); }); if (parts.length) prodStr = parts.join(' · '); }
                                         const debtT = getDebtTotal(c);
-                                        const visitDate = getNextVisitDate(c, selectedDay);
                                         const hasLocation = !!(c.lat && c.lng) || !!c.mapsLink;
                                         return (
                                             <tr key={c.id} draggable
                                                 onDragStart={(e) => { dragInfoRef.current = { client: c, fromDay: selectedDay }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', c.id); } catch (err) {} }}
                                                 onClick={() => { setQuickEditClient(c); setQuickEditShowInfo(true); }}
                                                 className={`border-b border-gray-50 dark:border-gray-700/50 cursor-grab active:cursor-grabbing transition-colors align-top ${(c.isStarred || c.freq === 'once') ? 'border-l-4 border-l-orange-400 dark:border-l-orange-500 bg-orange-50/70 dark:bg-orange-900/10 hover:bg-orange-100/70 dark:hover:bg-orange-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}>
-                                                <td className="px-2 py-2.5 text-center"><span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-xs font-bold">{posById[c.id]}</span></td>
+                                                <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()} title="Tocá el número para cambiar el orden del recorrido">
+                                                    <div className="flex justify-center"><OrderInput value={posById[c.id]} onChange={(newPos) => moveClientToPosition(c, newPos, orderedClientsOnly)} /></div>
+                                                </td>
                                                 <td className="px-3 py-2.5 font-bold text-gray-900 dark:text-white break-words" title={c.name || ''}>{(c.name || '').toUpperCase()}</td>
                                                 <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 break-words">{c.address || '—'}</td>
                                                 <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 break-words">{prodStr}</td>
-                                                <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap">{visitDate ? <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{formatDate(visitDate)}</span> : <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
                                                 <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap">{debtT > 0 ? <span className="text-red-600 dark:text-red-400 font-bold">${debtT.toLocaleString()}</span> : <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
                                                 <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap text-right">
                                                     <div className="flex items-center gap-2 justify-end" onClick={(e) => e.stopPropagation()}>
