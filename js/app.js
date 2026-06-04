@@ -25,6 +25,35 @@ const HOME_TABLE_COLUMNS = [
 ];
 const DEFAULT_HOME_COL_WIDTHS = { pos: 48, name: 210, address: 310, products: 230, visit: 120, debt: 100, actions: 210 };
 
+// Etiqueta + color del badge de frecuencia (unifica los switch repetidos del Directorio).
+const FREQ_BADGES = {
+    weekly: { label: 'Semanal', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+    biweekly: { label: 'Quincenal', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+    triweekly: { label: 'Cada 3 sem', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+    monthly: { label: 'Mensual', color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' },
+    once: { label: 'Una vez', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' },
+    on_demand: { label: 'Directorio', color: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' },
+};
+const getFreqBadge = (freq) => FREQ_BADGES[freq] || { label: freq || '', color: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' };
+
+// Orden extremo de un día (para insertar al inicio o al final de la lista de ese día).
+// mode: 'min' (default 0 si vacío) | 'max' (default -1 si vacío). excludeId omite ese cliente.
+// normalize (default true) reemplaza órdenes gigantes (> 100000, timestamps legacy) por 0.
+const dayExtremeOrder = (clientsList, day, mode, excludeId, normalize) => {
+    if (normalize === undefined) normalize = true;
+    const inDay = clientsList.filter(c =>
+        (!excludeId || c.id !== excludeId) &&
+        c.freq !== 'on_demand' && !c.isCompleted &&
+        ((c.visitDays && c.visitDays.includes(day)) || c.visitDay === day)
+    );
+    if (inDay.length === 0) return mode === 'max' ? -1 : 0;
+    const orders = inDay.map(c => {
+        const o = c.listOrders?.[day] ?? c.listOrder ?? 0;
+        return (normalize && o > 100000) ? 0 : o;
+    });
+    return mode === 'max' ? Math.max(...orders) : Math.min(...orders);
+};
+
 function App() {
     const [view, setView] = React.useState('list');
     // Detecta pantalla ancha (escritorio): Inicio se muestra como tablero semanal de ancho completo.
@@ -381,6 +410,21 @@ const [toast, setToast] = React.useState(null);
 
     // --- ESTADO TRANSFERENCIAS ---
     const [transfers, setTransfers] = React.useState([]);
+
+    // Índice de deudas O(1): total por clientId en una sola pasada, en vez de filtrar+reducir
+    // todas las deudas por cada fila en cada render de las tablas (era O(clientes × deudas)).
+    const debtTotalByClientId = React.useMemo(() => {
+        const m = {};
+        debts.forEach(d => { if (d.amount) m[d.clientId] = (m[d.clientId] || 0) + (d.amount || 0); });
+        return m;
+    }, [debts]);
+    const getDebtTotal = React.useCallback((client) => {
+        if (!client) return 0;
+        const ids = client._mergedIds || [client.id];
+        let t = 0;
+        for (let i = 0; i < ids.length; i++) t += debtTotalByClientId[ids[i]] || 0;
+        return t;
+    }, [debtTotalByClientId]);
 
     // --- ESTADO BÚSQUEDA DEUDAS/TRANSFERENCIAS ---
     const [debtSearchTerm, setDebtSearchTerm] = React.useState('');
@@ -1243,20 +1287,7 @@ const [toast, setToast] = React.useState(null);
                 const d = new Date(data.specificDate + 'T12:00:00');
                 const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
                 const dayName = days[d.getDay()];
-                const existingInDay = clients.filter(c =>
-                    c.id !== clientId &&
-                    c.freq !== 'on_demand' &&
-                    !c.isCompleted &&
-                    ((c.visitDays && c.visitDays.includes(dayName)) || c.visitDay === dayName)
-                );
-                let minOrder = 0;
-                if (existingInDay.length > 0) {
-                    const orders = existingInDay.map(c => {
-                        const order = c.listOrders?.[dayName] ?? c.listOrder ?? 0;
-                        return order > 100000 ? 0 : order;
-                    });
-                    minOrder = Math.min(...orders);
-                }
+                const minOrder = dayExtremeOrder(clients, dayName, 'min', clientId);
                 updateData.visitDay = dayName;
                 updateData.visitDays = [dayName];
                 updateData.listOrder = minOrder - 1;
@@ -1386,20 +1417,7 @@ const [toast, setToast] = React.useState(null);
                 visitDays.forEach(day => {
                     if (newListOrders[day] === undefined) {
                         // Calcular siguiente orden para el día nuevo
-                        const existingInDay = clients.filter(c =>
-                            c.id !== editingId &&
-                            c.freq !== 'on_demand' &&
-                            !c.isCompleted &&
-                            ((c.visitDays && c.visitDays.includes(day)) || c.visitDay === day)
-                        );
-                        let maxOrder = -1;
-                        if (existingInDay.length > 0) {
-                            const orders = existingInDay.map(c => {
-                                const order = c.listOrders?.[day] ?? c.listOrder ?? 0;
-                                return order > 100000 ? 0 : order;
-                            });
-                            maxOrder = Math.max(...orders);
-                        }
+                        const maxOrder = dayExtremeOrder(clients, day, 'max', editingId);
                         newListOrders[day] = maxOrder + 1;
                     }
                 });
@@ -1416,21 +1434,8 @@ const [toast, setToast] = React.useState(null);
                 // Cliente nuevo - crear listOrders con número secuencial para cada día
                 const listOrders = {};
                 visitDays.forEach(day => {
-                    const existingInDay = clients.filter(c => 
-                        c.freq !== 'on_demand' && 
-                        !c.isCompleted && 
-                        ((c.visitDays && c.visitDays.includes(day)) || c.visitDay === day)
-                    );
-                    
                     // Todos los clientes nuevos van al INICIO
-                    let minOrder = 0;
-                    if (existingInDay.length > 0) {
-                        const orders = existingInDay.map(c => {
-                            const order = c.listOrders?.[day] ?? c.listOrder ?? 0;
-                            return order > 100000 ? 0 : order;
-                        });
-                        minOrder = Math.min(...orders);
-                    }
+                    const minOrder = dayExtremeOrder(clients, day, 'min');
                     listOrders[day] = minOrder - 1;
                 });
                 data.listOrder = listOrders[visitDays[0]];
@@ -1484,18 +1489,7 @@ const [toast, setToast] = React.useState(null);
                 // listOrders: los nuevos van al INICIO (minOrder - 1), igual que el alta individual.
                 const listOrders = {};
                 visitDays.forEach(dy => {
-                    const existingInDay = clients.filter(c =>
-                        c.freq !== 'on_demand' && !c.isCompleted &&
-                        ((c.visitDays && c.visitDays.includes(dy)) || c.visitDay === dy)
-                    );
-                    let minOrder = 0;
-                    if (existingInDay.length > 0) {
-                        const orders = existingInDay.map(c => {
-                            const o = c.listOrders?.[dy] ?? c.listOrder ?? 0;
-                            return o > 100000 ? 0 : o;
-                        });
-                        minOrder = Math.min(...orders);
-                    }
+                    let minOrder = dayExtremeOrder(clients, dy, 'min');
                     if (dayMinOrder[dy] !== undefined) minOrder = Math.min(minOrder, dayMinOrder[dy]);
                     listOrders[dy] = minOrder - 1;
                     dayMinOrder[dy] = minOrder - 1;
@@ -1520,18 +1514,7 @@ const [toast, setToast] = React.useState(null);
             const dayName = days[d.getDay()];
 
             // Notas van al inicio del recorrido
-            const existingInDay = clients.filter(c =>
-                c.freq !== 'on_demand' && !c.isCompleted &&
-                ((c.visitDays && c.visitDays.includes(dayName)) || c.visitDay === dayName)
-            );
-            let minOrder = 0;
-            if (existingInDay.length > 0) {
-                const orders = existingInDay.map(c => {
-                    const order = c.listOrders?.[dayName] ?? c.listOrder ?? 0;
-                    return order > 100000 ? 0 : order;
-                });
-                minOrder = Math.min(...orders);
-            }
+            const minOrder = dayExtremeOrder(clients, dayName, 'min');
 
             const data = {
                 isNote: true,
@@ -1584,18 +1567,7 @@ const [toast, setToast] = React.useState(null);
 
             // Si cambió de día, recalcular posición en el nuevo día
             if (newDayName !== oldDayName) {
-                const existingInDay = clients.filter(c =>
-                    c.id !== editNoteData.id && c.freq !== 'on_demand' && !c.isCompleted &&
-                    ((c.visitDays && c.visitDays.includes(newDayName)) || c.visitDay === newDayName)
-                );
-                let minOrder = 0;
-                if (existingInDay.length > 0) {
-                    const orders = existingInDay.map(c => {
-                        const order = c.listOrders?.[newDayName] ?? c.listOrder ?? 0;
-                        return order > 100000 ? 0 : order;
-                    });
-                    minOrder = Math.min(...orders);
-                }
+                const minOrder = dayExtremeOrder(clients, newDayName, 'min', editNoteData.id);
                 updateData.listOrder = minOrder - 1;
                 updateData.listOrders = { [newDayName]: minOrder - 1 };
             }
@@ -1628,24 +1600,8 @@ const [toast, setToast] = React.useState(null);
                  const dayName = days[d.getDay()];
                  
                  // Encontrar el mínimo orden existente y restar 1 para ir antes
-                 const existingInDay = clients.filter(c => 
-                    c.freq !== 'on_demand' && 
-                    !c.isCompleted && 
-                    ((c.visitDays && c.visitDays.includes(dayName)) || c.visitDay === dayName)
-                 );
-                 
-                 // Calcular el orden mínimo (puede ser negativo o positivo)
-                 let minOrder = 0;
-                 if (existingInDay.length > 0) {
-                     const orders = existingInDay.map(c => {
-                         const order = c.listOrders?.[dayName] ?? c.listOrder ?? 0;
-                         // Ignorar timestamps muy grandes
-                         return order > 100000 ? 0 : order;
-                     });
-                     minOrder = Math.min(...orders);
-                 }
                  // Nuevo pedido va ANTES de todo (minOrder - 1)
-                 const newOrder = minOrder - 1;
+                 const newOrder = dayExtremeOrder(clients, dayName, 'min') - 1;
                  
                  newData.visitDay = dayName;
                  newData.visitDays = [dayName];
@@ -1663,15 +1619,8 @@ const [toast, setToast] = React.useState(null);
                  // Calcular el siguiente orden para cada día
                  const listOrders = {};
                  newDays.forEach(day => {
-                     const existingInDay = clients.filter(c => 
-                        c.freq !== 'on_demand' && 
-                        !c.isCompleted && 
-                        ((c.visitDays && c.visitDays.includes(day)) || c.visitDay === day)
-                     );
-                     // Encontrar el máximo orden actual y sumar 1
-                     const maxOrder = existingInDay.length > 0
-                        ? Math.max(...existingInDay.map(c => (c.listOrders?.[day] ?? c.listOrder ?? 0)))
-                        : -1;
+                     // Al final del día. Sin normalizar timestamps legacy (comportamiento original).
+                     const maxOrder = dayExtremeOrder(clients, day, 'max', null, false);
                      listOrders[day] = maxOrder + 1;
                  });
                  newData.listOrders = listOrders;
@@ -1799,10 +1748,7 @@ const [toast, setToast] = React.useState(null);
     const sortedTableClients = React.useMemo(() => {
         const arr = filteredDirectory.slice();
         const key = tableSort.key, dir = tableSort.dir;
-        const debtOf = (c) => {
-            const ids = c._mergedIds || [c.id];
-            return debts.filter(d => ids.indexOf(d.clientId) > -1).reduce((s, d) => s + (d.amount || 0), 0);
-        };
+        const debtOf = getDebtTotal;
         const freqRank = { weekly: 1, biweekly: 2, triweekly: 3, monthly: 4, once: 5, on_demand: 6 };
         arr.sort((a, b) => {
             let va, vb;
@@ -1816,7 +1762,7 @@ const [toast, setToast] = React.useState(null);
             return 0;
         });
         return arr;
-    }, [filteredDirectory, tableSort, debts]);
+    }, [filteredDirectory, tableSort, getDebtTotal]);
 
     const directoryCounts = React.useMemo(() => {
         const all = clients.filter(c => !c.isNote);
@@ -2735,18 +2681,9 @@ const [toast, setToast] = React.useState(null);
                                         .filter(function(k) { return parseInt(client.products[k] || 0) > 0; })
                                         .map(function(k) { var p = PRODUCTS.find(function(prod) { return prod.id === k; }); return { qty: client.products[k], prod: p, label: p ? p.short : k }; });
                                 }
-                                var clientIds = client._mergedIds || [client.id];
-                                var debtTotal = debts.filter(function(d) { return clientIds.indexOf(d.clientId) > -1; }).reduce(function(sum, d) { return sum + (d.amount || 0); }, 0);
-                                var freqLabel = '', freqColor = '';
-                                switch(client.freq) {
-                                    case 'weekly': freqLabel = 'Semanal'; freqColor = 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'; break;
-                                    case 'biweekly': freqLabel = 'Quincenal'; freqColor = 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'; break;
-                                    case 'triweekly': freqLabel = 'Cada 3 sem'; freqColor = 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'; break;
-                                    case 'monthly': freqLabel = 'Mensual'; freqColor = 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'; break;
-                                    case 'once': freqLabel = 'Una vez'; freqColor = 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'; break;
-                                    case 'on_demand': freqLabel = 'Solo Directorio'; freqColor = 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'; break;
-                                    default: freqLabel = client.freq || ''; freqColor = 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400';
-                                }
+                                var debtTotal = getDebtTotal(client);
+                                var freqBadge = getFreqBadge(client.freq);
+                                var freqLabel = freqBadge.label, freqColor = freqBadge.color;
                                 var isOnDemand = client.freq === 'on_demand' || !(client.visitDays && client.visitDays.length > 0);
                                 var hasLocation = !!(client.lat && client.lng) || !!client.mapsLink;
                                 var avatarColors = ['bg-blue-500','bg-green-500','bg-purple-500','bg-orange-500','bg-pink-500','bg-teal-500','bg-indigo-500','bg-red-500'];
@@ -2876,18 +2813,9 @@ const [toast, setToast] = React.useState(null);
                                                 <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-400 dark:text-gray-500">Sin clientes que coincidan.</td></tr>
                                             )}
                                             {sortedTableClients.map(client => {
-                                                const clientIds = client._mergedIds || [client.id];
-                                                const debtTotal = debts.filter(d => clientIds.indexOf(d.clientId) > -1).reduce((s, d) => s + (d.amount || 0), 0);
-                                                let freqLabel = '', freqColor = '';
-                                                switch (client.freq) {
-                                                    case 'weekly': freqLabel = 'Semanal'; freqColor = 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'; break;
-                                                    case 'biweekly': freqLabel = 'Quincenal'; freqColor = 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'; break;
-                                                    case 'triweekly': freqLabel = 'Cada 3 sem'; freqColor = 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'; break;
-                                                    case 'monthly': freqLabel = 'Mensual'; freqColor = 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'; break;
-                                                    case 'once': freqLabel = 'Una vez'; freqColor = 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'; break;
-                                                    case 'on_demand': freqLabel = 'Directorio'; freqColor = 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'; break;
-                                                    default: freqLabel = client.freq || ''; freqColor = 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400';
-                                                }
+                                                const debtTotal = getDebtTotal(client);
+                                                const freqBadge = getFreqBadge(client.freq);
+                                                const freqLabel = freqBadge.label, freqColor = freqBadge.color;
                                                 const days = (client.visitDays && client.visitDays.length > 0) ? client.visitDays.map(d => d.slice(0, 3)).join(', ') : '—';
                                                 let prodStr = '—';
                                                 if (client.products) {
@@ -3126,8 +3054,7 @@ const [toast, setToast] = React.useState(null);
                                         }
                                         let prodStr = '—';
                                         if (c.products) { const parts = Object.keys(c.products).filter(k => parseInt(c.products[k] || 0) > 0).map(k => { const p = PRODUCTS.find(pr => pr.id === k); return c.products[k] + 'x ' + (p ? p.short : k); }); if (parts.length) prodStr = parts.join(' · '); }
-                                        const cids = c._mergedIds || [c.id];
-                                        const debtT = debts.filter(d => cids.indexOf(d.clientId) > -1).reduce((s, d) => s + (d.amount || 0), 0);
+                                        const debtT = getDebtTotal(c);
                                         const visitDate = getNextVisitDate(c, selectedDay);
                                         const hasLocation = !!(c.lat && c.lng) || !!c.mapsLink;
                                         return (
