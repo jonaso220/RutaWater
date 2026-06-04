@@ -270,7 +270,7 @@ const ViewDebtModal = ({ isOpen, client, debts, onClose, onPaid, onEdit, onAddMo
                                 <div>
                                     <p className="text-xl font-black text-red-600 dark:text-red-400">${debt.amount?.toLocaleString()}</p>
                                     {debt.createdAt && (
-                                        <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                                        <p className="text-[11px] text-gray-400 dark:text-gray-500">
                                             {new Date(debt.createdAt.seconds ? debt.createdAt.seconds * 1000 : debt.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
                                         </p>
                                     )}
@@ -469,7 +469,7 @@ const ScheduleModal = ({ isOpen, client, onClose, onSave }) => {
                         <div className="grid grid-cols-2 gap-2">
                             {getPickerProducts(client && client.products).map(prod => (
                                 <div key={prod.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-1.5 rounded border border-gray-200 dark:border-gray-600">
-                                    <span className="text-[10px] font-medium flex items-center gap-1 dark:text-gray-300"><ProductGlyph product={prod} size={14} /> {prod.short}</span>
+                                    <span className="text-[11px] font-medium flex items-center gap-1 dark:text-gray-300"><ProductGlyph product={prod} size={14} /> {prod.short}</span>
                                     <input
                                         type="number"
                                         placeholder="0"

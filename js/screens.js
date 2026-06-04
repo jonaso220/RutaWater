@@ -38,10 +38,10 @@ const StatsScreen = ({ stats }) => (
                                 <span className="w-16 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">{d.day.slice(0, 3)}</span>
                                 <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-5 overflow-hidden">
                                     <div className="bg-blue-500 h-full rounded-full flex items-center justify-end px-2 min-w-[1.5rem]" style={{ width: Math.max(6, (d.clients / max) * 100) + '%' }}>
-                                        <span className="text-[10px] font-bold text-white">{d.clients}</span>
+                                        <span className="text-[11px] font-bold text-white">{d.clients}</span>
                                     </div>
                                 </div>
-                                <span className="w-16 text-[10px] text-gray-400 dark:text-gray-500 text-right shrink-0">{d.units} u.</span>
+                                <span className="w-16 text-[11px] text-gray-400 dark:text-gray-500 text-right shrink-0">{d.units} u.</span>
                             </div>
                         );
                     })}
@@ -66,7 +66,7 @@ const StatsScreen = ({ stats }) => (
                                 <span className="w-20 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">{f.label}</span>
                                 <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-5 overflow-hidden">
                                     <div className={`${f.color} h-full rounded-full flex items-center justify-end px-2 min-w-[1.5rem]`} style={{ width: Math.max(6, (v / max) * 100) + '%' }}>
-                                        <span className="text-[10px] font-bold text-white">{v}</span>
+                                        <span className="text-[11px] font-bold text-white">{v}</span>
                                     </div>
                                 </div>
                             </div>
@@ -90,7 +90,7 @@ const StatsScreen = ({ stats }) => (
                                 <span className="w-32 text-xs font-medium text-gray-600 dark:text-gray-300 shrink-0 flex items-center gap-1.5 truncate"><ProductGlyph product={p} size={16} /> <span className="truncate">{p.label}</span></span>
                                 <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-5 overflow-hidden">
                                     <div className="bg-cyan-500 h-full rounded-full flex items-center justify-end px-2 min-w-[1.5rem]" style={{ width: Math.max(6, (p.qty / max) * 100) + '%' }}>
-                                        <span className="text-[10px] font-bold text-white">{p.qty}</span>
+                                        <span className="text-[11px] font-bold text-white">{p.qty}</span>
                                     </div>
                                 </div>
                             </div>
@@ -110,7 +110,7 @@ const StatsScreen = ({ stats }) => (
             ].map((c, i) => (
                 <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-3 flex items-center gap-3">
                     <span className="text-xl">{c.icon}</span>
-                    <div><div className="text-lg font-black text-gray-900 dark:text-white leading-none">{c.value}</div><div className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mt-0.5">{c.label}</div></div>
+                    <div><div className="text-lg font-black text-gray-900 dark:text-white leading-none">{c.value}</div><div className="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mt-0.5">{c.label}</div></div>
                 </div>
             ))}
         </div>
@@ -133,7 +133,7 @@ const TransfersScreen = ({ transfers, isWide, searchTerm, setSearchTerm, debounc
                 )}
             </div>
             <div className="relative">
-                <input type="text" placeholder="Buscar por nombre o dirección..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm" />
+                <input type="text" aria-label="Buscar transferencias por nombre o dirección" placeholder="Buscar por nombre o dirección..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm" />
                 <div className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500">🔍</div>
                 {searchTerm && (
                     <button onClick={() => setSearchTerm('')} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
@@ -191,7 +191,7 @@ const TransfersScreen = ({ transfers, isWide, searchTerm, setSearchTerm, debounc
                                     📍 {transfer.clientAddress}
                                 </div>
                                 {transfer.createdAt && (
-                                    <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                                    <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
                                         {new Date(transfer.createdAt.seconds ? transfer.createdAt.seconds * 1000 : transfer.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
                                     </p>
                                 )}
@@ -237,21 +237,21 @@ const DebtsScreen = ({ debts, clients, transfers, isWide, debtSearchTerm, setDeb
                                 <div className="flex gap-2 mb-3">
                                     <div className="flex-1 bg-red-50 dark:bg-red-900/20 rounded-lg p-2.5 text-center">
                                         <p className="text-lg font-black text-red-600 dark:text-red-400">${totalAmount.toLocaleString()}</p>
-                                        <p className="text-[10px] text-red-500/70 dark:text-red-400/60 font-medium">Total pendiente</p>
+                                        <p className="text-[11px] text-red-500/70 dark:text-red-400/60 font-medium">Total pendiente</p>
                                     </div>
                                     <div className="flex-1 bg-gray-50 dark:bg-gray-700 rounded-lg p-2.5 text-center">
                                         <p className="text-lg font-black text-gray-700 dark:text-gray-200">{uniqueClients}</p>
-                                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">Cliente{uniqueClients !== 1 ? 's' : ''}</p>
+                                        <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">Cliente{uniqueClients !== 1 ? 's' : ''}</p>
                                     </div>
                                     <div className="flex-1 bg-gray-50 dark:bg-gray-700 rounded-lg p-2.5 text-center">
                                         <p className="text-lg font-black text-gray-700 dark:text-gray-200">{debts.length}</p>
-                                        <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">Deuda{debts.length !== 1 ? 's' : ''}</p>
+                                        <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">Deuda{debts.length !== 1 ? 's' : ''}</p>
                                     </div>
                                 </div>
                                 );
                             })()}
                             <div className="relative">
-                                <input type="text" placeholder="Buscar por nombre o dirección..." value={debtSearchTerm} onChange={(e) => setDebtSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm" />
+                                <input type="text" aria-label="Buscar deudas por nombre o dirección" placeholder="Buscar por nombre o dirección..." value={debtSearchTerm} onChange={(e) => setDebtSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm" />
                                 <div className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500">🔍</div>
                                 {debtSearchTerm && (
                                     <button onClick={() => setDebtSearchTerm('')} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
@@ -349,7 +349,7 @@ const DebtsScreen = ({ debts, clients, transfers, isWide, debtSearchTerm, setDeb
                                                                     <div key={debt.id} className="flex items-center gap-2">
                                                                         <span className="text-[11px] text-gray-400 dark:text-gray-500 w-16 flex-shrink-0">{debt.createdAt ? new Date(debt.createdAt.seconds ? debt.createdAt.seconds * 1000 : debt.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : ''}</span>
                                                                         <span className="font-bold text-gray-800 dark:text-gray-200 w-16 flex-shrink-0">${debt.amount?.toLocaleString()}</span>
-                                                                        <button onClick={() => setEditDebtModal({ isOpen: true, debt })} className="w-6 h-6 rounded bg-gray-100 dark:bg-gray-700 text-xs flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600" title="Editar">✏️</button>
+                                                                        <button onClick={() => setEditDebtModal({ isOpen: true, debt })} className="w-7 h-7 rounded bg-gray-100 dark:bg-gray-700 text-xs flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600" aria-label="Editar deuda" title="Editar">✏️</button>
                                                                         <button onClick={() => confirmPayOneDebt(debt)} className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded text-[11px] font-bold hover:bg-green-200 dark:hover:bg-green-800" title="Marcar pagada">✅</button>
                                                                     </div>
                                                                 ))}
@@ -417,7 +417,7 @@ const DebtsScreen = ({ debts, clients, transfers, isWide, debtSearchTerm, setDeb
                                                                     </p>
                                                                 )}
                                                                 {ageBadge && (
-                                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${ageBadge.className}`}>{ageBadge.text}</span>
+                                                                    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${ageBadge.className}`}>{ageBadge.text}</span>
                                                                 )}
                                                             </div>
                                                             <p className="text-sm font-bold text-gray-800 dark:text-gray-200">${debt.amount?.toLocaleString()}</p>

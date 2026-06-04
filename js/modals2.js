@@ -36,7 +36,7 @@ const ProductCatalogModal = ({ isOpen, products, hidden, onClose, onRename, onSe
                                 <div className="flex items-center gap-2">
                                     <button onClick={() => setIconPickerFor(iconPickerFor === p.id ? null : p.id)} title="Cambiar ícono" className="w-9 h-9 flex-shrink-0 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900/30"><ProductGlyph product={p} size={22} /></button>
                                     <input defaultValue={p.label} key={p.label} onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== p.label) onRename(p.id, v); }} className="flex-1 min-w-0 p-1.5 border rounded bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
-                                    <span className="text-[10px] text-gray-400 dark:text-gray-500 w-12 text-center flex-shrink-0">{p.short}</span>
+                                    <span className="text-[11px] text-gray-400 dark:text-gray-500 w-12 text-center flex-shrink-0">{p.short}</span>
                                     <button onClick={() => onMove(p.id, -1)} disabled={idx === 0} className="w-6 h-7 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 disabled:opacity-30 text-xs">▲</button>
                                     <button onClick={() => onMove(p.id, 1)} disabled={idx === products.length - 1} className="w-6 h-7 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 disabled:opacity-30 text-xs">▼</button>
                                     <button onClick={() => onToggleHidden(p.id)} title={isHidden ? 'Mostrar' : 'Ocultar'} className="w-7 h-7 rounded bg-gray-100 dark:bg-gray-700 text-sm">{isHidden ? '🚫' : '👁'}</button>
@@ -46,7 +46,7 @@ const ProductCatalogModal = ({ isOpen, products, hidden, onClose, onRename, onSe
                                     <div className="mt-2 bg-gray-50 dark:bg-gray-700/40 rounded-lg p-2">
                                         <div className="flex items-center gap-2 mb-2">
                                             <input defaultValue={p.sticker ? '' : p.icon} maxLength={6} placeholder="Emoji" className="w-16 p-1.5 text-center text-lg border rounded bg-white dark:bg-gray-800 dark:border-gray-600" onKeyDown={(e) => { if (e.key === 'Enter') { const v = e.target.value.trim(); if (v) { onSetEmoji(p.id, v); setIconPickerFor(null); } } }} />
-                                            <span className="text-[10px] text-gray-400 dark:text-gray-500">Escribí un emoji y Enter, o elegí un sticker:</span>
+                                            <span className="text-[11px] text-gray-400 dark:text-gray-500">Escribí un emoji y Enter, o elegí un sticker:</span>
                                         </div>
                                         <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto">
                                             {STICKER_IDS.map(sid => (
@@ -134,12 +134,12 @@ const WhatsAppTemplatesModal = ({ isOpen, settings, onClose, onSave }) => {
                     <div>
                         <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Mensaje de deuda</p>
                         <textarea value={deuda} onChange={(e) => setDeuda(e.target.value)} placeholder={DEFAULT_DEUDA} className="w-full p-3 border rounded-lg bg-gray-50 h-20 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
-                        <p className="text-[10px] text-gray-400 mt-1">{"Usá ${total} para insertar el monto."}</p>
+                        <p className="text-[11px] text-gray-400 mt-1">{"Usá ${total} para insertar el monto."}</p>
                     </div>
                     <div>
                         <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Mensaje de recordatorio</p>
                         <textarea value={recordatorio} onChange={(e) => setRecordatorio(e.target.value)} placeholder={DEFAULT_RECORDATORIO} className="w-full p-3 border rounded-lg bg-gray-50 h-36 dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
-                        <p className="text-[10px] text-gray-400 mt-1">Recordatorio amable de saldo pendiente (se envía desde el detalle de la deuda).</p>
+                        <p className="text-[11px] text-gray-400 mt-1">Recordatorio amable de saldo pendiente (se envía desde el detalle de la deuda).</p>
                     </div>
                 </div>
                 <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex items-center gap-2 shrink-0">
@@ -194,7 +194,7 @@ const SettingsModal = ({ isOpen, onClose, darkOn, onToggleTheme, onLogout, onOpe
                                 title="Grupo familiar"
                                 subtitle={inGroup ? (groupData.role === 'admin' ? 'Administrás un grupo' : 'Sos miembro de un grupo') : 'Compartí tus datos con tu familia'}
                                 onClick={onOpenGroup}
-                                right={inGroup ? <span className="text-[10px] font-bold bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 px-2 py-0.5 rounded-full shrink-0">Activo</span> : null}
+                                right={inGroup ? <span className="text-[11px] font-bold bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 px-2 py-0.5 rounded-full shrink-0">Activo</span> : null}
                             />
                             <SettingsRow icon="📦" title="Catálogo de productos" subtitle="Renombrar, ícono, ocultar, ordenar" onClick={onOpenCatalog} />
                             <SettingsRow icon="💬" title="Mensajes de WhatsApp" subtitle="En camino, deuda y recordatorio" onClick={onOpenWhatsApp} />
@@ -532,7 +532,7 @@ const GroupModal = ({ isOpen, onClose, user, groupData, onGroupUpdate }) => {
                                 </div>
                                 {isAdmin && groupData.code && (
                                     <div className="text-right">
-                                        <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase">Código</p>
+                                        <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase">Código</p>
                                         <p className="text-lg font-black text-purple-600 dark:text-purple-400 tracking-wider">{groupData.code}</p>
                                     </div>
                                 )}
@@ -550,7 +550,7 @@ const GroupModal = ({ isOpen, onClose, user, groupData, onGroupUpdate }) => {
                                                 <span className="text-sm">{member.role === 'admin' ? '👑' : '👤'}</span>
                                                 <div>
                                                     <p className="text-sm font-medium dark:text-white">{member.displayName || member.email}</p>
-                                                    <p className="text-[10px] text-gray-400">{member.role === 'admin' ? 'Admin' : 'Miembro'}</p>
+                                                    <p className="text-[11px] text-gray-400">{member.role === 'admin' ? 'Admin' : 'Miembro'}</p>
                                                 </div>
                                             </div>
                                             {member.id !== user.uid && member.role !== 'admin' && (
@@ -734,7 +734,7 @@ const BulkImportModal = ({ isOpen, onClose, onImport, defaultDay }) => {
                             ) : (
                                 <table className="w-full">
                                     <thead>
-                                        <tr className="text-left text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                                        <tr className="text-left text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                                             <th className="p-1 w-8"></th>
                                             <th className="p-1">Nombre</th>
                                             <th className="p-1 w-28">Teléfono</th>
@@ -750,8 +750,8 @@ const BulkImportModal = ({ isOpen, onClose, onImport, defaultDay }) => {
                                                 <td className="p-1 pt-2"><input type="checkbox" checked={r.include} onChange={(e) => updateRow(idx, { include: e.target.checked })} /></td>
                                                 <td className="p-1">
                                                     <input value={r.name} onChange={(e) => updateRow(idx, { name: e.target.value })} className={inputCls} placeholder="Nombre" />
-                                                    {prodSummary(r.products) && <div className="text-[10px] text-blue-500 dark:text-blue-400 mt-0.5 px-1">📦 {prodSummary(r.products)}</div>}
-                                                    {r.mapsLink && <div className="text-[10px] text-green-500 dark:text-green-400 mt-0.5 px-1">📍 con ubicación</div>}
+                                                    {prodSummary(r.products) && <div className="text-[11px] text-blue-500 dark:text-blue-400 mt-0.5 px-1">📦 {prodSummary(r.products)}</div>}
+                                                    {r.mapsLink && <div className="text-[11px] text-green-500 dark:text-green-400 mt-0.5 px-1">📍 con ubicación</div>}
                                                 </td>
                                                 <td className="p-1"><input value={r.phone} onChange={(e) => updateRow(idx, { phone: e.target.value })} className={inputCls} placeholder="—" /></td>
                                                 <td className="p-1"><input value={r.address} onChange={(e) => updateRow(idx, { address: e.target.value })} className={inputCls} placeholder="—" /></td>

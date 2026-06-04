@@ -51,7 +51,7 @@ const Badge = ({ children, type, date }) => {
 
 const LoadInput = ({ label, value, onChange }) => (
     <div className="flex flex-col">
-        <label className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5 text-center">{label}</label>
+        <label className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-0.5 text-center">{label}</label>
         <input
             type="number"
             value={value || ''}
@@ -90,7 +90,7 @@ const Toast = ({ message, onUndo, hasUndo, type = 'info' }) => {
         error: 'bg-red-600 text-white',
     };
     return (
-        <div className={`fixed bottom-20 left-4 right-4 ${bgColors[type] || bgColors.info} p-4 rounded-lg shadow-lg flex justify-between items-center z-50 toast-animate`}>
+        <div role={type === 'error' ? 'alert' : 'status'} aria-live={type === 'error' ? 'assertive' : 'polite'} className={`fixed bottom-20 left-4 right-4 ${bgColors[type] || bgColors.info} p-4 rounded-lg shadow-lg flex justify-between items-center z-50 toast-animate`}>
             <span>{message}</span>
             {hasUndo && <button onClick={onUndo} className="text-blue-300 font-bold ml-4">DESHACER</button>}
         </div>
@@ -227,8 +227,8 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
                             <span className="text-xs font-bold text-yellow-700 dark:text-yellow-400 uppercase">Nota</span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0 text-sm">
-                            <button onClick={() => onEditNote(client)} className="p-1.5 rounded-md opacity-40 hover:opacity-100 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-all">✏️</button>
-                            <button onClick={() => onDelete(client.id)} className="p-1.5 rounded-md opacity-40 hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">🗑️</button>
+                            <button aria-label="Editar nota" onClick={() => onEditNote(client)} className="p-1.5 rounded-md opacity-40 hover:opacity-100 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-all">✏️</button>
+                            <button aria-label="Eliminar nota" onClick={() => onDelete(client.id)} className="p-1.5 rounded-md opacity-40 hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">🗑️</button>
                         </div>
                     </div>
                     <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap break-words overflow-hidden">
@@ -263,20 +263,20 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
             <div className="flex-1 min-w-0 p-3 flex flex-col gap-2">
                 {/* Botones de herramientas */}
                 <div className="flex items-center justify-end gap-1 flex-wrap text-sm">
-                    <button onClick={() => onToggleStar(client)} className={`p-1.5 rounded-md transition-all ${client.isStarred ? 'bg-orange-50 dark:bg-orange-900/20' : 'opacity-40 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>⭐</button>
-                    <button onClick={() => onDebtClick(client)} className={`p-1.5 rounded-md transition-all ${client.hasDebt ? 'bg-red-50 dark:bg-red-900/20' : 'opacity-40 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>{client.hasDebt ? '🔴' : '💰'}</button>
-                    <button onClick={() => onAddTransfer(client)} className={`p-1.5 rounded-md transition-all ${client.hasPendingTransfer ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'opacity-40 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>💳</button>
+                    <button aria-label={client.isStarred ? 'Quitar de favoritos' : 'Marcar como favorito'} onClick={() => onToggleStar(client)} className={`p-1.5 rounded-md transition-all ${client.isStarred ? 'bg-orange-50 dark:bg-orange-900/20' : 'opacity-40 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>⭐</button>
+                    <button aria-label={client.hasDebt ? 'Ver deudas del cliente' : 'Agregar deuda'} onClick={() => onDebtClick(client)} className={`p-1.5 rounded-md transition-all ${client.hasDebt ? 'bg-red-50 dark:bg-red-900/20' : 'opacity-40 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>{client.hasDebt ? '🔴' : '💰'}</button>
+                    <button aria-label="Marcar transferencia para revisar" onClick={() => onAddTransfer(client)} className={`p-1.5 rounded-md transition-all ${client.hasPendingTransfer ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'opacity-40 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>💳</button>
                     <div className="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-0.5"></div>
-                    <button onClick={() => onSetAlarm(client)} className={`p-1.5 rounded-md transition-all ${client.alarm ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'opacity-40 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>{client.alarm ? '🔔' : '🔕'}</button>
-                    <button onClick={() => onEdit(client)} className="p-1.5 rounded-md opacity-40 hover:opacity-100 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all">✏️</button>
-                    <button onClick={() => onDelete(client.id)} className="p-1.5 rounded-md opacity-40 hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">🗑️</button>
+                    <button aria-label={client.alarm ? 'Alarma activada, editar' : 'Poner alarma'} onClick={() => onSetAlarm(client)} className={`p-1.5 rounded-md transition-all ${client.alarm ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'opacity-40 hover:opacity-100 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>{client.alarm ? '🔔' : '🔕'}</button>
+                    <button aria-label="Editar cliente" onClick={() => onEdit(client)} className="p-1.5 rounded-md opacity-40 hover:opacity-100 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all">✏️</button>
+                    <button aria-label="Quitar de la lista" onClick={() => onDelete(client.id)} className="p-1.5 rounded-md opacity-40 hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">🗑️</button>
                 </div>
 
                 {/* Nombre y dirección */}
                 <div className="-mt-1 min-w-0">
                     <h3 className="font-bold text-lg leading-tight text-gray-900 dark:text-white break-words">{(client.name || '').toUpperCase()}</h3>
-                    <div onClick={() => onOpenMaps(client.lat, client.lng, client.mapsLink)} className="text-gray-500 dark:text-gray-400 text-sm flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 mt-0.5 hover:underline min-w-0">
-                        <span className="shrink-0">📍</span> <span className="break-words">{client.address}</span>
+                    <div role="button" tabIndex={0} aria-label={`Abrir ubicación de ${client.address || 'cliente'} en el mapa`} onClick={() => onOpenMaps(client.lat, client.lng, client.mapsLink)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenMaps(client.lat, client.lng, client.mapsLink); } }} className="text-gray-500 dark:text-gray-400 text-sm flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 mt-0.5 hover:underline min-w-0">
+                        <span className="shrink-0" aria-hidden="true">📍</span> <span className="break-words">{client.address}</span>
                     </div>
                 </div>
 
@@ -300,14 +300,14 @@ const ClientCard = React.memo(({ client, trueIndex, isAdmin, onToggleStar, onDeb
                 {/* Action Bar */}
                 <div className="flex gap-1.5 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 items-center">
                     {client.phone ? (
-                        <a href={`tel:${client.phone}`} className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 w-9 shrink-0">📞</a>
+                        <a href={`tel:${client.phone}`} aria-label="Llamar al cliente" className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 w-9 shrink-0">📞</a>
                     ) : (
-                        <span className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 rounded-lg cursor-not-allowed w-9 shrink-0 opacity-30">📞</span>
+                        <span aria-hidden="true" className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 rounded-lg cursor-not-allowed w-9 shrink-0 opacity-30">📞</span>
                     )}
                     {client.phone ? (
-                        <button onClick={() => onSendPhoto(client.phone)} className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 w-9 shrink-0">📷</button>
+                        <button aria-label="Enviar foto por WhatsApp" onClick={() => onSendPhoto(client.phone)} className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 w-9 shrink-0">📷</button>
                     ) : (
-                        <span className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 rounded-lg cursor-not-allowed w-9 shrink-0 opacity-30">📷</span>
+                        <span aria-hidden="true" className="flex items-center justify-center p-2 bg-gray-50 dark:bg-gray-800 rounded-lg cursor-not-allowed w-9 shrink-0 opacity-30">📷</span>
                     )}
                     {client.phone ? (
                         <button onClick={() => onSendWhatsApp(client.phone)} className="flex-1 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold py-2 px-2 rounded-lg shadow-sm flex items-center justify-center gap-1.5 text-sm transition-colors whitespace-nowrap">
@@ -398,9 +398,9 @@ const ProductCounter = ({ clients, label }) => {
                         return (
                             <div key={key} className="bg-blue-50 dark:bg-gray-700 rounded-lg p-2 flex flex-col items-center justify-center border border-blue-100 dark:border-gray-600">
                                 <span className="text-xl font-black text-blue-600 dark:text-blue-300">{totals[key]}</span>
-                                <span className="text-[10px] text-blue-400 dark:text-blue-200 font-medium uppercase">{prod ? prod.short : key}</span>
+                                <span className="text-[11px] text-blue-400 dark:text-blue-200 font-medium uppercase">{prod ? prod.short : key}</span>
                                 {key === 'soda' && totals[key] > 0 && (
-                                    <span className="text-[9px] text-blue-400/70 dark:text-blue-300/50 mt-0.5">({Math.ceil(totals[key] / 6)} caj.)</span>
+                                    <span className="text-[11px] text-blue-400/80 dark:text-blue-300/60 mt-0.5">({Math.ceil(totals[key] / 6)} caj.)</span>
                                 )}
                             </div>
                         );

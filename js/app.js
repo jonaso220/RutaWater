@@ -2343,7 +2343,7 @@ const [toast, setToast] = React.useState(null);
                                 <button key={day} onClick={() => { setSelectedDay(day); setListSearchTerm(''); setActiveFilters([]); setShowFilterMenu(false); }} className={`px-3 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-200 flex items-center gap-1.5 ${selectedDay === day ? 'bg-blue-600 dark:bg-blue-700 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700'}`}>
                                     {day}
                                     {dayCounts[day] > 0 && (
-                                        <span className={`text-[10px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 ${selectedDay === day ? 'bg-white/25 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>{dayCounts[day]}</span>
+                                        <span className={`text-[11px] font-black min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 ${selectedDay === day ? 'bg-white/25 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>{dayCounts[day]}</span>
                                     )}
                                 </button>
                             ))}
@@ -2388,7 +2388,7 @@ const [toast, setToast] = React.useState(null);
                                             <span>🔍</span>
                                             Filtros
                                             {activeFilters.length > 0 && (
-                                                <span className="bg-white text-blue-600 text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center leading-none">{activeFilters.length}</span>
+                                                <span className="bg-white text-blue-600 text-[11px] font-black w-4 h-4 rounded-full flex items-center justify-center leading-none">{activeFilters.length}</span>
                                             )}
                                         </button>
 
@@ -2412,7 +2412,7 @@ const [toast, setToast] = React.useState(null);
 
                                                     {/* Sección: Tipo de pedido */}
                                                     <div className="px-3 py-2">
-                                                        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1">Tipo</span>
+                                                        <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1">Tipo</span>
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -2462,7 +2462,7 @@ const [toast, setToast] = React.useState(null);
 
                                                     {/* Sección: Productos */}
                                                     <div className="px-3 py-2 pb-3">
-                                                        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1">Productos</span>
+                                                        <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1">Productos</span>
                                                         <div className="grid grid-cols-2 gap-1.5 mt-1.5">
                                                             {getVisibleProducts().map(prod => {
                                                                 const isActive = activeFilters.includes(prod.id);
@@ -2643,7 +2643,7 @@ const [toast, setToast] = React.useState(null);
                                 </div>
                             </div>
                             <div className="relative">
-                                <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
+                                <input type="text" aria-label="Buscar en el registro de clientes" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-3 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
                                 <div className="absolute left-3 top-3.5 text-gray-400 dark:text-gray-500">🔍</div>
                                 {searchTerm && (
                                     <button onClick={() => setSearchTerm('')} className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -2707,12 +2707,12 @@ const [toast, setToast] = React.useState(null);
 
                                     {/* BADGES: Frecuencia + Días + Deuda */}
                                     <div className="flex flex-wrap items-center gap-1.5 mt-3">
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${freqColor}`}>{freqLabel}</span>
+                                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${freqColor}`}>{freqLabel}</span>
                                         {client.visitDays && client.visitDays.length > 0 && (
-                                            <span className="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 px-2 py-0.5 rounded-full">{client.visitDays.map(function(d) { return d.slice(0, 3); }).join(', ')}</span>
+                                            <span className="text-[11px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 px-2 py-0.5 rounded-full">{client.visitDays.map(function(d) { return d.slice(0, 3); }).join(', ')}</span>
                                         )}
                                         {debtTotal > 0 && (
-                                            <button onClick={() => { var c = { ...client, hasDebt: true }; setViewDebtModal({ isOpen: true, client: c }); }} className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">💰 ${debtTotal.toLocaleString()}</button>
+                                            <button onClick={() => { var c = { ...client, hasDebt: true }; setViewDebtModal({ isOpen: true, client: c }); }} className="text-[11px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded-full">💰 ${debtTotal.toLocaleString()}</button>
                                         )}
                                     </div>
 
@@ -2759,7 +2759,7 @@ const [toast, setToast] = React.useState(null);
                                 </div>
                             </div>
                             <div className="relative">
-                                <input type="text" placeholder="Buscar por nombre, dirección o teléfono..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
+                                <input type="text" aria-label="Buscar clientes por nombre, dirección o teléfono" placeholder="Buscar por nombre, dirección o teléfono..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-2.5 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
                                 <div className="absolute left-3 top-3 text-gray-400 dark:text-gray-500">🔍</div>
                                 {searchTerm && (
                                     <button onClick={() => setSearchTerm('')} className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
@@ -2831,7 +2831,7 @@ const [toast, setToast] = React.useState(null);
                                                         <td className="px-3 py-2.5 font-bold text-gray-900 dark:text-white break-words">{(client.name || '').toUpperCase()}</td>
                                                         <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 truncate">{client.phone || '—'}</td>
                                                         <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 break-words">{client.address || '—'}</td>
-                                                        <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${freqColor}`}>{freqLabel}</span></td>
+                                                        <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap"><span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${freqColor}`}>{freqLabel}</span></td>
                                                         <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 truncate">{days}</td>
                                                         <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap">{debtTotal > 0 ? <span className="text-red-600 dark:text-red-400 font-bold">${debtTotal.toLocaleString()}</span> : <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
                                                         <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 break-words">{prodStr}</td>
@@ -2952,7 +2952,7 @@ const [toast, setToast] = React.useState(null);
                                 })}
                                 <button onClick={() => setSmartOrderOpen(true)} className="w-full mt-2 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800" title="Crear/agendar desde texto con IA">✨ Pedido IA</button>
                                 <button onClick={() => setView('directory')} className="w-full mt-1.5 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800" title="Registro de clientes (tabla)">📊 Directorio</button>
-                                <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center pt-1">Arrastrá una fila a un día para moverla</p>
+                                <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center pt-1">Arrastrá una fila a un día para moverla</p>
                             </div>
 
                             {/* DÍA SELECCIONADO */}
@@ -2973,7 +2973,7 @@ const [toast, setToast] = React.useState(null);
                                                         <ProductGlyph product={p} size={16} />
                                                         <span className="text-[11px] font-bold uppercase tracking-wide text-blue-500 dark:text-blue-400">{isSoda ? 'Caj' : p.short}</span>
                                                         <span className="text-base font-black text-blue-900 dark:text-blue-100 leading-none">{bigQty}</span>
-                                                        {isSoda && <span className="text-[10px] font-bold text-blue-400 dark:text-blue-500">({p.qty} sif.)</span>}
+                                                        {isSoda && <span className="text-[11px] font-bold text-blue-400 dark:text-blue-500">({p.qty} sif.)</span>}
                                                     </span>
                                                 );
                                             })}
@@ -2981,7 +2981,7 @@ const [toast, setToast] = React.useState(null);
                                     )}
                                     <div className="flex gap-2 items-center flex-wrap">
                                         <div className="relative flex-1 min-w-[220px]">
-                                            <input type="text" placeholder="Buscar (nombre, dirección, teléfono, nota)..." value={listSearchTerm} onChange={(e) => setListSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm" />
+                                            <input type="text" aria-label="Buscar en el día seleccionado" placeholder="Buscar (nombre, dirección, teléfono, nota)..." value={listSearchTerm} onChange={(e) => setListSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm" />
                                             <div className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500">🔍</div>
                                             {listSearchTerm && <button onClick={() => setListSearchTerm('')} className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>}
                                         </div>

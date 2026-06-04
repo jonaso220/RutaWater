@@ -95,6 +95,45 @@
             outline: none; padding: 0; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .order-input:active { transform: scale(0.95); }
+
+        /* A11y #5: foco visible para teclado. Sólo aparece al navegar con Tab (:focus-visible),
+           no al hacer click con el mouse. Sobrescribe los outline-none inline. */
+        button:focus-visible,
+        a:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible,
+        [role="button"]:focus-visible,
+        [tabindex]:focus-visible {
+            outline: 2px solid #2563eb !important;
+            outline-offset: 2px;
+            border-radius: 6px;
+        }
+        html.dark button:focus-visible,
+        html.dark a:focus-visible,
+        html.dark input:focus-visible,
+        html.dark select:focus-visible,
+        html.dark textarea:focus-visible,
+        html.dark [role="button"]:focus-visible,
+        html.dark [tabindex]:focus-visible {
+            outline-color: #60a5fa !important;
+        }
+
+        /* A11y #10: respetar "reducir movimiento" del sistema. */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
+        /* A11y #7: targets táctiles más grandes SÓLO en pantallas táctiles (pointer: coarse).
+           En escritorio con mouse (pointer: fine) no cambia nada. */
+        @media (pointer: coarse) {
+            button, a[href], [role="button"] { min-height: 36px; }
+        }
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
