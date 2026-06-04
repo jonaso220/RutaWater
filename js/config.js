@@ -57,6 +57,7 @@ function buildProductsFromSettings(data) {
     var emojis = (data.productEmojis && typeof data.productEmojis === 'object') ? data.productEmojis : {};
     var custom = Array.isArray(data.customProducts) ? data.customProducts : [];
     var order = Array.isArray(data.productOrder) ? data.productOrder : [];
+    var hidden = Array.isArray(data.productHidden) ? data.productHidden : [];
 
     // El ícono puede ser un emoji directo o "sticker:<id>" (placeholder 📦 hasta implementar stickers).
     var resolveGlyph = function(val) {
@@ -75,10 +76,28 @@ function buildProductsFromSettings(data) {
         var label = (names[p.id] != null) ? names[p.id] : p.label;
         var rawEmoji = (emojis[p.id] != null) ? emojis[p.id] : p.baseEmoji;
         var g = resolveGlyph(rawEmoji);
-        return { id: p.id, label: label, icon: g.icon, sticker: g.sticker, short: p.short };
+        return { id: p.id, label: label, icon: g.icon, sticker: g.sticker, short: p.short, hidden: hidden.indexOf(p.id) > -1 };
     });
 
     var ranked = order.map(function(id) { return withOverrides.filter(function(p) { return p.id === id; })[0]; }).filter(Boolean);
     var rest = withOverrides.filter(function(p) { return order.indexOf(p.id) === -1; });
     PRODUCTS = ranked.concat(rest);
+}
+
+// Productos a mostrar en los SELECTORES (alta/edición/agenda/filtros): excluye los
+// ocultos del catálogo. Para mostrar/resolver productos existentes (tarjetas,
+// contador, export) se sigue usando PRODUCTS completo para no perder datos viejos.
+function getVisibleProducts() {
+    return PRODUCTS.filter(function(p) { return !p.hidden; });
+}
+
+// Selector de edición de un cliente concreto: productos visibles + cualquier
+// producto oculto que ESE cliente ya tenga con cantidad > 0 (para poder verlo/editarlo
+// sin perder la cantidad). currentProducts = client.products.
+function getPickerProducts(currentProducts) {
+    currentProducts = currentProducts || {};
+    return PRODUCTS.filter(function(p) {
+        if (!p.hidden) return true;
+        return parseInt(currentProducts[p.id] || 0, 10) > 0;
+    });
 }

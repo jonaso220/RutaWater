@@ -344,6 +344,7 @@ const [toast, setToast] = React.useState(null);
     const [noteModal, setNoteModal] = React.useState(false);
     const [editNoteData, setEditNoteData] = React.useState(null);
     const [showFabMenu, setShowFabMenu] = React.useState(false);
+    const [showBulkImport, setShowBulkImport] = React.useState(false);
 
     // --- ESTADO DEUDAS ---
     const [debts, setDebts] = React.useState([]);
@@ -367,6 +368,7 @@ const [toast, setToast] = React.useState(null);
     // --- ESTADO CONFIGURACIÓN ---
     const [appSettings, setAppSettings] = React.useState(null);
     const [showSettingsModal, setShowSettingsModal] = React.useState(false);
+    const [showWhatsAppModal, setShowWhatsAppModal] = React.useState(false);
 
     // --- HELPERS DE PERMISOS ---
     const isAdmin = !groupData || groupData.role === 'admin';
@@ -380,10 +382,12 @@ const [toast, setToast] = React.useState(null);
     // --- MENSAJES WHATSAPP ---
     const DEFAULT_WHATSAPP_EN_CAMINO = "Buenas \u{1F69A}. Ya estamos en camino, sos el/la siguiente en la lista de entrega. \u{00A1}Nos vemos en unos minutos!\n\nAquapura";
     const DEFAULT_WHATSAPP_DEUDA = "La deuda es de ${total}. Saludos";
+    const DEFAULT_WHATSAPP_RECORDATORIO = "Hola, buenas \nEste es un mensaje automatico para informarle que, segun nuestros registros, quedo pendiente un saldo por regularizar.\nCuando pueda, le agradecemos que nos indique en que fecha podriamos saldarlo. Si necesita nuevamente los datos de la cuenta, con gusto se los enviamos.\nMuchas gracias.";
     const getWhatsAppMessage = (key) => {
         if (appSettings && appSettings[key]) return appSettings[key];
         if (key === 'whatsappEnCamino') return DEFAULT_WHATSAPP_EN_CAMINO;
         if (key === 'whatsappDeuda') return DEFAULT_WHATSAPP_DEUDA;
+        if (key === 'whatsappRecordatorio') return DEFAULT_WHATSAPP_RECORDATORIO;
         return '';
     };
 
@@ -1276,6 +1280,13 @@ const [toast, setToast] = React.useState(null);
         openExternal(`whatsapp://send?phone=${cleanPhone}&text=${msg}`);
     };
 
+    const sendReminder = (phone) => {
+        if (!phone) return;
+        const cleanPhone = normalizePhone(phone);
+        const msg = encodeURIComponent(getWhatsAppMessage('whatsappRecordatorio'));
+        openExternal(`whatsapp://send?phone=${cleanPhone}&text=${msg}`);
+    };
+
     const openGoogleMaps = (lat, lng, link) => {
         let url = '';
         if(lat && lng) { url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`; }
@@ -1402,6 +1413,77 @@ const [toast, setToast] = React.useState(null);
             }
             resetForm(); setView('list');
         } catch(e) { showUndoToast(getErrorMessage(e), null); } finally { setSaving(false); }
+    };
+
+    // --- IMPORTAR CLIENTES EN LOTE ---
+    // importRows: [{ name, phone, address, lat, lng, mapsLink, notes, products, day, freq }]
+    // Crea cada cliente con el mismo formato que el alta individual (van al inicio del día).
+    const handleBulkImport = async (importRows) => {
+        const currentWeek = getWeekNumber(new Date());
+        const dayMinOrder = {}; // día -> menor listOrder ya asignado en ESTE lote (evita choques)
+        let created = 0;
+        try {
+            for (const row of importRows) {
+                const name = (row.name || '').trim();
+                if (!name) continue;
+                const freq = ['weekly', 'biweekly', 'triweekly', 'monthly', 'on_demand'].indexOf(row.freq) > -1 ? row.freq : 'weekly';
+                const visitDays = freq === 'on_demand' ? [] : [row.day || 'Lunes'];
+                const products = {};
+                Object.keys(row.products || {}).forEach(k => {
+                    const v = sanitizeProductQty(row.products[k]);
+                    if (v !== '') products[k] = v;
+                });
+                const mapsLink = (row.mapsLink && isSafeUrl(row.mapsLink)) ? row.mapsLink : '';
+                const data = {
+                    name: sanitizeString(name, 100),
+                    phone: sanitizePhone(row.phone || ''),
+                    address: sanitizeString(row.address || '', 200),
+                    notes: sanitizeString(row.notes || '', 500),
+                    lat: sanitizeString(row.lat || '', 20),
+                    lng: sanitizeString(row.lng || '', 20),
+                    mapsLink: mapsLink,
+                    locationInput: mapsLink,
+                    freq: freq,
+                    specificDate: null,
+                    products: products,
+                    visitDays: visitDays,
+                    visitDay: visitDays[0] || 'Sin Asignar',
+                    isPinned: freq !== 'once',
+                    ...getDataScope(),
+                    userId: user.uid,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    startWeek: currentWeek,
+                };
+                // listOrders: los nuevos van al INICIO (minOrder - 1), igual que el alta individual.
+                const listOrders = {};
+                visitDays.forEach(dy => {
+                    const existingInDay = clients.filter(c =>
+                        c.freq !== 'on_demand' && !c.isCompleted &&
+                        ((c.visitDays && c.visitDays.includes(dy)) || c.visitDay === dy)
+                    );
+                    let minOrder = 0;
+                    if (existingInDay.length > 0) {
+                        const orders = existingInDay.map(c => {
+                            const o = c.listOrders?.[dy] ?? c.listOrder ?? 0;
+                            return o > 100000 ? 0 : o;
+                        });
+                        minOrder = Math.min(...orders);
+                    }
+                    if (dayMinOrder[dy] !== undefined) minOrder = Math.min(minOrder, dayMinOrder[dy]);
+                    listOrders[dy] = minOrder - 1;
+                    dayMinOrder[dy] = minOrder - 1;
+                });
+                data.listOrder = visitDays.length ? listOrders[visitDays[0]] : 0;
+                data.listOrders = listOrders;
+                await firestoreRetry(() => db.collection('clients').add(data));
+                created++;
+            }
+            showUndoToast(created + ' cliente' + (created !== 1 ? 's' : '') + ' importado' + (created !== 1 ? 's' : '') + '.', null);
+        } catch (e) {
+            console.error('Error importando clientes:', e);
+            showUndoToast(getErrorMessage(e) + (created > 0 ? ' (' + created + ' creados antes del error)' : ''), null);
+        }
     };
 
     // --- GUARDAR NOTA ---
@@ -1722,6 +1804,65 @@ const [toast, setToast] = React.useState(null);
         return counts;
     }, [clients, debts]);
 
+    // --- ESTADÍSTICAS / REPORTES (panel de escritorio) ---
+    const stats = React.useMemo(() => {
+        const real = clients.filter(c => !c.isNote && c.name);
+        const active = real.filter(c => c.freq !== 'on_demand');
+        const byFreq = { weekly: 0, biweekly: 0, triweekly: 0, monthly: 0, once: 0 };
+        active.forEach(c => { if (byFreq[c.freq] !== undefined) byFreq[c.freq]++; });
+
+        // Carga por día de visita (Lun–Sáb): clientes asignados + unidades de producto.
+        const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        const sumUnits = (c) => {
+            if (!c.products) return 0;
+            return Object.keys(c.products).reduce((s, k) => s + (parseInt(c.products[k] || 0, 10) || 0), 0);
+        };
+        const perDay = days.map(d => {
+            const cl = active.filter(c => (c.visitDays && c.visitDays.includes(d)) || c.visitDay === d);
+            return { day: d, clients: cl.length, units: cl.reduce((s, c) => s + sumUnits(c), 0) };
+        });
+
+        // Totales por producto en todo el padrón activo (demanda por ciclo).
+        const prodTotals = {};
+        active.forEach(c => {
+            if (!c.products) return;
+            Object.keys(c.products).forEach(k => {
+                const q = parseInt(c.products[k] || 0, 10) || 0;
+                if (q > 0) prodTotals[k] = (prodTotals[k] || 0) + q;
+            });
+        });
+        const prodList = Object.keys(prodTotals).map(k => {
+            const p = PRODUCTS.find(x => x.id === k);
+            return { id: k, label: p ? p.label : k, short: p ? p.short : k, sticker: p ? p.sticker : null, icon: p ? p.icon : '📦', qty: prodTotals[k] };
+        }).sort((a, b) => b.qty - a.qty);
+        const totalUnits = prodList.reduce((s, p) => s + p.qty, 0);
+
+        // Deudas: clientes deudores únicos + monto total.
+        const debtByClient = {};
+        debts.forEach(d => { if ((d.amount || 0) > 0) debtByClient[d.clientId] = (debtByClient[d.clientId] || 0) + (d.amount || 0); });
+        const debtorCount = Object.keys(debtByClient).length;
+        const debtTotal = Object.keys(debtByClient).reduce((s, k) => s + debtByClient[k], 0);
+
+        // Altas del mes en curso.
+        const now = new Date();
+        const newThisMonth = real.filter(c => {
+            const dt = parseDate(c.createdAt);
+            return dt && dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear();
+        }).length;
+
+        return {
+            totalActive: active.length,
+            directoryOnly: real.filter(c => c.freq === 'on_demand').length,
+            notes: clients.filter(c => c.isNote).length,
+            byFreq, perDay, prodList, totalUnits,
+            debtorCount, debtTotal,
+            transfersPending: transfers.length,
+            newThisMonth,
+            starred: active.filter(c => c.isStarred).length,
+            noLocation: active.filter(c => !((c.lat && c.lng) || c.mapsLink)).length,
+        };
+    }, [clients, debts, transfers]);
+
     const handleExportClients = () => {
         try {
             const allClients = clients.filter(c => c.name);
@@ -2011,6 +2152,7 @@ const [toast, setToast] = React.useState(null);
             {showPasteModal && <PasteContactModal isOpen={true} onClose={() => setShowPasteModal(false)} onPaste={handleMagicPaste} />}
             {alarmModal.isOpen && <AlarmModal isOpen={true} initialValue={alarmModal.currentVal} onClose={() => setAlarmModal({isOpen: false, clientId: null, currentVal: ''})} onSave={handleSaveAlarm} />}
             {noteModal && <NoteModal isOpen={true} onClose={() => setNoteModal(false)} onSave={handleSaveNote} />}
+            {showBulkImport && <BulkImportModal isOpen={true} onClose={() => setShowBulkImport(false)} onImport={handleBulkImport} defaultDay={selectedDay} />}
             {editNoteData && <NoteModal isOpen={true} editNote={editNoteData} onClose={() => setEditNoteData(null)} onSave={handleEditNote} />}
             {showGroupModal && <GroupModal
                 isOpen={true}
@@ -2044,6 +2186,7 @@ const [toast, setToast] = React.useState(null);
                 onEdit={(debt) => setEditDebtModal({ isOpen: true, debt })}
                 onAddMore={(client) => setDebtModal({ isOpen: true, client })}
                 onSendDebtTotal={sendDebtTotal}
+                onSendReminder={sendReminder}
             />}
             {quickEditClient && <EditClientQuickModal isOpen={true} client={quickEditClient} onClose={() => setQuickEditClient(null)} onSave={handleQuickUpdateClient} showClientInfo={quickEditShowInfo} />}
             {relationshipClient && <RelationshipsModal isOpen={true} client={clients.find(c => c.id === relationshipClient.id) || relationshipClient} allClients={clients} onClose={() => setRelationshipClient(null)} onAdd={handleAddRelationship} onRemove={handleRemoveRelationship} />}
@@ -2051,16 +2194,29 @@ const [toast, setToast] = React.useState(null);
             {catalogOpen && <ProductCatalogModal isOpen={true} products={PRODUCTS} hidden={appSettings?.productHidden || []} onClose={() => setCatalogOpen(false)} onRename={catalogRename} onSetEmoji={catalogSetEmoji} onToggleHidden={catalogToggleHidden} onAdd={catalogAddProduct} onRemove={catalogRemoveCustom} onMove={catalogMove} />}
             {showSettingsModal && <SettingsModal
                 isOpen={true}
-                settings={appSettings}
+                groupData={groupData}
+                darkOn={darkOn}
+                onToggleTheme={toggleTheme}
+                onLogout={handleLogout}
+                onOpenGroup={() => { setShowSettingsModal(false); setShowGroupModal(true); }}
+                onOpenCatalog={() => { setShowSettingsModal(false); setCatalogOpen(true); }}
+                onOpenWhatsApp={() => { setShowSettingsModal(false); setShowWhatsAppModal(true); }}
+                onImport={() => { setShowSettingsModal(false); setShowBulkImport(true); }}
+                onExportCSV={handleExportClients}
+                onExportBackup={handleExportBackup}
                 onClose={() => setShowSettingsModal(false)}
+            />}
+            {showWhatsAppModal && <WhatsAppTemplatesModal
+                isOpen={true}
+                settings={appSettings}
+                onClose={() => setShowWhatsAppModal(false)}
                 onSave={async (newSettings) => {
                     try {
                         const settingsDocId = groupData?.groupId || user.uid;
                         await firestoreRetry(() => db.collection('settings').doc(settingsDocId).set(newSettings, { merge: true }));
                         setAppSettings(prev => ({ ...prev, ...newSettings }));
-                        showUndoToast("Configuración guardada", null);
+                        showUndoToast("Mensajes guardados", null);
                     } catch(e) { showUndoToast(getErrorMessage(e), null); }
-                    setShowSettingsModal(false);
                 }}
             />}
             {activeAlert && <AlarmBanner data={activeAlert} onClose={handleDismissAlert} />}
@@ -2141,6 +2297,7 @@ const [toast, setToast] = React.useState(null);
                                 {activeSection === 'cartera' && <>👥 Cartera</>}
                                 {activeSection === 'deudas' && <>💰 Deudas</>}
                                 {activeSection === 'transferencias' && <>💳 Transferencias</>}
+                                {activeSection === 'estadisticas' && <>📊 Estadísticas</>}
                                 <span className={`transition-transform duration-200 inline-block ${showSectionMenu ? 'rotate-180' : ''}`}>▾</span>
                                 {/* Badges de pendientes */}
                                 {activeSection !== 'deudas' && debts.length > 0 && (
@@ -2179,29 +2336,26 @@ const [toast, setToast] = React.useState(null);
                                             <span className="flex-1 text-left">Revisar Transferencias</span>
                                             {transfers.length > 0 && <span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold px-2 py-0.5 rounded-full">{transfers.length}</span>}
                                         </button>
+                                        <div className="border-t border-gray-100 dark:border-gray-700" />
+                                        <button
+                                            onClick={() => { setActiveSection('estadisticas'); setShowSectionMenu(false); }}
+                                            className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${activeSection === 'estadisticas' ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 font-bold' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                                        >
+                                            <span>📊</span>
+                                            <span className="flex-1 text-left">Estadísticas</span>
+                                        </button>
                                     </div>
                                 </>
                             )}
                         </div>
-                        {/* Botón Grupo Familiar */}
-                        <button 
-                            onClick={() => setShowGroupModal(true)}
-                            className={`p-1.5 rounded-lg transition-colors ${groupData?.groupId ? 'bg-purple-500/20 text-purple-200' : 'hover:bg-white/10'}`}
-                            title={groupData?.groupId ? (groupData.role === 'admin' ? 'Grupo (Admin)' : 'Grupo (Miembro)') : 'Grupo Familiar'}
-                        >
-                            👥
-                        </button>
-                        <button onClick={toggleTheme} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors" title="Tema claro / oscuro">
-                            {darkOn ? '☀️' : '🌙'}
-                        </button>
+                        {/* Grupo / Tema / Cerrar sesión ahora viven dentro de Configuración */}
                         <button
                             onClick={() => setShowSettingsModal(true)}
-                            className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                            className={`p-1.5 rounded-lg transition-colors relative ${groupData?.groupId ? 'bg-purple-500/20 text-purple-200' : 'hover:bg-white/10'}`}
                             title="Configuración"
                         >
                             ⚙️
                         </button>
-                        <button onClick={handleLogout}>🚪</button>
                     </div>
                 </div>
             </header>
@@ -2338,7 +2492,7 @@ const [toast, setToast] = React.useState(null);
                                                     <div className="px-3 py-2 pb-3">
                                                         <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1">Productos</span>
                                                         <div className="grid grid-cols-2 gap-1.5 mt-1.5">
-                                                            {PRODUCTS.map(prod => {
+                                                            {getVisibleProducts().map(prod => {
                                                                 const isActive = activeFilters.includes(prod.id);
                                                                 return (
                                                                     <button
@@ -2511,6 +2665,7 @@ const [toast, setToast] = React.useState(null);
                             <div className="flex justify-between items-center mb-3">
                                 <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">👥 Directorio</h2>
                                 <div className="flex gap-1.5">                                    <button onClick={() => setView('tabla')} className="text-xs bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-indigo-200 dark:hover:bg-indigo-800 flex items-center gap-1" title="Vista de tabla (escritorio)">📊 Tabla</button>
+                                    <button onClick={() => setShowBulkImport(true)} className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-orange-200 dark:hover:bg-orange-800 flex items-center gap-1" title="Importar clientes en lote (pegar contactos o CSV)">📥 Importar</button>
                                     <button onClick={handleExportClients} className="text-xs bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-green-200 dark:hover:bg-green-800 flex items-center gap-1">📤 CSV</button>
                                     <button onClick={handleExportBackup} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center gap-1">💾 Backup</button>
                                 </div>
@@ -2635,6 +2790,7 @@ const [toast, setToast] = React.useState(null);
                                     {!isWide && <button onClick={() => { setView('directory'); setTableSelectedClient(null); }} className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1" title="Volver a tarjetas">👥 Tarjetas</button>}                                    <button onClick={() => setSmartOrderOpen(true)} className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-purple-200 dark:hover:bg-purple-800 flex items-center gap-1" title="Crear/agendar desde texto con IA">✨ Pedido IA</button>
                                     <button onClick={() => setCatalogOpen(true)} className="text-xs bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-teal-200 dark:hover:bg-teal-800 flex items-center gap-1" title="Editar catálogo de productos">📦 Productos</button>
                                     <button onClick={() => setColWidths({ ...DEFAULT_COL_WIDTHS })} className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-1" title="Restablecer anchos de columnas">↔ Anchos</button>
+                                    <button onClick={() => setShowBulkImport(true)} className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-orange-200 dark:hover:bg-orange-800 flex items-center gap-1" title="Importar clientes en lote (pegar contactos o CSV)">📥 Importar</button>
                                     <button onClick={handleExportClients} className="text-xs bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-green-200 dark:hover:bg-green-800 flex items-center gap-1">📤 CSV</button>
                                     <button onClick={handleExportBackup} className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1.5 rounded-full font-bold hover:bg-blue-200 dark:hover:bg-blue-800 flex items-center gap-1">💾 Backup</button>
                                 </div>
@@ -3005,7 +3161,7 @@ const [toast, setToast] = React.useState(null);
                         <div className="space-y-3">
                             <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Pedido habitual</p>
                             <div className="grid grid-cols-2 gap-2">
-                                {PRODUCTS.map(prod => (
+                                {getVisibleProducts().map(prod => (
                                     <div key={prod.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700">
                                         <span className="text-sm font-medium flex items-center gap-1.5 dark:text-gray-300"><ProductGlyph product={prod} size={18} /> {prod.label}</span>
                                         <input
@@ -3440,6 +3596,120 @@ const [toast, setToast] = React.useState(null);
                             </div>
                             )
                         )}
+                    </div>
+                )}
+
+                {/* ======================= ESTADÍSTICAS / REPORTES ======================= */}
+                {activeSection === 'estadisticas' && (
+                    <div className="space-y-4 max-w-5xl mx-auto">
+                        <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">📊 Estadísticas y reportes</h2>
+
+                        {/* Tarjetas resumen */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                            {[
+                                { label: 'Clientes activos', value: stats.totalActive, icon: '👥' },
+                                { label: 'En directorio', value: stats.directoryOnly, icon: '📇' },
+                                { label: 'Con deuda', value: stats.debtorCount, sub: '$' + stats.debtTotal.toLocaleString(), icon: '💰' },
+                                { label: 'Transf. pendientes', value: stats.transfersPending, icon: '💳' },
+                                { label: 'Nuevos este mes', value: stats.newThisMonth, icon: '✨' },
+                            ].map((c, i) => (
+                                <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+                                    <div className="text-2xl mb-1">{c.icon}</div>
+                                    <div className="text-2xl font-black text-gray-900 dark:text-white leading-none">{c.value}</div>
+                                    {c.sub && <div className="text-xs font-bold text-red-500 dark:text-red-400 mt-0.5">{c.sub}</div>}
+                                    <div className="text-[11px] text-gray-400 dark:text-gray-500 font-medium uppercase tracking-wide mt-1">{c.label}</div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {/* Clientes por día de visita */}
+                            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+                                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">📅 Clientes por día de visita</h3>
+                                <div className="space-y-2">
+                                    {stats.perDay.map(d => {
+                                        const max = Math.max(1, ...stats.perDay.map(x => x.clients));
+                                        return (
+                                            <div key={d.day} className="flex items-center gap-2">
+                                                <span className="w-16 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">{d.day.slice(0, 3)}</span>
+                                                <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-5 overflow-hidden">
+                                                    <div className="bg-blue-500 h-full rounded-full flex items-center justify-end px-2 min-w-[1.5rem]" style={{ width: Math.max(6, (d.clients / max) * 100) + '%' }}>
+                                                        <span className="text-[10px] font-bold text-white">{d.clients}</span>
+                                                    </div>
+                                                </div>
+                                                <span className="w-16 text-[10px] text-gray-400 dark:text-gray-500 text-right shrink-0">{d.units} u.</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Clientes por frecuencia */}
+                            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+                                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2">🔄 Clientes por frecuencia</h3>
+                                <div className="space-y-2">
+                                    {[
+                                        { key: 'weekly', label: 'Semanal', color: 'bg-blue-500' },
+                                        { key: 'biweekly', label: 'Quincenal', color: 'bg-purple-500' },
+                                        { key: 'triweekly', label: 'Cada 3 sem', color: 'bg-pink-500' },
+                                        { key: 'monthly', label: 'Mensual', color: 'bg-teal-500' },
+                                        { key: 'once', label: 'Una vez', color: 'bg-orange-500' },
+                                    ].map(f => {
+                                        const v = stats.byFreq[f.key] || 0;
+                                        const max = Math.max(1, stats.byFreq.weekly, stats.byFreq.biweekly, stats.byFreq.triweekly, stats.byFreq.monthly, stats.byFreq.once);
+                                        return (
+                                            <div key={f.key} className="flex items-center gap-2">
+                                                <span className="w-20 text-xs font-medium text-gray-500 dark:text-gray-400 shrink-0">{f.label}</span>
+                                                <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-5 overflow-hidden">
+                                                    <div className={`${f.color} h-full rounded-full flex items-center justify-end px-2 min-w-[1.5rem]`} style={{ width: Math.max(6, (v / max) * 100) + '%' }}>
+                                                        <span className="text-[10px] font-bold text-white">{v}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Demanda de productos por ciclo */}
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+                            <h3 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-2 flex-wrap">📦 Demanda de productos por ciclo <span className="text-xs font-normal text-gray-400 dark:text-gray-500">({stats.totalUnits} unidades en total)</span></h3>
+                            {stats.prodList.length === 0 ? (
+                                <p className="text-sm text-gray-400 dark:text-gray-500 italic">No hay productos asignados al padrón.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {stats.prodList.map(p => {
+                                        const max = Math.max(1, ...stats.prodList.map(x => x.qty));
+                                        return (
+                                            <div key={p.id} className="flex items-center gap-2">
+                                                <span className="w-32 text-xs font-medium text-gray-600 dark:text-gray-300 shrink-0 flex items-center gap-1.5 truncate"><ProductGlyph product={p} size={16} /> <span className="truncate">{p.label}</span></span>
+                                                <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-5 overflow-hidden">
+                                                    <div className="bg-cyan-500 h-full rounded-full flex items-center justify-end px-2 min-w-[1.5rem]" style={{ width: Math.max(6, (p.qty / max) * 100) + '%' }}>
+                                                        <span className="text-[10px] font-bold text-white">{p.qty}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Extras */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {[
+                                { label: 'Favoritos', value: stats.starred, icon: '⭐' },
+                                { label: 'Sin ubicación', value: stats.noLocation, icon: '📍' },
+                                { label: 'Notas', value: stats.notes, icon: '📄' },
+                                { label: 'Total registros', value: stats.totalActive + stats.directoryOnly, icon: '🗂️' },
+                            ].map((c, i) => (
+                                <div key={i} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-3 flex items-center gap-3">
+                                    <span className="text-xl">{c.icon}</span>
+                                    <div><div className="text-lg font-black text-gray-900 dark:text-white leading-none">{c.value}</div><div className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wide mt-0.5">{c.label}</div></div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
             </main>
