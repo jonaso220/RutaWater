@@ -13,6 +13,18 @@ const TABLE_COLUMNS = [
 ];
 const DEFAULT_COL_WIDTHS = { name: 200, phone: 150, address: 380, freq: 120, days: 130, debt: 100, products: 320, actions: 150 };
 
+// Columnas de la tabla de Inicio (día seleccionado). Anchos ajustables igual que el Directorio.
+const HOME_TABLE_COLUMNS = [
+    { key: 'pos', label: '#' },
+    { key: 'name', label: 'Cliente' },
+    { key: 'address', label: 'Dirección' },
+    { key: 'products', label: 'Productos' },
+    { key: 'visit', label: 'Visita' },
+    { key: 'debt', label: 'Deuda' },
+    { key: 'actions', label: 'Acciones' },
+];
+const DEFAULT_HOME_COL_WIDTHS = { pos: 48, name: 210, address: 310, products: 230, visit: 120, debt: 100, actions: 210 };
+
 function App() {
     const [view, setView] = React.useState('list');
     // Detecta pantalla ancha (escritorio): Inicio se muestra como tablero semanal de ancho completo.
@@ -75,27 +87,39 @@ const [toast, setToast] = React.useState(null);
         try { localStorage.setItem('rw_tableColWidths_v2', JSON.stringify(colWidths)); } catch (e) {}
     }, [colWidths]);
     const tableRef = React.useRef(null);
-    const startColResize = (key, e) => {
+
+    // Anchos de la tabla de Inicio (independientes del Directorio).
+    const [homeColWidths, setHomeColWidths] = React.useState(() => {
+        try { const s = localStorage.getItem('rw_homeColWidths_v1'); if (s) return { ...DEFAULT_HOME_COL_WIDTHS, ...JSON.parse(s) }; } catch (e) {}
+        return DEFAULT_HOME_COL_WIDTHS;
+    });
+    React.useEffect(() => {
+        try { localStorage.setItem('rw_homeColWidths_v1', JSON.stringify(homeColWidths)); } catch (e) {}
+    }, [homeColWidths]);
+    const homeTableRef = React.useRef(null);
+
+    // Redimensionado genérico de columnas: lo que crece una columna lo cede su vecina,
+    // así la tabla siempre llena el cuadro. Compartido por Directorio e Inicio.
+    const resizeColumn = (key, e, columns, widths, setWidths, tableEl) => {
         e.preventDefault();
-        const idx = TABLE_COLUMNS.findIndex(c => c.key === key);
-        const nextCol = TABLE_COLUMNS[idx + 1];
+        const idx = columns.findIndex(c => c.key === key);
+        const nextCol = columns[idx + 1];
         if (!nextCol) return; // última columna: queda fija contra el borde del cuadro
         const nextKey = nextCol.key;
-        const totalWeight = TABLE_COLUMNS.reduce((s, c) => s + (colWidths[c.key] || 100), 0);
-        const tableW = (tableRef.current && tableRef.current.offsetWidth) || 1200;
+        const totalWeight = columns.reduce((s, c) => s + (widths[c.key] || 100), 0);
+        const tableW = (tableEl && tableEl.offsetWidth) || 1200;
         const pxToWeight = totalWeight / tableW; // cuánto "peso" equivale a 1px en pantalla
         const MINW = 45;
         const startX = e.clientX;
-        const startW = colWidths[key] || 100;
-        const startNextW = colWidths[nextKey] || 100;
+        const startW = widths[key] || 100;
+        const startNextW = widths[nextKey] || 100;
         document.body.style.userSelect = 'none';
         document.body.style.cursor = 'col-resize';
         const onMove = (ev) => {
             let dW = (ev.clientX - startX) * pxToWeight;
-            // El total se mantiene: lo que crece una columna lo cede su vecina; la tabla siempre llena el cuadro.
             if (startW + dW < MINW) dW = MINW - startW;
             if (startNextW - dW < MINW) dW = startNextW - MINW;
-            setColWidths(prev => ({ ...prev, [key]: startW + dW, [nextKey]: startNextW - dW }));
+            setWidths(prev => ({ ...prev, [key]: startW + dW, [nextKey]: startNextW - dW }));
         };
         const onUp = () => {
             window.removeEventListener('mousemove', onMove);
@@ -106,6 +130,8 @@ const [toast, setToast] = React.useState(null);
         window.addEventListener('mousemove', onMove);
         window.addEventListener('mouseup', onUp);
     };
+    const startColResize = (key, e) => resizeColumn(key, e, TABLE_COLUMNS, colWidths, setColWidths, tableRef.current);
+    const startHomeColResize = (key, e) => resizeColumn(key, e, HOME_TABLE_COLUMNS, homeColWidths, setHomeColWidths, homeTableRef.current);
 
     // --- VISTA SEMANA (tablero por día con arrastrar para cambiar de día) ---
     const dragInfoRef = React.useRef(null);
@@ -2873,14 +2899,14 @@ const [toast, setToast] = React.useState(null);
                                                 const hasLocation = !!(client.lat && client.lng) || !!client.mapsLink;
                                                 const isSelected = tableSelectedClient && tableSelectedClient.id === client.id;
                                                 return (
-                                                    <tr key={client.id} onClick={() => setTableSelectedClient(client)} className={`border-b border-gray-50 dark:border-gray-700/50 cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}>
-                                                        <td className="px-3 py-2.5 font-bold text-gray-900 dark:text-white truncate">{(client.name || '').toUpperCase()}</td>
+                                                    <tr key={client.id} onClick={() => setTableSelectedClient(client)} className={`border-b border-gray-50 dark:border-gray-700/50 cursor-pointer transition-colors align-top ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}>
+                                                        <td className="px-3 py-2.5 font-bold text-gray-900 dark:text-white break-words">{(client.name || '').toUpperCase()}</td>
                                                         <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 truncate">{client.phone || '—'}</td>
-                                                        <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 truncate" title={client.address || ''}>{client.address || '—'}</td>
+                                                        <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 break-words">{client.address || '—'}</td>
                                                         <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${freqColor}`}>{freqLabel}</span></td>
                                                         <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 truncate">{days}</td>
                                                         <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap">{debtTotal > 0 ? <span className="text-red-600 dark:text-red-400 font-bold">${debtTotal.toLocaleString()}</span> : <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
-                                                        <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 truncate" title={prodStr}>{prodStr}</td>
+                                                        <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 break-words">{prodStr}</td>
                                                         <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap text-right">
                                                             <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
                                                                 {client.phone && <button onClick={() => sendWhatsAppDirect(client.phone)} className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/30" title="WhatsApp">💬</button>}
@@ -2938,9 +2964,44 @@ const [toast, setToast] = React.useState(null);
                             return c.freq === weekFilter;
                         });
                     }
+                    // Contador de carga: SÓLO los clientes de la fecha más cercana (no las visitas futuras
+                    // de quincenales/mensuales que también caen en este día). Es lo que hay que cargar HOY.
+                    let _nearestKey = null;
+                    dayClients.forEach(c => {
+                        if (c.isNote) return;
+                        const d = getNextVisitDate(c, selectedDay);
+                        const k = d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : Infinity;
+                        if (_nearestKey === null || k < _nearestKey) _nearestKey = k;
+                    });
+                    const nearestClients = dayClients.filter(c => {
+                        if (c.isNote) return false;
+                        const d = getNextVisitDate(c, selectedDay);
+                        const k = d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : Infinity;
+                        return k === _nearestKey;
+                    });
+                    const nearestLabel = nearestClients.length ? formatDate(getNextVisitDate(nearestClients[0], selectedDay)) : '';
                     const totals = {};
-                    dayClients.forEach(c => { if (c.products) Object.keys(c.products).forEach(k => { const q = parseInt(c.products[k] || 0); if (q > 0) totals[k] = (totals[k] || 0) + q; }); });
-                    const totalChips = PRODUCTS.filter(p => totals[p.id] > 0).map(p => p.short + ': ' + totals[p.id]);
+                    nearestClients.forEach(c => { if (c.products) Object.keys(c.products).forEach(k => { const q = parseInt(c.products[k] || 0); if (q > 0) totals[k] = (totals[k] || 0) + q; }); });
+                    const totalList = PRODUCTS.filter(p => totals[p.id] > 0).map(p => ({ id: p.id, short: p.short, sticker: p.sticker, icon: p.icon, qty: totals[p.id] }));
+                    // Numeración del recorrido: cuenta sólo clientes (las notas no llevan número).
+                    const posById = {};
+                    let _posCounter = 0;
+                    dayClients.forEach(c => { if (!c.isNote) { _posCounter++; posById[c.id] = _posCounter; } });
+                    // Agrupar por fecha de próxima visita para separar la tabla con encabezados.
+                    const renderRows = [];
+                    let _lastDateKey = '__init__';
+                    let _curHeader = null;
+                    dayClients.forEach(c => {
+                        const d = getNextVisitDate(c, selectedDay);
+                        const dKey = d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : 'nofecha';
+                        if (dKey !== _lastDateKey) {
+                            _curHeader = { type: 'header', key: 'h-' + dKey, label: d ? formatDate(d) : 'Sin fecha', count: 0 };
+                            renderRows.push(_curHeader);
+                            _lastDateKey = dKey;
+                        }
+                        if (!c.isNote && _curHeader) _curHeader.count++;
+                        renderRows.push({ type: c.isNote ? 'note' : 'client', client: c });
+                    });
                     return (
                         <div className="flex gap-3 items-start pb-24">
                             {/* MENÚ VERTICAL DE DÍAS */}
@@ -2963,7 +3024,7 @@ const [toast, setToast] = React.useState(null);
                                 })}
                                 <button onClick={() => setSmartOrderOpen(true)} className="w-full mt-2 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800" title="Crear/agendar desde texto con IA">✨ Pedido IA</button>
                                 <button onClick={() => setView('directory')} className="w-full mt-1.5 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800" title="Registro de clientes (tabla)">📊 Directorio</button>
-                                <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center pt-1">Arrastrá una tarjeta a un día para moverla</p>
+                                <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center pt-1">Arrastrá una fila a un día para moverla</p>
                             </div>
 
                             {/* DÍA SELECCIONADO */}
@@ -2971,8 +3032,25 @@ const [toast, setToast] = React.useState(null);
                                 <div className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 space-y-3">
                                     <div className="flex items-center justify-between gap-3 flex-wrap">
                                         <h2 className="text-xl font-bold dark:text-white flex items-center gap-2">📅 {selectedDay} <span className="text-sm font-medium text-gray-400 dark:text-gray-500">· {dayClients.length} cliente{dayClients.length !== 1 ? 's' : ''}</span></h2>
-                                        {totalChips.length > 0 && <p className="text-xs font-bold text-blue-700 dark:text-blue-300" title="Lo que hay que llevar para este día (se actualiza solo)">📦 Cargar: {totalChips.join(' · ')}</p>}
                                     </div>
+                                    {totalList.length > 0 && (
+                                        <div className="flex items-center gap-1.5 flex-wrap bg-blue-50/60 dark:bg-blue-900/10 rounded-lg p-2 border border-blue-100 dark:border-blue-900/30">
+                                            <span className="text-xs font-bold text-blue-800 dark:text-blue-300 flex items-center gap-1 mr-0.5" title="Lo que hay que cargar para la fecha más cercana (se actualiza solo)">📦 Cargar{nearestLabel ? ' · ' + nearestLabel : ''}:</span>
+                                            {totalList.map(p => {
+                                                // Soda: se carga por cajón (6 sifones). Cajones en grande, sifones en chico.
+                                                const isSoda = p.id === 'soda';
+                                                const bigQty = isSoda ? Math.ceil(p.qty / 6) : p.qty;
+                                                return (
+                                                    <span key={p.id} className="inline-flex items-center gap-1.5 bg-white dark:bg-gray-800 pl-1.5 pr-2.5 py-1 rounded-full border border-blue-200 dark:border-blue-800 shadow-sm">
+                                                        <ProductGlyph product={p} size={16} />
+                                                        <span className="text-[11px] font-bold uppercase tracking-wide text-blue-500 dark:text-blue-400">{isSoda ? 'Caj' : p.short}</span>
+                                                        <span className="text-base font-black text-blue-900 dark:text-blue-100 leading-none">{bigQty}</span>
+                                                        {isSoda && <span className="text-[10px] font-bold text-blue-400 dark:text-blue-500">({p.qty} sif.)</span>}
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                     <div className="flex gap-2 items-center flex-wrap">
                                         <div className="relative flex-1 min-w-[220px]">
                                             <input type="text" placeholder="Buscar (nombre, dirección, teléfono, nota)..." value={listSearchTerm} onChange={(e) => setListSearchTerm(e.target.value)} className="w-full pl-10 pr-10 py-2 bg-gray-50 dark:bg-gray-700 border dark:border-gray-600 rounded-lg outline-none dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm" />
@@ -2995,54 +3073,88 @@ const [toast, setToast] = React.useState(null);
                                     </div>
                                 </div>
 
-                                {dayClients.length === 0 && <div className="bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-10 text-center text-gray-400 dark:text-gray-500 text-sm">No hay clientes para mostrar en {selectedDay}.</div>}
-                                <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3">
-                                    {dayClients.map(c => {
+                                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                                  <div className="overflow-x-auto">
+                                    <table ref={homeTableRef} className="text-sm" style={{ tableLayout: 'fixed', width: '100%' }}>
+                                        <colgroup>
+                                            {HOME_TABLE_COLUMNS.map(col => <col key={col.key} style={{ width: ((homeColWidths[col.key] || 100) / HOME_TABLE_COLUMNS.reduce((s, c) => s + (homeColWidths[c.key] || 100), 0) * 100) + '%' }} />)}
+                                        </colgroup>
+                                        <thead>
+                                            <tr className="text-left text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500 border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/30">
+                                                {HOME_TABLE_COLUMNS.map((col, ci) => (
+                                                    <th key={col.key} className="p-0 select-none">
+                                                        <div className={`relative px-3 py-2.5 ${col.key === 'actions' ? 'text-right' : ''}`}>
+                                                            <span className="block truncate pr-2">{col.label}</span>
+                                                            {ci < HOME_TABLE_COLUMNS.length - 1 && (
+                                                                <span onMouseDown={(e) => startHomeColResize(col.key, e)} className="absolute top-0 right-0 h-full w-2 cursor-col-resize hover:bg-blue-400/50 z-10" title="Arrastrá para ajustar el ancho"></span>
+                                                            )}
+                                                        </div>
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {dayClients.length === 0 && (
+                                                <tr><td colSpan={HOME_TABLE_COLUMNS.length} className="px-3 py-10 text-center text-gray-400 dark:text-gray-500">No hay clientes para mostrar en {selectedDay}.</td></tr>
+                                            )}
+                                            {renderRows.map((row) => {
+                                        if (row.type === 'header') {
+                                            return (
+                                                <tr key={row.key}>
+                                                    <td colSpan={HOME_TABLE_COLUMNS.length} className="px-3 py-2 bg-gray-100/80 dark:bg-gray-900/50 border-t-2 border-b border-gray-300 dark:border-gray-600">
+                                                        <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-gray-600 dark:text-gray-300">📆 {row.label} <span className="text-gray-400 dark:text-gray-500 font-bold normal-case">· {row.count} cliente{row.count !== 1 ? 's' : ''}</span></span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        }
+                                        const c = row.client;
                                         if (c.isNote) {
                                             const noteDate = getNextVisitDate(c, selectedDay);
                                             return (
-                                                <div key={c.id} draggable
+                                                <tr key={c.id} draggable
                                                     onDragStart={(e) => { dragInfoRef.current = { client: c, fromDay: selectedDay }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', c.id); } catch (err) {} }}
                                                     onClick={() => setEditNoteData(c)}
-                                                    className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 border border-amber-200 dark:border-amber-800/50 cursor-grab active:cursor-grabbing hover:border-amber-400 dark:hover:border-amber-600 transition-colors">
-                                                    <p className="text-sm text-amber-800 dark:text-amber-200 whitespace-pre-wrap break-words leading-snug">📝 {c.notes || '(nota vacía)'}</p>
-                                                    {noteDate && <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mt-1.5">📆 {formatDate(noteDate)}</p>}
-                                                </div>
+                                                    className="border-b border-gray-50 dark:border-gray-700/50 cursor-grab active:cursor-grabbing bg-amber-50/60 dark:bg-amber-900/10 hover:bg-amber-100/60 dark:hover:bg-amber-900/20 transition-colors">
+                                                    <td colSpan={HOME_TABLE_COLUMNS.length} className="px-3 py-2.5">
+                                                        <div className="flex items-center justify-between gap-2">
+                                                            <span className="text-sm text-amber-800 dark:text-amber-200 truncate">📝 {c.notes || '(nota vacía)'}</span>
+                                                            {noteDate && <span className="text-xs font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap flex-shrink-0">📆 {formatDate(noteDate)}</span>}
+                                                        </div>
+                                                    </td>
+                                                </tr>
                                             );
                                         }
-                                        let prodStr = '';
-                                        if (c.products) { const parts = Object.keys(c.products).filter(k => parseInt(c.products[k] || 0) > 0).map(k => { const p = PRODUCTS.find(pr => pr.id === k); return c.products[k] + 'x ' + (p ? p.short : k); }); prodStr = parts.join(' · '); }
+                                        let prodStr = '—';
+                                        if (c.products) { const parts = Object.keys(c.products).filter(k => parseInt(c.products[k] || 0) > 0).map(k => { const p = PRODUCTS.find(pr => pr.id === k); return c.products[k] + 'x ' + (p ? p.short : k); }); if (parts.length) prodStr = parts.join(' · '); }
                                         const cids = c._mergedIds || [c.id];
                                         const debtT = debts.filter(d => cids.indexOf(d.clientId) > -1).reduce((s, d) => s + (d.amount || 0), 0);
                                         const visitDate = getNextVisitDate(c, selectedDay);
                                         const hasLocation = !!(c.lat && c.lng) || !!c.mapsLink;
                                         return (
-                                            <div key={c.id} draggable
+                                            <tr key={c.id} draggable
                                                 onDragStart={(e) => { dragInfoRef.current = { client: c, fromDay: selectedDay }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', c.id); } catch (err) {} }}
                                                 onClick={() => { setQuickEditClient(c); setQuickEditShowInfo(true); }}
-                                                className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-100 dark:border-gray-700 cursor-grab active:cursor-grabbing hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
-                                                <div className="flex items-baseline justify-between gap-2">
-                                                    <h3 className="font-bold text-gray-900 dark:text-white text-base truncate">{(c.name || '').toUpperCase()}</h3>
-                                                    <div className="flex items-baseline gap-2 flex-shrink-0">
-                                                        {visitDate && <span className="text-xs font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">📆 {formatDate(visitDate)}</span>}
-                                                        {debtT > 0 && <span className="text-xs font-bold text-red-600 dark:text-red-400">${debtT.toLocaleString()}</span>}
+                                                className="border-b border-gray-50 dark:border-gray-700/50 cursor-grab active:cursor-grabbing hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors align-top">
+                                                <td className="px-2 py-2.5 text-center"><span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-xs font-bold">{posById[c.id]}</span></td>
+                                                <td className="px-3 py-2.5 font-bold text-gray-900 dark:text-white break-words" title={c.name || ''}>{(c.name || '').toUpperCase()}</td>
+                                                <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 break-words">{c.address || '—'}</td>
+                                                <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300 break-words">{prodStr}</td>
+                                                <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap">{visitDate ? <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{formatDate(visitDate)}</span> : <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
+                                                <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap">{debtT > 0 ? <span className="text-red-600 dark:text-red-400 font-bold">${debtT.toLocaleString()}</span> : <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
+                                                <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap text-right">
+                                                    <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
+                                                        {c.phone && <button onClick={() => sendWhatsAppDirect(c.phone)} className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/30" title="WhatsApp">💬</button>}
+                                                        <button onClick={() => hasLocation ? openGoogleMaps(c.lat, c.lng, c.mapsLink) : null} className={`w-7 h-7 rounded-full flex items-center justify-center ${hasLocation ? 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'bg-gray-50 dark:bg-gray-800 opacity-30 cursor-default'}`} title={hasLocation ? 'Maps' : 'Sin ubicación'}>📍</button>
+                                                        <button onClick={() => setRelationshipClient(c)} className={`w-7 h-7 rounded-full flex items-center justify-center ${c.relationships && Object.keys(c.relationships).length > 0 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-gray-100 dark:bg-gray-700'} hover:bg-amber-200 dark:hover:bg-amber-800`} title="Familia">👨‍👩‍👧</button>
+                                                        <button onClick={() => setScheduleClient(c)} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold" title="Agendar">📅</button>
                                                     </div>
-                                                </div>
-                                                <div className="flex items-center justify-between gap-2 mt-1.5">
-                                                    <div className="min-w-0 flex-1 leading-snug">
-                                                        {c.address && <p className="text-sm text-gray-500 dark:text-gray-400 truncate">📍 {c.address}</p>}
-                                                        {prodStr && <p className="text-sm text-gray-600 dark:text-gray-300 truncate">📦 {prodStr}</p>}
-                                                    </div>
-                                                    <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                                                        {c.phone && <button onClick={() => sendWhatsAppDirect(c.phone)} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-base hover:bg-green-100 dark:hover:bg-green-900/30" title="WhatsApp">💬</button>}
-                                                        <button onClick={() => hasLocation ? openGoogleMaps(c.lat, c.lng, c.mapsLink) : null} className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${hasLocation ? 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'bg-gray-50 dark:bg-gray-800 opacity-30 cursor-default'}`} title={hasLocation ? 'Maps' : 'Sin ubicación'}>📍</button>
-                                                        <button onClick={() => setRelationshipClient(c)} className={`w-8 h-8 rounded-full flex items-center justify-center text-base ${c.relationships && Object.keys(c.relationships).length > 0 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-gray-100 dark:bg-gray-700'} hover:bg-amber-200 dark:hover:bg-amber-800`} title="Familia">👨‍👩‍👧</button>
-                                                        <button onClick={() => setScheduleClient(c)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold" title="Agendar">📅</button>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                                </td>
+                                            </tr>
                                         );
                                     })}
+                                        </tbody>
+                                    </table>
+                                  </div>
                                 </div>
                             </div>
                         </div>
