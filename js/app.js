@@ -11,7 +11,7 @@ const TABLE_COLUMNS = [
     { key: 'products', label: 'Productos', sortable: false },
     { key: 'actions', label: 'Acciones', sortable: false },
 ];
-const DEFAULT_COL_WIDTHS = { name: 200, phone: 150, address: 380, freq: 120, days: 130, debt: 100, products: 320, actions: 150 };
+const DEFAULT_COL_WIDTHS = { name: 200, phone: 150, address: 380, freq: 120, days: 130, debt: 100, products: 320, actions: 190 };
 
 // Columnas de la tabla de Inicio (día seleccionado). Anchos ajustables igual que el Directorio.
 const HOME_TABLE_COLUMNS = [
@@ -23,7 +23,7 @@ const HOME_TABLE_COLUMNS = [
     { key: 'debt', label: 'Deuda' },
     { key: 'actions', label: 'Acciones' },
 ];
-const DEFAULT_HOME_COL_WIDTHS = { pos: 48, name: 210, address: 310, products: 230, visit: 120, debt: 100, actions: 210 };
+const DEFAULT_HOME_COL_WIDTHS = { pos: 48, name: 210, address: 300, products: 220, visit: 120, debt: 100, actions: 250 };
 
 // Etiqueta + color del badge de frecuencia (unifica los switch repetidos del Directorio).
 const FREQ_BADGES = {
@@ -2690,7 +2690,7 @@ const [toast, setToast] = React.useState(null);
                                 var avatarColor = avatarColors[(client.name || '').charCodeAt(0) % avatarColors.length];
                                 var initial = (client.name || '?').charAt(0).toUpperCase();
                                 return (
-                                <Card key={client.id} className="p-4">
+                                <Card key={client.id} className={`p-4 ${(client.isStarred || client.freq === 'once') ? 'border-l-4 border-l-orange-400 dark:border-l-orange-500 bg-orange-50/60 dark:bg-orange-900/10' : ''}`}>
                                     {/* HEADER: Avatar + Nombre + Teléfono */}
                                     <div className="flex items-center gap-3">
                                         <div className={`w-10 h-10 ${avatarColor} rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-sm`}>
@@ -2827,7 +2827,7 @@ const [toast, setToast] = React.useState(null);
                                                 const hasLocation = !!(client.lat && client.lng) || !!client.mapsLink;
                                                 const isSelected = tableSelectedClient && tableSelectedClient.id === client.id;
                                                 return (
-                                                    <tr key={client.id} onClick={() => setTableSelectedClient(client)} className={`border-b border-gray-50 dark:border-gray-700/50 cursor-pointer transition-colors align-top ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}>
+                                                    <tr key={client.id} onClick={() => setTableSelectedClient(client)} className={`border-b border-gray-50 dark:border-gray-700/50 cursor-pointer transition-colors align-top ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20' : (client.isStarred || client.freq === 'once') ? 'border-l-4 border-l-orange-400 dark:border-l-orange-500 bg-orange-50/70 dark:bg-orange-900/10 hover:bg-orange-100/70 dark:hover:bg-orange-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}>
                                                         <td className="px-3 py-2.5 font-bold text-gray-900 dark:text-white break-words">{(client.name || '').toUpperCase()}</td>
                                                         <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 truncate">{client.phone || '—'}</td>
                                                         <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 break-words">{client.address || '—'}</td>
@@ -2836,10 +2836,11 @@ const [toast, setToast] = React.useState(null);
                                                         <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap">{debtTotal > 0 ? <span className="text-red-600 dark:text-red-400 font-bold">${debtTotal.toLocaleString()}</span> : <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
                                                         <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 break-words">{prodStr}</td>
                                                         <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap text-right">
-                                                            <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
-                                                                {client.phone && <button onClick={() => sendWhatsAppDirect(client.phone)} className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/30" title="WhatsApp">💬</button>}
-                                                                <button onClick={() => hasLocation ? openGoogleMaps(client.lat, client.lng, client.mapsLink) : null} className={`w-7 h-7 rounded-full flex items-center justify-center ${hasLocation ? 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'bg-gray-50 dark:bg-gray-800 opacity-30 cursor-default'}`} title={hasLocation ? 'Maps' : 'Sin ubicación'}>📍</button>
-                                                                <button onClick={() => setScheduleClient(client)} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold" title="Agendar visita">📅</button>
+                                                            <div className="flex items-center gap-2 justify-end" onClick={(e) => e.stopPropagation()}>
+                                                                <button onClick={() => handleToggleStar(client)} aria-label={client.isStarred ? 'Quitar de favoritos' : 'Marcar como favorito'} title={client.isStarred ? 'Favorito' : 'Marcar favorito'} className={`w-8 h-8 text-base rounded-full flex items-center justify-center ${client.isStarred ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-700 opacity-40 hover:opacity-100 hover:bg-orange-100 dark:hover:bg-orange-900/30'}`}>⭐</button>
+                                                                {client.phone && <button onClick={() => sendWhatsAppDirect(client.phone)} className="w-8 h-8 text-base rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/30" title="WhatsApp">💬</button>}
+                                                                <button onClick={() => hasLocation ? openGoogleMaps(client.lat, client.lng, client.mapsLink) : null} className={`w-8 h-8 text-base rounded-full flex items-center justify-center ${hasLocation ? 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'bg-gray-50 dark:bg-gray-800 opacity-30 cursor-default'}`} title={hasLocation ? 'Maps' : 'Sin ubicación'}>📍</button>
+                                                                <button onClick={() => setScheduleClient(client)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold" title="Agendar visita">📅</button>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -3061,7 +3062,7 @@ const [toast, setToast] = React.useState(null);
                                             <tr key={c.id} draggable
                                                 onDragStart={(e) => { dragInfoRef.current = { client: c, fromDay: selectedDay }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', c.id); } catch (err) {} }}
                                                 onClick={() => { setQuickEditClient(c); setQuickEditShowInfo(true); }}
-                                                className="border-b border-gray-50 dark:border-gray-700/50 cursor-grab active:cursor-grabbing hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors align-top">
+                                                className={`border-b border-gray-50 dark:border-gray-700/50 cursor-grab active:cursor-grabbing transition-colors align-top ${(c.isStarred || c.freq === 'once') ? 'border-l-4 border-l-orange-400 dark:border-l-orange-500 bg-orange-50/70 dark:bg-orange-900/10 hover:bg-orange-100/70 dark:hover:bg-orange-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}>
                                                 <td className="px-2 py-2.5 text-center"><span className="inline-flex items-center justify-center min-w-[22px] h-[22px] px-1 rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 text-xs font-bold">{posById[c.id]}</span></td>
                                                 <td className="px-3 py-2.5 font-bold text-gray-900 dark:text-white break-words" title={c.name || ''}>{(c.name || '').toUpperCase()}</td>
                                                 <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 break-words">{c.address || '—'}</td>
@@ -3069,11 +3070,12 @@ const [toast, setToast] = React.useState(null);
                                                 <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap">{visitDate ? <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{formatDate(visitDate)}</span> : <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
                                                 <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap">{debtT > 0 ? <span className="text-red-600 dark:text-red-400 font-bold">${debtT.toLocaleString()}</span> : <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
                                                 <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap text-right">
-                                                    <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
-                                                        {c.phone && <button onClick={() => sendWhatsAppDirect(c.phone)} className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/30" title="WhatsApp">💬</button>}
-                                                        <button onClick={() => hasLocation ? openGoogleMaps(c.lat, c.lng, c.mapsLink) : null} className={`w-7 h-7 rounded-full flex items-center justify-center ${hasLocation ? 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'bg-gray-50 dark:bg-gray-800 opacity-30 cursor-default'}`} title={hasLocation ? 'Maps' : 'Sin ubicación'}>📍</button>
-                                                        <button onClick={() => setRelationshipClient(c)} className={`w-7 h-7 rounded-full flex items-center justify-center ${c.relationships && Object.keys(c.relationships).length > 0 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-gray-100 dark:bg-gray-700'} hover:bg-amber-200 dark:hover:bg-amber-800`} title="Familia">👨‍👩‍👧</button>
-                                                        <button onClick={() => setScheduleClient(c)} className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold" title="Agendar">📅</button>
+                                                    <div className="flex items-center gap-2 justify-end" onClick={(e) => e.stopPropagation()}>
+                                                        <button onClick={() => handleToggleStar(c)} aria-label={c.isStarred ? 'Quitar de favoritos' : 'Marcar como favorito'} title={c.isStarred ? 'Favorito' : 'Marcar favorito'} className={`w-8 h-8 text-base rounded-full flex items-center justify-center ${c.isStarred ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-gray-100 dark:bg-gray-700 opacity-40 hover:opacity-100 hover:bg-orange-100 dark:hover:bg-orange-900/30'}`}>⭐</button>
+                                                        {c.phone && <button onClick={() => sendWhatsAppDirect(c.phone)} className="w-8 h-8 text-base rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/30" title="WhatsApp">💬</button>}
+                                                        <button onClick={() => hasLocation ? openGoogleMaps(c.lat, c.lng, c.mapsLink) : null} className={`w-8 h-8 text-base rounded-full flex items-center justify-center ${hasLocation ? 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'bg-gray-50 dark:bg-gray-800 opacity-30 cursor-default'}`} title={hasLocation ? 'Maps' : 'Sin ubicación'}>📍</button>
+                                                        <button onClick={() => setRelationshipClient(c)} className={`w-8 h-8 text-base rounded-full flex items-center justify-center ${c.relationships && Object.keys(c.relationships).length > 0 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-gray-100 dark:bg-gray-700'} hover:bg-amber-200 dark:hover:bg-amber-800`} title="Familia">👨‍👩‍👧</button>
+                                                        <button onClick={() => setScheduleClient(c)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold" title="Agendar">📅</button>
                                                     </div>
                                                 </td>
                                             </tr>
