@@ -167,6 +167,7 @@ const [toast, setToast] = React.useState(null);
     const dragInfoRef = React.useRef(null);
     const [dragOverDay, setDragOverDay] = React.useState(null);
     const [weekFilter, setWeekFilter] = React.useState('all');
+    const [showHomeFilters, setShowHomeFilters] = React.useState(false); // panel de filtros en Inicio (escritorio)
     const handleMoveClientDay = async (client, fromDay, toDay) => {
         if (!client || fromDay === toDay) return;
         const order = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
@@ -2925,6 +2926,20 @@ const [toast, setToast] = React.useState(null);
                             return c.freq === weekFilter;
                         });
                     }
+                    // Filtros de Tipo (AND) y Productos (OR), igual que la vista móvil y la app nativa.
+                    if (activeFilters.length > 0) {
+                        const typeFilters = activeFilters.filter(f => f === 'once_starred' || f === 'has_debt');
+                        const productFilters = activeFilters.filter(f => f !== 'once_starred' && f !== 'has_debt');
+                        dayClients = dayClients.filter(c => {
+                            const passesType = typeFilters.every(filter => {
+                                if (filter === 'once_starred') return c.freq === 'once' || c.isStarred;
+                                if (filter === 'has_debt') return c.hasDebt === true;
+                                return true;
+                            });
+                            const passesProduct = productFilters.length === 0 || productFilters.some(filter => c.products && parseInt(c.products[filter] || 0) > 0);
+                            return passesType && passesProduct;
+                        });
+                    }
                     // Contador de carga: SÓLO los clientes de la fecha más cercana (no las visitas futuras
                     // de quincenales/mensuales que también caen en este día). Es lo que hay que cargar HOY.
                     let _nearestKey = null;
@@ -3022,20 +3037,56 @@ const [toast, setToast] = React.useState(null);
                                             <div className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500">🔍</div>
                                             {listSearchTerm && <button onClick={() => setListSearchTerm('')} className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>}
                                         </div>
-                                        <div className="flex gap-1.5 flex-wrap">
-                                            {[
-                                                { key: 'all', label: 'Todos' },
-                                                { key: 'weekly', label: 'Sem' },
-                                                { key: 'biweekly', label: 'Quin' },
-                                                { key: 'triweekly', label: 'C/3' },
-                                                { key: 'monthly', label: 'Mens' },
-                                                { key: 'once', label: '1 vez' },
-                                                { key: 'with_debt', label: 'Deuda' },
-                                            ].map(f => (
-                                                <button key={f.key} onClick={() => setWeekFilter(weekFilter === f.key ? 'all' : f.key)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${weekFilter === f.key ? (f.key === 'with_debt' ? 'bg-red-500 text-white' : 'bg-blue-600 text-white') : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{f.label}</button>
-                                            ))}
-                                        </div>
+                                        <button onClick={() => setShowHomeFilters(v => !v)} className={`px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 whitespace-nowrap transition-colors ${(activeFilters.length > 0 || weekFilter !== 'all') ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+                                            <span>🔍</span> Filtros
+                                            {(activeFilters.length + (weekFilter !== 'all' ? 1 : 0)) > 0 && <span className="bg-white text-blue-600 text-[11px] font-black w-4 h-4 rounded-full flex items-center justify-center leading-none">{activeFilters.length + (weekFilter !== 'all' ? 1 : 0)}</span>}
+                                            <span className={`inline-block transition-transform ${showHomeFilters ? 'rotate-180' : ''}`}>▾</span>
+                                        </button>
                                     </div>
+                                    {showHomeFilters && (
+                                        <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-3">
+                                            {/* TIPO */}
+                                            <div>
+                                                <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">Tipo</p>
+                                                <div className="flex gap-1.5 flex-wrap">
+                                                    <button onClick={() => setActiveFilters(prev => prev.includes('once_starred') ? prev.filter(f => f !== 'once_starred') : [...prev, 'once_starred'])} className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${activeFilters.includes('once_starred') ? 'bg-orange-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>⭐ Una vez / Favoritos</button>
+                                                    <button onClick={() => setActiveFilters(prev => prev.includes('has_debt') ? prev.filter(f => f !== 'has_debt') : [...prev, 'has_debt'])} className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${activeFilters.includes('has_debt') ? 'bg-red-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>💰 Con deuda</button>
+                                                </div>
+                                            </div>
+                                            {/* FRECUENCIA */}
+                                            <div>
+                                                <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">Frecuencia</p>
+                                                <div className="flex gap-1.5 flex-wrap">
+                                                    {[
+                                                        { key: 'all', label: 'Todas' },
+                                                        { key: 'weekly', label: 'Sem' },
+                                                        { key: 'biweekly', label: 'Quin' },
+                                                        { key: 'triweekly', label: 'C/3' },
+                                                        { key: 'monthly', label: 'Mens' },
+                                                    ].map(f => (
+                                                        <button key={f.key} onClick={() => setWeekFilter(f.key)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${weekFilter === f.key ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{f.label}</button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            {/* PRODUCTOS */}
+                                            <div>
+                                                <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">Productos</p>
+                                                <div className="flex gap-1.5 flex-wrap">
+                                                    {getVisibleProducts().map(prod => {
+                                                        const isActive = activeFilters.includes(prod.id);
+                                                        return (
+                                                            <button key={prod.id} onClick={() => setActiveFilters(prev => prev.includes(prod.id) ? prev.filter(f => f !== prod.id) : [...prev, prod.id])} className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors flex items-center gap-1 ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+                                                                <ProductGlyph product={prod} size={14} /> {prod.short}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                            {(activeFilters.length > 0 || weekFilter !== 'all') && (
+                                                <button onClick={() => { setActiveFilters([]); setWeekFilter('all'); }} className="text-[11px] text-red-500 dark:text-red-400 font-bold hover:text-red-600 dark:hover:text-red-300">Limpiar todos los filtros</button>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
