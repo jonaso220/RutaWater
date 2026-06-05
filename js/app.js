@@ -954,6 +954,19 @@ const [toast, setToast] = React.useState(null);
 
     const handleMarkAsDoneInList = async (client) => {
         try {
+            if (client.isNote) {
+                // Notas: marcar "Listo" = eliminar (igual que la app nativa). Con deshacer
+                // que restaura el documento tal cual estaba.
+                const noteData = { ...client };
+                delete noteData.id;
+                const undoAction = async () => {
+                    try { await db.collection('clients').doc(client.id).set(noteData); }
+                    catch(e) { console.error("Undo error", e); }
+                };
+                await firestoreRetry(() => db.collection('clients').doc(client.id).delete());
+                showUndoToast("Nota eliminada", undoAction);
+                return;
+            }
             if (client.freq === 'once') {
                 // Once: marcar como completado
                 const prevFields = {
@@ -3150,7 +3163,10 @@ const [toast, setToast] = React.useState(null);
                                                     <td colSpan={HOME_TABLE_COLUMNS.length} className="px-3 py-2.5">
                                                         <div className="flex items-center justify-between gap-2">
                                                             <span className="text-sm text-amber-800 dark:text-amber-200 truncate">📝 {c.notes || '(nota vacía)'}</span>
-                                                            {noteDate && <span className="text-xs font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap flex-shrink-0">📆 {formatDate(noteDate)}</span>}
+                                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                                {noteDate && <span className="text-xs font-bold text-amber-600 dark:text-amber-400 whitespace-nowrap">📆 {formatDate(noteDate)}</span>}
+                                                                <button onClick={(e) => { e.stopPropagation(); handleMarkAsDoneInList(c); }} className="px-3 py-1.5 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 whitespace-nowrap shadow-sm shadow-green-600/20 transition-colors" title="Eliminar esta nota">✅ Listo</button>
+                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>
