@@ -1128,10 +1128,11 @@ const [toast, setToast] = React.useState(null);
         const groups = {};
         let visible = getVisibleClients(dayToFilter);
         
-        // Aplicar filtro de búsqueda (usa valor debounced)
+        // Aplicar filtro de búsqueda (usa valor debounced). Incluye teléfono y notas,
+        // igual que la app nativa y la vista de escritorio.
         if (debouncedListSearch.trim()) {
             const match = fuzzyMatch(debouncedListSearch);
-            visible = visible.filter(c => match(c.name || '', c.address || ''));
+            visible = visible.filter(c => c.isNote ? match(c.notes || '') : match(c.name || '', c.address || '', c.phone || ''));
         }
         
         // Aplicar filtros activos
@@ -1746,12 +1747,27 @@ const [toast, setToast] = React.useState(null);
                 }
                 return unique;
             }, [])
-            .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            // Con búsqueda: ordenar por relevancia (matchScore), como la app nativa.
+            // Sin búsqueda: alfabético por nombre.
+            .sort((a, b) => {
+                if (debouncedSearch.trim()) {
+                    const sb = matchScore(debouncedSearch, b.name || '', b.address || '', b.phone || '');
+                    const sa = matchScore(debouncedSearch, a.name || '', a.address || '', a.phone || '');
+                    if (sb !== sa) return sb - sa;
+                }
+                return (a.name || '').localeCompare(b.name || '');
+            });
     }, [clients, debouncedSearch, directoryFilter, debts]);
 
     // Lista del registro ordenada por la columna elegida en la vista tabla
     const sortedTableClients = React.useMemo(() => {
         const arr = filteredDirectory.slice();
+        // Con búsqueda activa y orden por defecto (nombre asc), mantener el ranking por
+        // relevancia que ya trae filteredDirectory (como la app nativa). Si el usuario
+        // elige otra columna o invierte el orden, manda esa elección.
+        if (debouncedSearch.trim() && tableSort.key === 'name' && tableSort.dir === 'asc') {
+            return arr;
+        }
         const key = tableSort.key, dir = tableSort.dir;
         const debtOf = getDebtTotal;
         const freqRank = { weekly: 1, biweekly: 2, triweekly: 3, monthly: 4, once: 5, on_demand: 6 };
@@ -1767,7 +1783,7 @@ const [toast, setToast] = React.useState(null);
             return 0;
         });
         return arr;
-    }, [filteredDirectory, tableSort, getDebtTotal]);
+    }, [filteredDirectory, tableSort, getDebtTotal, debouncedSearch]);
 
     const directoryCounts = React.useMemo(() => {
         const all = clients.filter(c => !c.isNote);

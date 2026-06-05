@@ -97,50 +97,124 @@ var normalizeText = function(text) {
     return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 };
 
-var levenshtein = function(a, b) {
-    if (a === b) return 0;
-    if (!a.length) return b.length;
-    if (!b.length) return a.length;
-    if (Math.abs(a.length - b.length) > 2) return 3;
-    var prev = [], curr = [];
-    for (var j = 0; j <= b.length; j++) prev[j] = j;
-    for (var i = 1; i <= a.length; i++) {
-        curr[0] = i;
-        for (j = 1; j <= b.length; j++) {
-            curr[j] = a[i-1] === b[j-1] ? prev[j-1] : Math.min(prev[j-1], prev[j], curr[j-1]) + 1;
+// Damerau-Levenshtein (optimal string alignment): como Levenshtein pero cuenta una
+// transposición adyacente (ej. "jaun" vs "juan") como una sola edición — uno de los
+// typos más comunes. Sincronizado con la app nativa (src/utils/helpers.ts).
+var damerau = function(a, b) {
+    var al = a.length, bl = b.length;
+    if (al === 0) return bl;
+    if (bl === 0) return al;
+    var d = [];
+    for (var i = 0; i <= al; i++) d[i] = [i];
+    for (var j = 0; j <= bl; j++) d[0][j] = j;
+    for (i = 1; i <= al; i++) {
+        for (j = 1; j <= bl; j++) {
+            var cost = a.charAt(i - 1) === b.charAt(j - 1) ? 0 : 1;
+            d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+            if (i > 1 && j > 1 && a.charAt(i - 1) === b.charAt(j - 2) && a.charAt(i - 2) === b.charAt(j - 1)) {
+                d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+            }
         }
-        var tmp = prev; prev = curr; curr = tmp;
     }
-    return prev[b.length];
+    return d[al][bl];
+};
+
+// Normaliza un teléfono a dígitos comparables: quita no-dígitos, código país 598 y
+// cero inicial (formato local 098... -> 98...). Así el formato/espacios no bloquean.
+var normalizePhoneForComparison = function(phone) {
+    if (!phone) return '';
+    var digits = phone.replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.indexOf('598') === 0) digits = digits.slice(3);
+    if (digits.indexOf('0') === 0) digits = digits.slice(1);
+    return digits;
+};
+
+// Tolerancia de typo según el largo de la palabra (palabras largas permiten más edits).
+var wordTolerance = function(len) {
+    return len <= 4 ? 1 : len <= 7 ? 1 : len <= 11 ? 2 : 3;
+};
+
+// ¿La palabra de búsqueda `w` matchea algún token de `textWords`? Substring (cubre
+// prefijos tipo "mar"->"maria") o typo dentro de tolerancia (Damerau, incluyendo el
+// prefijo del token para errores al empezar a tipear un nombre largo).
+var wordMatches = function(textWords, w) {
+    for (var k = 0; k < textWords.length; k++) {
+        var tw = textWords[k];
+        if (tw.indexOf(w) > -1) return true;
+        if (w.length >= 3) {
+            var md = wordTolerance(w.length);
+            if (damerau(tw, w) <= md) return true;
+            if (tw.length > w.length && damerau(tw.slice(0, w.length), w) <= md) return true;
+        }
+    }
+    return false;
 };
 
 var fuzzyMatch = function(searchTerm) {
     if (!searchTerm) return function() { return true; };
     var cleaned = normalizeText(searchTerm).trim().replace(/\s+/g, ' ');
     if (!cleaned) return function() { return true; };
-    var words = cleaned.split(' ');
+    var words = cleaned.split(' ').filter(Boolean);
+
+    // Búsqueda por número: si la query es de dígitos, matchea contra teléfonos
+    // normalizados (ignora espacios, guiones, +, código 598 y cero inicial).
+    var queryDigits = normalizePhoneForComparison(searchTerm);
+    var hasDigitQuery = queryDigits.length >= 3;
+    var isPureDigits = /^[\d\s+().-]+$/.test(searchTerm.trim());
 
     return function() {
         var fields = Array.prototype.slice.call(arguments);
-        var combined = fields.map(function(f) { return normalizeText(f); }).join(' ');
 
-        // Fast path: direct full-term substring
-        if (combined.includes(cleaned)) return true;
+        if (hasDigitQuery) {
+            for (var i = 0; i < fields.length; i++) {
+                var fd = normalizePhoneForComparison(fields[i] || '');
+                if (fd && fd.indexOf(queryDigits) > -1) return true;
+            }
+            // Una query puramente numérica solo tiene sentido contra teléfonos/números.
+            if (isPureDigits) return false;
+        }
 
-        // Each search word must match at least one field
-        return words.every(function(w) {
-            if (combined.includes(w)) return true;
+        var combined = fields.map(function(f) { return normalizeText(f || ''); }).join(' ');
 
-            var textWords = combined.split(/\s+/);
-            var maxDist = w.length <= 2 ? 0 : w.length <= 4 ? 1 : 2;
-            if (maxDist === 0) return false;
+        // Fast path: la query completa aparece tal cual.
+        if (combined.indexOf(cleaned) > -1) return true;
 
-            return textWords.some(function(tw) {
-                if (tw.startsWith(w) || w.startsWith(tw)) return true;
-                return levenshtein(tw, w) <= maxDist;
-            });
-        });
+        // Cada palabra de la query debe matchear algún token.
+        var textWords = combined.split(/\s+/).filter(Boolean);
+        return words.every(function(w) { return wordMatches(textWords, w); });
     };
+};
+
+// Ranking de relevancia para ordenar resultados (mayor = mejor match). Sincronizado
+// con la app nativa: nombre exacto 1000 > empieza-con 800 > palabra-empieza 700 >
+// contiene 500 > dirección 400/350/300 > teléfono 250/200 > nº de dirección 150.
+var matchScore = function(searchTerm, name, address, phone) {
+    var term = normalizeText(searchTerm).trim();
+    if (!term) return 0;
+    var n = normalizeText(name);
+    var a = normalizeText(address);
+    var wordStartsWith = function(text, q) {
+        return text.split(/\s+/).filter(Boolean).some(function(w) { return w.indexOf(q) === 0; });
+    };
+    if (n === term) return 1000;
+    if (n.indexOf(term) === 0) return 800;
+    if (wordStartsWith(n, term)) return 700;
+    if (n.indexOf(term) > -1) return 500;
+    if (a.indexOf(term) === 0) return 400;
+    if (wordStartsWith(a, term)) return 350;
+    if (a.indexOf(term) > -1) return 300;
+    var qd = normalizePhoneForComparison(searchTerm);
+    if (qd.length >= 3) {
+        var pd = normalizePhoneForComparison(phone);
+        if (pd) {
+            if (pd.indexOf(qd) === 0) return 250;
+            if (pd.indexOf(qd) > -1) return 200;
+        }
+        var ad = normalizePhoneForComparison(address);
+        if (ad && ad.indexOf(qd) > -1) return 150;
+    }
+    return 100;
 };
 
 var getDayIndex = function(dayName) {
