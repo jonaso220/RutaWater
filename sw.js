@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rutawater-v77';
+const CACHE_NAME = 'rutawater-v78';
 const urlsToCache = [
   './',
   './index.html',
