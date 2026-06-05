@@ -608,6 +608,10 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo,
     const [notes, setNotes] = React.useState('');
     const [freq, setFreq] = React.useState('weekly');
     const [startDate, setStartDate] = React.useState('');
+    // Sección "Datos del cliente": colapsada por defecto (como la app nativa).
+    // infoOpen = visible ahora; infoTouched = se abrió alguna vez (para saber si guardar esos campos).
+    const [infoOpen, setInfoOpen] = React.useState(!!showClientInfo);
+    const [infoTouched, setInfoTouched] = React.useState(!!showClientInfo);
 
     const FREQ_OPTIONS = [
         { key: 'weekly', label: 'Semanal' },
@@ -644,8 +648,10 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo,
                 prods[p.id] = parseInt(client.products?.[p.id] || 0, 10);
             });
             setProducts(prods);
+            setInfoOpen(!!showClientInfo);
+            setInfoTouched(!!showClientInfo);
         }
-    }, [client]);
+    }, [client, showClientInfo]);
 
     if (!isOpen || !client) return null;
 
@@ -674,7 +680,7 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo,
         } else if (!needsStartDate && !needsSpecificDate) {
             data.specificDate = '';
         }
-        if (showClientInfo) {
+        if (infoTouched) {
             data.name = name.trim();
             data.address = address.trim();
             data.phone = phone.trim();
@@ -690,14 +696,27 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo,
             : "bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl shadow-2xl w-full sm:max-w-md max-h-[85vh] flex flex-col"}>
                 <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                     <h3 className="text-lg font-bold dark:text-white">
-                        {showClientInfo ? 'Editar Cliente' : (client.name || '').toUpperCase()}
+                        {infoOpen ? 'Editar Cliente' : (client.name || '').toUpperCase()}
                     </h3>
                     <button onClick={onClose}><Icons.X size={20} className="text-gray-400 dark:text-gray-500" /></button>
                 </div>
                 <div className="overflow-y-auto flex-1 p-4 space-y-5">
-                    {showClientInfo && (
+                    {!infoOpen ? (
+                        <button
+                            type="button"
+                            onClick={() => { setInfoOpen(true); setInfoTouched(true); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                        >
+                            <span className="text-lg" aria-hidden="true">👤</span>
+                            <span className="flex-1 text-sm font-semibold text-gray-700 dark:text-gray-200">Editar datos del cliente</span>
+                            <span className="text-gray-400 dark:text-gray-500 text-lg leading-none">›</span>
+                        </button>
+                    ) : (
                         <div>
-                            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Datos del cliente</p>
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Datos del cliente</p>
+                                <button type="button" onClick={() => setInfoOpen(false)} className="text-[11px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">Ocultar</button>
+                            </div>
                             <div className="space-y-2">
                                 <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />
                                 <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Dirección" className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm" />

@@ -3089,7 +3089,7 @@ const [toast, setToast] = React.useState(null);
                                         return (
                                             <tr key={c.id} draggable
                                                 onDragStart={(e) => { dragInfoRef.current = { client: c, fromDay: selectedDay }; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', c.id); } catch (err) {} }}
-                                                onClick={() => { setQuickEditClient(c); setQuickEditShowInfo(true); }}
+                                                onClick={() => { setQuickEditClient(c); setQuickEditShowInfo(false); }}
                                                 className={`border-b border-gray-50 dark:border-gray-700/50 cursor-grab active:cursor-grabbing transition-colors align-top ${(c.isStarred || c.freq === 'once') ? 'border-l-4 border-l-orange-400 dark:border-l-orange-500 bg-orange-50/70 dark:bg-orange-900/10 hover:bg-orange-100/70 dark:hover:bg-orange-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}>
                                                 <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()} title="Tocá el número para cambiar el orden del recorrido">
                                                     <div className="flex justify-center"><OrderInput value={posById[c.id]} onChange={(newPos) => moveClientToPosition(c, newPos, orderedClientsOnly)} /></div>
