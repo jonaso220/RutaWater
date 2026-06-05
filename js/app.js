@@ -2960,6 +2960,8 @@ const [toast, setToast] = React.useState(null);
                         if (!c.isNote && _curHeader) _curHeader.count++;
                         renderRows.push({ type: c.isNote ? 'note' : 'client', client: c });
                     });
+                    // Pedidos "once" ya completados de este día (para restaurar/limpiar).
+                    const completedClients = getCompletedClients(selectedDay);
                     return (
                         <div className="flex gap-3 items-start pb-24">
                             {/* MENÚ VERTICAL DE DÍAS */}
@@ -3113,6 +3115,33 @@ const [toast, setToast] = React.useState(null);
                                     </table>
                                   </div>
                                 </div>
+
+                                {/* COMPLETADOS (pedidos "once" marcados como entregados) */}
+                                {completedClients.length > 0 && (
+                                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                                        <div className="flex justify-between items-center px-3 py-2.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/30">
+                                            <h3 className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">✅ Completados <span className="text-gray-400 dark:text-gray-500 font-bold normal-case">· {completedClients.length}</span></h3>
+                                            <button onClick={() => handleClearCompleted(selectedDay)} className="text-[11px] text-red-500 dark:text-red-400 font-bold flex items-center gap-1 hover:text-red-600 dark:hover:text-red-300 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20" title="Mover todos los completados al Directorio">🗑️ Eliminar todos</button>
+                                        </div>
+                                        <div className="divide-y divide-gray-50 dark:divide-gray-700/50">
+                                            {completedClients.map(client => (
+                                                <div key={client.id} className="flex items-center justify-between gap-3 px-3 py-2 opacity-70 hover:opacity-100 transition-opacity">
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        <span className="w-7 h-7 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-sm flex-shrink-0">✅</span>
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-bold text-gray-500 dark:text-gray-400 line-through truncate">{(client.name || '').toUpperCase()}</p>
+                                                            {client.address && <p className="text-xs text-gray-400 dark:text-gray-500 truncate">📍 {client.address}</p>}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                        <button onClick={() => handleRestoreCompleted(client)} className="px-3 py-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded-lg text-xs font-bold hover:bg-blue-200 dark:hover:bg-blue-800" title="Volver a la lista del día">Restaurar</button>
+                                                        <button onClick={() => handleDeletePermanently(client.id)} className="w-8 h-8 rounded-full flex items-center justify-center opacity-40 hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all" title="Eliminar permanentemente">🗑️</button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     );
