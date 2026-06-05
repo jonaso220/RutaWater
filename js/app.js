@@ -1806,7 +1806,7 @@ const [toast, setToast] = React.useState(null);
         });
         const prodList = Object.keys(prodTotals).map(k => {
             const p = PRODUCTS.find(x => x.id === k);
-            return { id: k, label: p ? p.label : k, short: p ? p.short : k, sticker: p ? p.sticker : null, icon: p ? p.icon : '📦', qty: prodTotals[k] };
+            return { id: k, label: p ? p.label : 'Producto eliminado', short: p ? p.short : 'Elim.', sticker: p ? p.sticker : null, icon: p ? p.icon : '📦', qty: prodTotals[k] };
         }).sort((a, b) => b.qty - a.qty);
         const totalUnits = prodList.reduce((s, p) => s + p.qty, 0);
 
@@ -1834,7 +1834,7 @@ const [toast, setToast] = React.useState(null);
             starred: active.filter(c => c.isStarred).length,
             noLocation: active.filter(c => !((c.lat && c.lng) || c.mapsLink)).length,
         };
-    }, [clients, debts, transfers]);
+    }, [clients, debts, transfers, appSettings]);
 
     const handleExportClients = () => {
         try {
