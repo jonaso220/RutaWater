@@ -774,3 +774,63 @@ const BulkImportModal = ({ isOpen, onClose, onImport, defaultDay }) => {
         </div>
     );
 };
+
+
+// --- CALENDARIO MENSUAL SIMPLE (solo referencia rápida) ---
+const MonthCalendarModal = ({ isOpen, onClose }) => {
+    const today = new Date();
+    const [cursor, setCursor] = React.useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+    React.useEffect(() => { if (isOpen) setCursor(new Date(today.getFullYear(), today.getMonth(), 1)); }, [isOpen]);
+    if (!isOpen) return null;
+
+    const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+    const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const weekdayLabels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+    const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const mondayOffset = (monthStart.getDay() + 6) % 7; // días desde el lunes
+    const gridStart = addDays(monthStart, -mondayOffset);
+    const daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+    const totalCells = Math.ceil((mondayOffset + daysInMonth) / 7) * 7;
+    const cells = [];
+    for (let i = 0; i < totalCells; i++) cells.push(addDays(gridStart, i));
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center backdrop-blur-sm" style={{ zIndex: 110 }} onClick={onClose}>
+            <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md flex flex-col">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                    <h3 className="text-lg font-bold dark:text-white flex items-center gap-2">🗓️ {monthNames[cursor.getMonth()]} {cursor.getFullYear()}</h3>
+                    <button onClick={onClose} aria-label="Cerrar"><Icons.X size={20} className="text-gray-400 dark:text-gray-500" /></button>
+                </div>
+                <div className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))} aria-label="Mes anterior" className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center text-xl font-bold leading-none">‹</button>
+                        <button onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), 1))} className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold">Hoy</button>
+                        <button onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))} aria-label="Mes siguiente" className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center text-xl font-bold leading-none">›</button>
+                    </div>
+                    <div className="grid grid-cols-7 gap-1 mb-1">
+                        {weekdayLabels.map(w => <div key={w} className="text-center text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide py-1">{w}</div>)}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1">
+                        {cells.map((d, i) => {
+                            const inMonth = d.getMonth() === cursor.getMonth();
+                            const isToday = sameDay(d, today);
+                            const isSunday = d.getDay() === 0;
+                            return (
+                                <div key={i} className={`aspect-square rounded-lg flex items-center justify-center text-sm font-semibold ${isToday
+                                    ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-300 dark:ring-blue-500'
+                                    : !inMonth
+                                        ? 'text-gray-300 dark:text-gray-600'
+                                        : 'bg-gray-50 dark:bg-gray-700/40 ' + (isSunday ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-200')}`}>
+                                    {d.getDate()}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};

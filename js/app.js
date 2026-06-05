@@ -320,6 +320,9 @@ const [toast, setToast] = React.useState(null);
         }
     };
 
+    // --- CALENDARIO MENSUAL (referencia rápida) ---
+    const [calendarOpen, setCalendarOpen] = React.useState(false);
+
     // --- CATÁLOGO DE PRODUCTOS (editor; escribe en settings como la app nativa) ---
     const [catalogOpen, setCatalogOpen] = React.useState(false);
     const saveCatalogPatch = async (patch) => {
@@ -2193,6 +2196,7 @@ const [toast, setToast] = React.useState(null);
             {quickEditClient && <EditClientQuickModal isOpen={true} client={quickEditClient} onClose={() => setQuickEditClient(null)} onSave={handleQuickUpdateClient} showClientInfo={quickEditShowInfo} />}
             {relationshipClient && <RelationshipsModal isOpen={true} client={clients.find(c => c.id === relationshipClient.id) || relationshipClient} allClients={clients} onClose={() => setRelationshipClient(null)} onAdd={handleAddRelationship} onRemove={handleRemoveRelationship} />}
             {smartOrderOpen && <SmartOrderModal isOpen={true} onClose={() => setSmartOrderOpen(false)} onInterpret={aiParseOrder} onConfirm={handleAiConfirm} />}
+            {calendarOpen && <MonthCalendarModal isOpen={true} onClose={() => setCalendarOpen(false)} />}
             {catalogOpen && <ProductCatalogModal isOpen={true} products={PRODUCTS} hidden={appSettings?.productHidden || []} onClose={() => setCatalogOpen(false)} onRename={catalogRename} onSetEmoji={catalogSetEmoji} onToggleHidden={catalogToggleHidden} onAdd={catalogAddProduct} onRemove={catalogRemoveCustom} onMove={catalogMove} />}
             {showSettingsModal && <SettingsModal
                 isOpen={true}
@@ -2269,6 +2273,7 @@ const [toast, setToast] = React.useState(null);
                             <div className="flex items-center gap-1 ml-1">
                                 <button onClick={() => { setActiveSection('cartera'); setView('list'); }} className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${activeSection === 'cartera' && view === 'list' ? 'bg-white/20' : 'hover:bg-white/10'}`}>🏠 Inicio</button>
                                 <button onClick={() => { setActiveSection('cartera'); setView('directory'); }} className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${activeSection === 'cartera' && (view === 'directory' || view === 'tabla') ? 'bg-white/20' : 'hover:bg-white/10'}`}>👥 Directorio</button>
+                                <button onClick={() => setCalendarOpen(true)} className="px-3 py-1.5 rounded-lg text-sm font-bold transition-colors hover:bg-white/10" title="Ver calendario del mes">🗓️ Calendario</button>
                             </div>
                         )}
                     </div>
