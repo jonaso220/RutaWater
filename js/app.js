@@ -24,7 +24,7 @@ const HOME_TABLE_COLUMNS = [
     { key: 'debt', label: 'Deuda' },
     { key: 'actions', label: 'Acciones' },
 ];
-const DEFAULT_HOME_COL_WIDTHS = { pos: 48, name: 230, address: 340, products: 250, debt: 100, actions: 250 };
+const DEFAULT_HOME_COL_WIDTHS = { pos: 48, name: 230, address: 320, products: 240, debt: 95, actions: 340 };
 
 // Etiqueta + color del badge de frecuencia (unifica los switch repetidos del Directorio).
 const FREQ_BADGES = {
@@ -120,11 +120,11 @@ const [toast, setToast] = React.useState(null);
 
     // Anchos de la tabla de Inicio (independientes del Directorio).
     const [homeColWidths, setHomeColWidths] = React.useState(() => {
-        try { const s = localStorage.getItem('rw_homeColWidths_v1'); if (s) return { ...DEFAULT_HOME_COL_WIDTHS, ...JSON.parse(s) }; } catch (e) {}
+        try { const s = localStorage.getItem('rw_homeColWidths_v2'); if (s) return { ...DEFAULT_HOME_COL_WIDTHS, ...JSON.parse(s) }; } catch (e) {}
         return DEFAULT_HOME_COL_WIDTHS;
     });
     React.useEffect(() => {
-        try { localStorage.setItem('rw_homeColWidths_v1', JSON.stringify(homeColWidths)); } catch (e) {}
+        try { localStorage.setItem('rw_homeColWidths_v2', JSON.stringify(homeColWidths)); } catch (e) {}
     }, [homeColWidths]);
     const homeTableRef = React.useRef(null);
 
@@ -3102,7 +3102,8 @@ const [toast, setToast] = React.useState(null);
                                                         {c.phone && <button onClick={() => sendWhatsAppDirect(c.phone)} className="w-8 h-8 text-base rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-green-100 dark:hover:bg-green-900/30" title="WhatsApp">💬</button>}
                                                         <button onClick={() => hasLocation ? openGoogleMaps(c.lat, c.lng, c.mapsLink) : null} className={`w-8 h-8 text-base rounded-full flex items-center justify-center ${hasLocation ? 'bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'bg-gray-50 dark:bg-gray-800 opacity-30 cursor-default'}`} title={hasLocation ? 'Maps' : 'Sin ubicación'}>📍</button>
                                                         <button onClick={() => setRelationshipClient(c)} className={`w-8 h-8 text-base rounded-full flex items-center justify-center ${c.relationships && Object.keys(c.relationships).length > 0 ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-gray-100 dark:bg-gray-700'} hover:bg-amber-200 dark:hover:bg-amber-800`} title="Familia">👨‍👩‍👧</button>
-                                                        <button onClick={() => setScheduleClient(c)} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold" title="Agendar">📅</button>
+                                                        <button onClick={() => setScheduleClient(c)} className="w-8 h-8 text-base rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900/30" title="Agendar días de visita">📅</button>
+                                                        <button onClick={() => handleMarkAsDoneInList(c)} className="px-3 py-1.5 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 whitespace-nowrap shadow-sm shadow-green-600/20 transition-colors" title={c.freq === 'once' ? 'Marcar entregado (completa el pedido)' : 'Marcar entregado — se reagenda a la próxima fecha de entrega'}>✅ Listo</button>
                                                     </div>
                                                 </td>
                                             </tr>
