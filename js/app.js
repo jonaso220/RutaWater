@@ -1079,8 +1079,9 @@ const [toast, setToast] = React.useState(null);
          const filtered = (source || clients)
             .filter(c => c.freq !== 'on_demand')
             .filter(c => !c.isCompleted)
-            // Excluir pedidos "once" sin fecha asignada (dato incompleto)
-            .filter(c => !(c.freq === 'once' && !c.specificDate))
+            // Los "once" sin fecha SÍ se muestran en su día (igual que la app
+            // nativa). Antes se ocultaban como "dato incompleto", lo que hacía
+            // que un pedido puntual sin fecha desapareciera solo en la webapp.
             .filter(c => {
                 if (dayToFilter === '') return true;
                 // Soportar tanto visitDays (array) como visitDay (string legacy)
@@ -1216,7 +1217,7 @@ const [toast, setToast] = React.useState(null);
         ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].forEach(day => {
             counts[day] = clients.filter(c => {
                 if (c.freq === 'on_demand' || c.isCompleted) return false;
-                if (c.freq === 'once' && !c.specificDate) return false;
+                // Los "once" sin fecha también cuentan en su día (igual que la nativa).
                 if (c.visitDays && c.visitDays.length > 0) return c.visitDays.includes(day);
                 return c.visitDay === day;
             }).length;
@@ -1428,8 +1429,17 @@ const [toast, setToast] = React.useState(null);
                 isPinned: editingId ? (formData.isPinned || false) : (formData.freq !== 'once'),
                 mapsLink: sanitized.mapsLink || sanitized.locationInput
             };
-            
-            if (editingId) { 
+
+            // Editar/reagendar un cliente activo limpia cualquier marca de
+            // "completado" vieja. Si no, un pedido reagendado (p.ej. un semanal
+            // movido a un día puntual) queda como entregado y no aparece en la
+            // ruta: solo se ve en el Directorio, como si hubiera "desaparecido".
+            if (data.freq !== 'on_demand') {
+                data.isCompleted = false;
+                data.completedAt = null;
+            }
+
+            if (editingId) {
                 // Al editar, solo agregar listOrders para días NUEVOS que no existían
                 const existingListOrders = formData.listOrders || {};
                 const newListOrders = { ...existingListOrders };
@@ -1607,9 +1617,13 @@ const [toast, setToast] = React.useState(null);
                 name: clientData.name, phone: clientData.phone, address: clientData.address, lat: clientData.lat, lng: clientData.lng, mapsLink: clientData.mapsLink,
                 ...getDataScope(),
                 userId: user.uid,
-                freq: newFreq, updatedAt: new Date(), 
+                freq: newFreq, updatedAt: new Date(),
                 notes: newNotes, isPinned: false,
-                products: newProducts || {} 
+                // Una visita recién agendada nunca está "completada": al reactivar
+                // un cliente del Directorio se limpia cualquier marca vieja para que
+                // aparezca en la ruta (y no quede oculto como ya entregado).
+                isCompleted: false, completedAt: null,
+                products: newProducts || {}
             };
             
             if (newDate) {
