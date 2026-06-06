@@ -1295,6 +1295,19 @@ const [toast, setToast] = React.useState(null);
     };
 
     // --- HANDLER: Actualización rápida de cliente (desde modal del directorio) ---
+    // "Ya no es cliente": marca/desmarca inactivo. Al marcarlo lo pasa al directorio
+    // (on_demand, sin días) para que salga de todas las rutas; queda guardado y
+    // reaparece al reactivarlo. Solo aparece en los filtros Todos / Inactivos / Deuda.
+    const handleToggleInactive = async (client) => {
+        try {
+            const data = client.isInactive
+                ? { isInactive: false, updatedAt: new Date() }
+                : { isInactive: true, freq: 'on_demand', visitDay: 'Sin Asignar', visitDays: [], updatedAt: new Date() };
+            await firestoreRetry(() => db.collection('clients').doc(client.id).update(data));
+            showUndoToast(client.isInactive ? "Cliente reactivado" : "Marcado como inactivo", null);
+        } catch (e) { console.error(e); showUndoToast(getErrorMessage(e), null); }
+    };
+
     const handleQuickUpdateClient = async (clientId, data) => {
         try {
             var updateData = { ...data, updatedAt: new Date() };
@@ -1742,11 +1755,15 @@ const [toast, setToast] = React.useState(null);
             })
             .filter(c => {
                 if (directoryFilter === 'all') return true;
-                if (directoryFilter === 'no_location') return !((!!(c.lat && c.lng)) || !!c.mapsLink);
+                if (directoryFilter === 'inactive') return !!c.isInactive;
+                // El filtro Deuda incluye a los inactivos (para no perder plata pendiente).
                 if (directoryFilter === 'with_debt') {
                     const ids = c._mergedIds || [c.id];
                     return debts.some(d => ids.indexOf(d.clientId) > -1 && d.amount > 0);
                 }
+                // El resto de filtros de trabajo excluyen a los ex-clientes.
+                if (c.isInactive) return false;
+                if (directoryFilter === 'no_location') return !((!!(c.lat && c.lng)) || !!c.mapsLink);
                 return c.freq === directoryFilter;
             })
             // Merge duplicates by phone number (keep newest, preserve debt info)
@@ -1814,12 +1831,15 @@ const [toast, setToast] = React.useState(null);
 
     const directoryCounts = React.useMemo(() => {
         const all = clients.filter(c => !c.isNote);
-        const counts = { total: all.length, weekly: 0, biweekly: 0, triweekly: 0, monthly: 0, once: 0, on_demand: 0, no_location: 0, with_debt: 0 };
+        const counts = { total: all.length, weekly: 0, biweekly: 0, triweekly: 0, monthly: 0, once: 0, on_demand: 0, no_location: 0, with_debt: 0, inactive: 0 };
         all.forEach(c => {
-            if (c.freq && counts[c.freq] !== undefined) counts[c.freq]++;
-            if (!((!!(c.lat && c.lng)) || !!c.mapsLink)) counts.no_location++;
+            // Deuda cuenta también a los inactivos (igual que el filtro).
             const ids = c._mergedIds || [c.id];
             if (debts.some(d => ids.indexOf(d.clientId) > -1 && d.amount > 0)) counts.with_debt++;
+            // Los inactivos solo suman en Todos (total) y en su propio chip.
+            if (c.isInactive) { counts.inactive++; return; }
+            if (c.freq && counts[c.freq] !== undefined) counts[c.freq]++;
+            if (!((!!(c.lat && c.lng)) || !!c.mapsLink)) counts.no_location++;
         });
         return counts;
     }, [clients, debts]);
@@ -2237,7 +2257,7 @@ const [toast, setToast] = React.useState(null);
                 onSendDebtTotal={sendDebtTotal}
                 onSendReminder={sendReminder}
             />}
-            {quickEditClient && <EditClientQuickModal isOpen={true} client={quickEditClient} onClose={() => setQuickEditClient(null)} onSave={handleQuickUpdateClient} showClientInfo={quickEditShowInfo} />}
+            {quickEditClient && <EditClientQuickModal isOpen={true} client={quickEditClient} onClose={() => setQuickEditClient(null)} onSave={handleQuickUpdateClient} showClientInfo={quickEditShowInfo} onToggleInactive={handleToggleInactive} />}
             {relationshipClient && <RelationshipsModal isOpen={true} client={clients.find(c => c.id === relationshipClient.id) || relationshipClient} allClients={clients} onClose={() => setRelationshipClient(null)} onAdd={handleAddRelationship} onRemove={handleRemoveRelationship} />}
             {smartOrderOpen && <SmartOrderModal isOpen={true} onClose={() => setSmartOrderOpen(false)} onInterpret={aiParseOrder} onConfirm={handleAiConfirm} />}
             {calendarOpen && <MonthCalendarModal isOpen={true} onClose={() => setCalendarOpen(false)} />}
@@ -2741,6 +2761,7 @@ const [toast, setToast] = React.useState(null);
                                     { key: 'on_demand', label: 'Dir', count: directoryCounts.on_demand },
                                     { key: 'no_location', label: 'Sin ubic.', count: directoryCounts.no_location },
                                     { key: 'with_debt', label: 'Deuda', count: directoryCounts.with_debt },
+                                    { key: 'inactive', label: 'Inactivos', count: directoryCounts.inactive },
                                 ].filter(f => f.key === 'all' || f.count > 0).map(f => (
                                     <button key={f.key} onClick={() => setDirectoryFilter(directoryFilter === f.key ? 'all' : f.key)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors flex-shrink-0 ${directoryFilter === f.key ? (f.key === 'no_location' ? 'bg-yellow-500 text-white' : f.key === 'with_debt' ? 'bg-red-500 text-white' : 'bg-blue-600 text-white') : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
                                         {f.label} {f.count > 0 && <span className={`ml-0.5 ${directoryFilter === f.key ? 'opacity-80' : 'opacity-50'}`}>{f.count}</span>}
@@ -2786,6 +2807,7 @@ const [toast, setToast] = React.useState(null);
 
                                     {/* BADGES: Frecuencia + Días + Deuda */}
                                     <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                                        {client.isInactive && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-500 text-white">Inactivo</span>}
                                         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${freqColor}`}>{freqLabel}</span>
                                         {client.visitDays && client.visitDays.length > 0 && (
                                             <span className="text-[11px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 px-2 py-0.5 rounded-full">{client.visitDays.map(function(d) { return d.slice(0, 3); }).join(', ')}</span>
@@ -2855,6 +2877,7 @@ const [toast, setToast] = React.useState(null);
                                     { key: 'on_demand', label: 'Dir', count: directoryCounts.on_demand },
                                     { key: 'no_location', label: 'Sin ubic.', count: directoryCounts.no_location },
                                     { key: 'with_debt', label: 'Deuda', count: directoryCounts.with_debt },
+                                    { key: 'inactive', label: 'Inactivos', count: directoryCounts.inactive },
                                 ].filter(f => f.key === 'all' || f.count > 0).map(f => (
                                     <button key={f.key} onClick={() => setDirectoryFilter(directoryFilter === f.key ? 'all' : f.key)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${directoryFilter === f.key ? (f.key === 'no_location' ? 'bg-yellow-500 text-white' : f.key === 'with_debt' ? 'bg-red-500 text-white' : 'bg-blue-600 text-white') : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
                                         {f.label} {f.count > 0 && <span className={`ml-0.5 ${directoryFilter === f.key ? 'opacity-80' : 'opacity-50'}`}>{f.count}</span>}
@@ -2903,7 +2926,7 @@ const [toast, setToast] = React.useState(null);
                                                         <td className="px-3 py-2.5 font-bold text-gray-900 dark:text-white break-words">{(client.name || '').toUpperCase()}</td>
                                                         <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 truncate">{client.phone || '—'}</td>
                                                         <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 break-words">{client.address || '—'}</td>
-                                                        <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap"><span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${freqColor}`}>{freqLabel}</span></td>
+                                                        <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap">{client.isInactive && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-500 text-white mr-1">Inactivo</span>}<span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${freqColor}`}>{freqLabel}</span></td>
                                                         <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400 truncate">{days}</td>
                                                         <td className="px-3 py-2.5 overflow-hidden whitespace-nowrap">{debtTotal > 0 ? <span className="text-red-600 dark:text-red-400 font-bold">${debtTotal.toLocaleString()}</span> : <span className="text-gray-300 dark:text-gray-600">—</span>}</td>
                                                         <td className="px-3 py-2.5 align-top"><ProductChips products={client.products} /></td>
@@ -2936,7 +2959,7 @@ const [toast, setToast] = React.useState(null);
                                                 <button onClick={() => setRelationshipClient(tableSelectedClient)} className="flex-1 px-3 py-2 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 rounded-lg text-xs font-bold hover:bg-amber-200 dark:hover:bg-amber-800 flex items-center justify-center gap-1.5">👨‍👩‍👧 Familia</button>
                                                 <button onClick={() => handleCloneClient(tableSelectedClient)} className="flex-1 px-3 py-2 bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center gap-1.5" title="Duplicar al directorio">⧉ Clonar</button>
                                             </div>
-                                            <EditClientQuickModal inline={true} isOpen={true} client={tableSelectedClient} showClientInfo={true} onClose={() => setTableSelectedClient(null)} onSave={handleQuickUpdateClient} />
+                                            <EditClientQuickModal inline={true} isOpen={true} client={tableSelectedClient} showClientInfo={true} onClose={() => setTableSelectedClient(null)} onSave={handleQuickUpdateClient} onToggleInactive={handleToggleInactive} />
                                         </>
                                     ) : (
                                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 p-8 text-center text-gray-400 dark:text-gray-500 text-sm">

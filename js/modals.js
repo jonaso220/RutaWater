@@ -599,7 +599,7 @@ const PasteContactModal = ({ isOpen, onClose, onPaste }) => {
 };
 
 // --- COMPONENTE MODAL EDITAR CLIENTE RÁPIDO (Directorio) ---
-const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo, inline }) => {
+const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo, inline, onToggleInactive }) => {
     const [name, setName] = React.useState('');
     const [address, setAddress] = React.useState('');
     const [phone, setPhone] = React.useState('');
@@ -783,10 +783,19 @@ const EditClientQuickModal = ({ isOpen, client, onClose, onSave, showClientInfo,
                         </div>
                     )}
                 </div>
-                <div className="p-4 border-t border-gray-100 dark:border-gray-700">
+                <div className="p-4 border-t border-gray-100 dark:border-gray-700 space-y-2">
                     <Button onClick={handleSave} className={`w-full ${needsSpecificDate && !startDate ? 'opacity-50 pointer-events-none' : ''}`}>
                         <Icons.Save size={16} /> Guardar
                     </Button>
+                    {onToggleInactive && (
+                        <button
+                            type="button"
+                            onClick={() => { onToggleInactive(client); onClose(); }}
+                            className="w-full py-2.5 rounded-lg text-sm font-semibold border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            {client.isInactive ? '✓ Reactivar cliente' : '🚫 Marcar como inactivo'}
+                        </button>
+                    )}
                 </div>
         </div>
     );
