@@ -240,7 +240,7 @@ const [toast, setToast] = React.useState(null);
             if (c.products) Object.keys(c.products).forEach(k => { const n = parseInt(c.products[k] || 0, 10); if (n > 0) products[k] = n; });
             return { id: c.id, name: c.name, address: c.address || '', freq: c.freq || 'on_demand', visitDay: c.visitDay || '', specificDate: c.specificDate || '', products: products, notes: c.notes || '' };
         });
-        const todayIso = new Date().toISOString().slice(0, 10);
+        const todayIso = toLocalDateString(new Date());
         const headers = { 'Content-Type': 'application/json' };
         try { const cu = firebase.auth().currentUser; if (cu) { const tk = await cu.getIdToken(); if (tk) headers.Authorization = 'Bearer ' + tk; } } catch (e) {}
         const res = await fetch(AI_ENDPOINT, { method: 'POST', headers: headers, body: JSON.stringify({ text: text, clients: payloadClients, todayIso: todayIso }) });
@@ -501,33 +501,46 @@ const [toast, setToast] = React.useState(null);
             }
         });
 
+        let unsubUserDoc = null;
+        let userDocSeq = 0;
         const unsubscribeAuth = auth.onAuthStateChanged(async (u) => {
             setUser(u);
             setLoadingAuth(false);
+            if (unsubUserDoc) { unsubUserDoc(); unsubUserDoc = null; }
 
             if (u) {
                 // Crear documento de usuario si no existe (primer login)
                 const userRef = db.collection('users').doc(u.uid);
-                let userDoc = await userRef.get();
-                if (!userDoc.exists) {
-                    await userRef.set({ email: u.email, displayName: u.displayName || '', createdAt: new Date(), role: 'admin' });
-                    userDoc = await userRef.get();
-                }
-                const userData = userDoc.data() || null;
+                try {
+                    const userDoc = await userRef.get();
+                    if (!userDoc.exists) {
+                        await userRef.set({ email: u.email, displayName: u.displayName || '', createdAt: new Date(), role: 'admin' });
+                    }
+                } catch (e) { console.error('Error creando doc de usuario:', e); }
 
-                if (userData?.groupId) {
-                    // Usuario en grupo - cargar datos del grupo
-                    const groupDoc = await db.collection('groups').doc(userData.groupId).get();
-                    const groupInfo = groupDoc.exists ? groupDoc.data() : {};
-                    setGroupData({
-                        groupId: userData.groupId,
-                        role: userData.role,
-                        code: groupInfo.code
-                    });
-                } else {
-                    // Usuario individual
-                    setGroupData(null);
-                }
+                // Suscripción en vivo a users/{uid}: si el admin expulsa al usuario
+                // o disuelve el grupo, el scope cambia al instante. Antes era una
+                // lectura única y la sesión quedaba congelada (listeners caídos y
+                // escrituras fallando) hasta recargar la página.
+                unsubUserDoc = userRef.onSnapshot(async (snap) => {
+                    const mySeq = ++userDocSeq;
+                    const userData = snap.exists ? snap.data() : null;
+                    if (userData?.groupId) {
+                        const groupDoc = await db.collection('groups').doc(userData.groupId).get();
+                        if (mySeq !== userDocSeq) return; // llegó un snapshot más nuevo
+                        const groupInfo = groupDoc.exists ? groupDoc.data() : {};
+                        setGroupData({
+                            groupId: userData.groupId,
+                            role: userData.role,
+                            code: groupInfo.code
+                        });
+                    } else {
+                        setGroupData(null);
+                    }
+                }, () => {
+                    // Tras cerrar sesión el listener puede caer con permission-denied;
+                    // no hay nada que hacer (el estado se limpia en el branch de logout).
+                });
             } else {
                 setClients([]);
                 setDebts([]);
@@ -536,7 +549,7 @@ const [toast, setToast] = React.useState(null);
             }
         });
 
-        return () => unsubscribeAuth();
+        return () => { if (unsubUserDoc) unsubUserDoc(); unsubscribeAuth(); };
     }, []);
 
     // Effect 2: Data listeners (se reconfigura cuando cambia user o groupData)
@@ -985,7 +998,7 @@ const [toast, setToast] = React.useState(null);
                 };
                 // Garantizar que siempre tenga specificDate para la auto-limpieza
                 if (!client.specificDate) {
-                    updateData.specificDate = new Date().toISOString().split('T')[0];
+                    updateData.specificDate = toLocalDateString(new Date());
                 }
                 await firestoreRetry(() => db.collection('clients').doc(client.id).update(updateData));
                 showUndoToast("Pedido completado", undoAction);
@@ -1149,6 +1162,14 @@ const [toast, setToast] = React.useState(null);
             visible = visible.filter(c => c.isNote ? match(c.notes || '') : match(c.name || '', c.address || '', c.phone || ''));
         }
         
+        // Filtro de frecuencia (igual que la vista de escritorio)
+        if (weekFilter !== 'all') {
+            visible = visible.filter(c => {
+                if (weekFilter === 'with_debt') { const ids = c._mergedIds || [c.id]; return debts.some(d => ids.indexOf(d.clientId) > -1 && d.amount > 0); }
+                return c.freq === weekFilter;
+            });
+        }
+
         // Aplicar filtros activos
         if (activeFilters.length > 0) {
             const typeFilters = activeFilters.filter(f => f === 'once_starred' || f === 'has_debt');
@@ -1168,7 +1189,7 @@ const [toast, setToast] = React.useState(null);
                 return passesType && passesProduct;
             });
         }
-        
+
         visible.forEach(client => {
                 // Pasar el día actual para calcular la fecha correcta
                 const date = getNextVisitDate(client, dayToFilter);
@@ -1176,6 +1197,11 @@ const [toast, setToast] = React.useState(null);
                 let label = "General";
                 if (date) {
                      date.setHours(0,0,0,0);
+                     // Fechas vencidas (un 'once' pendiente de días atrás) van a HOY:
+                     // una clave pasada crearía un grupo falso primero en la lista
+                     // y secuestraría el contador de carga del día.
+                     const hoy0 = new Date(); hoy0.setHours(0,0,0,0);
+                     if (date.getTime() < hoy0.getTime()) date.setTime(hoy0.getTime());
                      key = date.getTime();
                      label = formatDate(date);
                 } else {
@@ -1193,7 +1219,7 @@ const [toast, setToast] = React.useState(null);
         const sortedGroups = {};
         sortedKeys.forEach(key => sortedGroups[key] = groups[key]);
         return sortedGroups;
-    }, [clients, selectedDay, view, getVisibleClients, debouncedListSearch, activeFilters]);
+    }, [clients, selectedDay, view, getVisibleClients, debouncedListSearch, activeFilters, weekFilter, debts]);
 
     // Calculate Counter Totals based on FIRST group (Nearest Date)
     const activeClientsForCounter = React.useMemo(() => {
@@ -1325,6 +1351,19 @@ const [toast, setToast] = React.useState(null);
                 updateData.visitDays = [dayName];
                 updateData.listOrder = minOrder - 1;
                 updateData.listOrders = { [dayName]: minOrder - 1 };
+            }
+            // Guardar una frecuencia activa reactiva a un ex-cliente; si no,
+            // queda en la ruta pero sigue "Inactivo" en el Directorio.
+            if (existingClient && existingClient.isInactive && data.freq && data.freq !== 'on_demand') {
+                updateData.isInactive = false;
+            }
+            // Reagendar (cambia frecuencia o fecha) limpia una marca vieja de
+            // "entregado" para que el pedido vuelva a la ruta; editar otros
+            // campos NO la toca, o un pedido ya entregado resucitaría hoy.
+            if (existingClient && data.freq && data.freq !== 'on_demand' &&
+                (data.freq !== existingClient.freq || dateActuallyChanged)) {
+                updateData.isCompleted = false;
+                updateData.completedAt = null;
             }
             await firestoreRetry(() => db.collection('clients').doc(clientId).update(updateData));
             showUndoToast("Cliente actualizado.", null);
@@ -1636,6 +1675,9 @@ const [toast, setToast] = React.useState(null);
                 // un cliente del Directorio se limpia cualquier marca vieja para que
                 // aparezca en la ruta (y no quede oculto como ya entregado).
                 isCompleted: false, completedAt: null,
+                // Agendar a un ex-cliente lo reactiva: si no, queda en la ruta
+                // pero sigue marcado "Inactivo" en el Directorio.
+                isInactive: false,
                 products: newProducts || {}
             };
             
@@ -2123,7 +2165,7 @@ const [toast, setToast] = React.useState(null);
         const fromIdx = orderedClients.findIndex(c => c.id === movedClient.id);
         if (fromIdx === -1) return;
         const dayKeyOf = (c) => {
-            const d = getNextVisitDate(c, selectedDay);
+            const d = getEffectiveVisitDate(c, selectedDay);
             return d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : Infinity;
         };
         const myKey = dayKeyOf(movedClient);
@@ -2486,8 +2528,8 @@ const [toast, setToast] = React.useState(null);
                                         >
                                             <span>🔍</span>
                                             Filtros
-                                            {activeFilters.length > 0 && (
-                                                <span className="bg-white text-blue-600 text-[11px] font-black w-4 h-4 rounded-full flex items-center justify-center leading-none">{activeFilters.length}</span>
+                                            {(activeFilters.length + (weekFilter !== 'all' ? 1 : 0)) > 0 && (
+                                                <span className="bg-white text-blue-600 text-[11px] font-black w-4 h-4 rounded-full flex items-center justify-center leading-none">{activeFilters.length + (weekFilter !== 'all' ? 1 : 0)}</span>
                                             )}
                                         </button>
 
@@ -2499,9 +2541,9 @@ const [toast, setToast] = React.useState(null);
                                                     {/* Header del menú */}
                                                     <div className="flex justify-between items-center px-4 pt-3 pb-2 border-b border-gray-100 dark:border-gray-700">
                                                         <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Filtros</span>
-                                                        {activeFilters.length > 0 && (
-                                                            <button 
-                                                                onClick={(e) => { e.stopPropagation(); setActiveFilters([]); }}
+                                                        {(activeFilters.length > 0 || weekFilter !== 'all') && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setActiveFilters([]); setWeekFilter('all'); }}
                                                                 className="text-[11px] text-red-500 dark:text-red-400 font-bold hover:text-red-600"
                                                             >
                                                                 Limpiar todo
@@ -2554,6 +2596,27 @@ const [toast, setToast] = React.useState(null);
                                                                 <span className="ml-auto">✅</span>
                                                             )}
                                                         </button>
+                                                    </div>
+
+                                                    {/* Separador */}
+                                                    <div className="border-t border-gray-100 dark:border-gray-700" />
+
+                                                    {/* Sección: Frecuencia (paridad con la nativa y el escritorio) */}
+                                                    <div className="px-3 py-2">
+                                                        <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1">Frecuencia</span>
+                                                        <div className="flex gap-1.5 flex-wrap mt-1.5 px-1">
+                                                            {[
+                                                                { key: 'all', label: 'Todas' },
+                                                                { key: 'weekly', label: 'Sem' },
+                                                                { key: 'biweekly', label: 'Quin' },
+                                                                { key: 'triweekly', label: 'C/3' },
+                                                                { key: 'monthly', label: 'Mens' },
+                                                            ].map(f => (
+                                                                <button key={f.key}
+                                                                    onClick={(e) => { e.stopPropagation(); setWeekFilter(f.key); }}
+                                                                    className={`px-2.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${weekFilter === f.key ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{f.label}</button>
+                                                            ))}
+                                                        </div>
                                                     </div>
 
                                                     {/* Separador */}
@@ -2978,7 +3041,7 @@ const [toast, setToast] = React.useState(null);
                     // quedaban después de los periódicos del mismo día (hora 00:00), ignorando su listOrder.
                     // El sort es estable, así que entre clientes de la misma fecha respeta getVisibleClients.
                     const _visitDayKey = (c) => {
-                        const d = getNextVisitDate(c, selectedDay);
+                        const d = getEffectiveVisitDate(c, selectedDay);
                         return d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : Infinity;
                     };
                     let dayClients = getVisibleClients(selectedDay).slice().sort((a, b) => _visitDayKey(a) - _visitDayKey(b));
@@ -3011,17 +3074,17 @@ const [toast, setToast] = React.useState(null);
                     let _nearestKey = null;
                     dayClients.forEach(c => {
                         if (c.isNote) return;
-                        const d = getNextVisitDate(c, selectedDay);
+                        const d = getEffectiveVisitDate(c, selectedDay);
                         const k = d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : Infinity;
                         if (_nearestKey === null || k < _nearestKey) _nearestKey = k;
                     });
                     const nearestClients = dayClients.filter(c => {
                         if (c.isNote) return false;
-                        const d = getNextVisitDate(c, selectedDay);
+                        const d = getEffectiveVisitDate(c, selectedDay);
                         const k = d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : Infinity;
                         return k === _nearestKey;
                     });
-                    const nearestLabel = nearestClients.length ? formatDate(getNextVisitDate(nearestClients[0], selectedDay)) : '';
+                    const nearestLabel = nearestClients.length ? formatDate(getEffectiveVisitDate(nearestClients[0], selectedDay)) : '';
                     const totals = {};
                     nearestClients.forEach(c => { if (c.products) Object.keys(c.products).forEach(k => { const q = parseInt(c.products[k] || 0); if (q > 0) totals[k] = (totals[k] || 0) + q; }); });
                     const totalList = PRODUCTS.filter(p => totals[p.id] > 0).map(p => ({ id: p.id, short: p.short, sticker: p.sticker, icon: p.icon, qty: totals[p.id] }));
@@ -3036,7 +3099,7 @@ const [toast, setToast] = React.useState(null);
                     let _lastDateKey = '__init__';
                     let _curHeader = null;
                     dayClients.forEach(c => {
-                        const d = getNextVisitDate(c, selectedDay);
+                        const d = getEffectiveVisitDate(c, selectedDay);
                         const dKey = d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : 'nofecha';
                         if (dKey !== _lastDateKey) {
                             _curHeader = { type: 'header', key: 'h-' + dKey, label: d ? formatDate(d) : 'Sin fecha', count: 0 };
@@ -3376,7 +3439,7 @@ const [toast, setToast] = React.useState(null);
                             {/* Fecha */}
                             <div className="min-w-0 overflow-hidden">
                                 <label className="block text-sm font-medium mb-1 dark:text-gray-300">Fecha (Opcional)</label>
-                                <input type="date" name="specificDate" value={formData.specificDate || ''} onChange={handleInputChange} className="w-full p-3 border rounded-lg bg-gray-50 outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-white" style={{maxWidth: '100%', boxSizing: 'border-box'}} min={new Date().toISOString().split('T')[0]} />
+                                <input type="date" name="specificDate" value={formData.specificDate || ''} onChange={handleInputChange} className="w-full p-3 border rounded-lg bg-gray-50 outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-white" style={{maxWidth: '100%', boxSizing: 'border-box'}} min={toLocalDateString(new Date())} />
                             </div>
                         </div>
 

@@ -434,7 +434,7 @@ const ScheduleModal = ({ isOpen, client, onClose, onSave }) => {
                                 value={localDate}
                                 onChange={(e) => setLocalDate(e.target.value)}
                                 className="w-full p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                min={new Date().toISOString().split('T')[0]}
+                                min={toLocalDateString(new Date())}
                             />
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Se agendará automáticamente para el día correspondiente.</p>
                         </div>
@@ -508,10 +508,10 @@ const NoteModal = ({ isOpen, onClose, onSave, editNote }) => {
         if (isOpen) {
             if (editNote) {
                 setNoteText(editNote.notes || '');
-                setNoteDate(editNote.specificDate || new Date().toISOString().split('T')[0]);
+                setNoteDate(editNote.specificDate || toLocalDateString(new Date()));
             } else {
                 setNoteText('');
-                setNoteDate(new Date().toISOString().split('T')[0]);
+                setNoteDate(toLocalDateString(new Date()));
             }
         }
     }, [isOpen, editNote]);

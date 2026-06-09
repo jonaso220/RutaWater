@@ -236,9 +236,37 @@ var getWeekNumber = function(d) {
 // Sincronizado con la app nativa (src/utils/helpers.ts:getNextVisitDate).
 // specificDate sólo es fecha fija para 'once'; para periódicos es una fecha ancla
 // de inicio y la rotación real se calcula desde lastVisited.
+// Próxima visita "efectiva" para ordenar/agrupar/contar en la UI: una fecha
+// vencida (un 'once' pendiente o un periódico en días de gracia) cuenta como
+// HOY — igual que el clamp de la agrupación móvil y de la app nativa.
+var getEffectiveVisitDate = function(client, forDay) {
+    var d = getNextVisitDate(client, forDay);
+    if (!d) return null;
+    var hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    return d < hoy ? hoy : d;
+};
+
+// yyyy-mm-dd en hora LOCAL. toISOString() es UTC y a partir de las 21:00
+// (UTC-3) ya dice "mañana" — no usar para "hoy".
+var toLocalDateString = function(d) {
+    var yyyy = d.getFullYear();
+    var mm = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    return yyyy + '-' + mm + '-' + dd;
+};
+
+// Días que una visita no entregada sigue figurando como pendiente ("Hoy")
+// antes de saltar sola al próximo ciclo, como si se hubiera marcado Listo.
+var LATE_GRACE_DAYS = 2;
+
 var getNextVisitDate = function(client, forDay) {
     if (client.freq === 'once') {
-        return client.specificDate ? new Date(client.specificDate + 'T12:00:00') : null;
+        if (!client.specificDate) return null;
+        // La BD compartida (IA/nativa) puede traer fechas malformadas; un
+        // Invalid Date acá rompería a cualquier consumidor.
+        var onceDate = new Date(client.specificDate + 'T12:00:00');
+        return isNaN(onceDate.getTime()) ? null : onceDate;
     }
 
     var today = new Date();
@@ -266,24 +294,54 @@ var getNextVisitDate = function(client, forDay) {
         var lastVisitedDay = new Date(lastVisited);
         lastVisitedDay.setHours(0, 0, 0, 0);
 
-        if (intervalWeeks === 1) {
-            // Semanal: si fue visitado después de la ocurrencia anterior del día,
-            // ya fue atendido este ciclo — pasar a la próxima semana. Maneja el
-            // caso de marcar "Listo" un día antes del día programado.
-            var prevOccurrence = new Date(nextDate);
-            prevOccurrence.setDate(prevOccurrence.getDate() - 7);
-            if (lastVisitedDay.getTime() > prevOccurrence.getTime()) {
-                nextDate.setDate(nextDate.getDate() + 7);
-            }
-        } else {
-            // Quincenal/cada 21/mensual: garantizar al menos intervalWeeks*7 días
-            // desde la última visita.
-            var minNextDate = new Date(lastVisitedDay);
-            minNextDate.setDate(minNextDate.getDate() + intervalWeeks * 7);
-            while (nextDate < minNextDate) {
-                nextDate.setDate(nextDate.getDate() + 7);
-            }
+        // Ciclo anclado al DÍA del cliente, no a la fecha real de entrega:
+        //  1) La visita se atribuye a su ocurrencia agendada MÁS CERCANA
+        //     (empate → la pasada): una entrega tarde (martes para un cliente
+        //     de lunes) pertenece al lunes que pasó; una adelantada (sábado)
+        //     al lunes que viene. Entregar tarde mantiene día y ritmo.
+        //  2) La próxima visita del día objetivo es su ocurrencia intervalWeeks
+        //     después de la semana atribuida — o la misma semana para un día
+        //     hermano posterior de un cliente multi-día.
+        //  3) Una visita perdida sigue pendiente LATE_GRACE_DAYS días y después
+        //     salta sola al próximo ciclo, como si se hubiera dado Listo.
+        var dayIndexes = [targetDayIndex];
+        if (Array.isArray(client.visitDays)) {
+            client.visitDays.forEach(function(d) {
+                var idx = getDayIndex(d);
+                if (idx !== -1 && dayIndexes.indexOf(idx) === -1) dayIndexes.push(idx);
+            });
         }
+        var mainDayIndex = getDayIndex(client.visitDay);
+        if (mainDayIndex !== -1 && dayIndexes.indexOf(mainDayIndex) === -1) dayIndexes.push(mainDayIndex);
+
+        var bestOffset = null;
+        dayIndexes.forEach(function(idx) {
+            var fwd = (idx - lastVisitedDay.getDay() + 7) % 7;
+            var offsets = fwd === 0 ? [0] : [fwd - 7, fwd];
+            offsets.forEach(function(off) {
+                if (bestOffset === null ||
+                    Math.abs(off) < Math.abs(bestOffset) ||
+                    (Math.abs(off) === Math.abs(bestOffset) && off < bestOffset)) {
+                    bestOffset = off;
+                }
+            });
+        });
+        var attributed = new Date(lastVisitedDay);
+        attributed.setDate(attributed.getDate() + (bestOffset || 0));
+
+        // Ocurrencia del día objetivo en la semana atribuida (semana de lunes),
+        // y saltar ciclos enteros hasta pasar la visita atribuida y la gracia.
+        var candidate = new Date(attributed);
+        candidate.setDate(candidate.getDate() - ((attributed.getDay() + 6) % 7) + ((targetDayIndex + 6) % 7));
+        if (candidate.getTime() <= attributed.getTime()) {
+            candidate.setDate(candidate.getDate() + intervalWeeks * 7);
+        }
+        var graceLimit = new Date(today);
+        graceLimit.setDate(graceLimit.getDate() - LATE_GRACE_DAYS);
+        while (candidate < graceLimit) {
+            candidate.setDate(candidate.getDate() + intervalWeeks * 7);
+        }
+        nextDate.setTime(candidate.getTime());
     }
 
     // Para periódicos, respetar specificDate como fecha ancla de inicio.
