@@ -2611,6 +2611,7 @@ const [toast, setToast] = React.useState(null);
                                                                 { key: 'biweekly', label: 'Quin' },
                                                                 { key: 'triweekly', label: 'C/3' },
                                                                 { key: 'monthly', label: 'Mens' },
+                                                                { key: 'once', label: 'Una vez' },
                                                             ].map(f => (
                                                                 <button key={f.key}
                                                                     onClick={(e) => { e.stopPropagation(); setWeekFilter(f.key); }}
@@ -3192,6 +3193,7 @@ const [toast, setToast] = React.useState(null);
                                                         { key: 'biweekly', label: 'Quin' },
                                                         { key: 'triweekly', label: 'C/3' },
                                                         { key: 'monthly', label: 'Mens' },
+                                                        { key: 'once', label: 'Una vez' },
                                                     ].map(f => (
                                                         <button key={f.key} onClick={() => setWeekFilter(f.key)} className={`px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-colors ${weekFilter === f.key ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{f.label}</button>
                                                     ))}
